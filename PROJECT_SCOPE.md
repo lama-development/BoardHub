@@ -246,31 +246,35 @@ Web app BoardHub
 
 La struttura dei topic deve essere gerarchica, leggibile e coerente con locale, tavolo e tipo di gioco.
 
-| Topic                                  | Direzione                 | Utilizzo                               |
-| -------------------------------------- | ------------------------- | -------------------------------------- |
-| `boardhub/{locale}/{tavolo}/dnd/event` | Edge -> Broker -> Backend | Eventi principali della sessione.      |
-| `boardhub/{locale}/{tavolo}/status`    | Edge -> Broker -> Backend | Stato edge, heartbeat, online/offline. |
-| `boardhub/{locale}/{tavolo}/command`   | Backend -> Broker -> Edge | Comandi verso edge o display locale.   |
-| `boardhub/{locale}/{tavolo}/sync`      | Edge -> Backend           | Invio degli eventi accumulati offline. |
+| Topic                                                        | Direzione                 | Utilizzo                               |
+| ------------------------------------------------------------ | ------------------------- | -------------------------------------- |
+| `boardhub/v1/venues/{venueId}/tables/{tableId}/events`       | Edge -> Broker -> Backend | Eventi principali della sessione.      |
+| `boardhub/v1/venues/{venueId}/tables/{tableId}/status`       | Edge -> Broker -> Backend | Stato edge, heartbeat, online/offline. |
+| `boardhub/v1/venues/{venueId}/tables/{tableId}/commands`     | Backend -> Broker -> Edge | Comandi verso edge o display locale.   |
+| `boardhub/v1/venues/{venueId}/tables/{tableId}/sync`         | Edge -> Backend           | Invio degli eventi accumulati offline. |
 
 ### Esempio concreto
 
 ```
-boardhub/locale-01/tavolo-04/dnd/event
+boardhub/v1/venues/venue-01/tables/table-04/events
 ```
 
 Payload:
 
 ```json
 {
-  "type": "DAMAGE",
-  "sessionId": "s-102",
-  "source": "edge-04",
-  "timestamp": "2026-05-08T16:30:00Z",
+  "eventId": "evt-000042",
+  "eventType": "DAMAGE",
+  "venueId": "venue-01",
+  "tableId": "table-04",
+  "sessionId": "session-20260701-001",
+  "source": "SIMULATOR",
+  "occurredAt": "2026-07-01T16:30:00Z",
+  "sequenceNumber": 42,
   "payload": {
-    "target": "monster-2",
+    "targetId": "mon-01",
     "amount": 8,
-    "cell": "F6"
+    "remainingHitPoints": 4
   }
 }
 ```
@@ -294,18 +298,22 @@ Per un MVP e’ possibile implementare meno processi fisici, ad esempio accorpan
 
 ## 12. API REST indicative
 
-| Metodo | Endpoint                | Descrizione                    |
-| ------ | ----------------------- | ------------------------------ |
-| `GET`  | `/venues`               | Lista dei locali disponibili.  |
-| `GET`  | `/venues/{id}/tables`   | Tavoli presenti in un locale.  |
-| `POST` | `/bookings`             | Creazione prenotazione.        |
-| `POST` | `/sessions`             | Avvio sessione.                |
-| `GET`  | `/sessions/{id}`        | Stato corrente della sessione. |
-| `GET`  | `/sessions/{id}/events` | Storico eventi sessione.       |
-| `GET`  | `/players/{id}/stats`   | Statistiche di un giocatore.   |
-| `GET`  | `/venues/{id}/stats`    | Statistiche del locale.        |
+Le API REST usano il prefisso versionato `/api/v1`, in coerenza con il documento dei contratti di comunicazione.
 
-Le API dovrebbero essere documentate tramite OpenAPI/Swagger YAML.
+| Metodo | Endpoint                                  | Descrizione                    |
+| ------ | ----------------------------------------- | ------------------------------ |
+| `GET`  | `/api/v1/health`                          | Stato del backend.             |
+| `GET`  | `/api/v1/venues`                          | Lista dei locali disponibili.  |
+| `POST` | `/api/v1/venues`                          | Registrazione di un locale.    |
+| `GET`  | `/api/v1/venues/{venueId}`                | Dettaglio di un locale.        |
+| `GET`  | `/api/v1/venues/{venueId}/tables`         | Tavoli presenti in un locale.  |
+| `POST` | `/api/v1/venues/{venueId}/tables`         | Registrazione di un tavolo.    |
+| `POST` | `/api/v1/sessions`                        | Avvio sessione.                |
+| `GET`  | `/api/v1/sessions/{sessionId}`            | Stato corrente della sessione. |
+| `GET`  | `/api/v1/sessions/{sessionId}/events`     | Storico eventi sessione.       |
+| `GET`  | `/api/v1/sessions/{sessionId}/stats`      | Statistiche della sessione.    |
+
+Le prenotazioni restano una funzionalita gestionale estendibile, ma non sono il centro dell'MVP tecnico. Le API definitive dovrebbero essere documentate tramite OpenAPI/Swagger YAML.
 
 ---
 

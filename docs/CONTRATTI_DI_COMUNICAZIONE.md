@@ -13,20 +13,30 @@ L'obiettivo e stabilire in modo esplicito:
 
 Il documento segue un approccio **contract-first**: le interfacce vengono definite prima dell'implementazione dei servizi applicativi, in modo da ridurre ambiguita tra frontend, backend, simulatore e componente edge.
 
-Questa versione descrive il contratto iniziale dell'MVP. Funzionalita secondarie, come prenotazioni avanzate o gestione commerciale del locale, possono essere aggiunte in una fase successiva senza alterare il nucleo IoT del progetto.
+Questa versione descrive il contratto iniziale dell'MVP e si concentra sul nucleo rilevante per PISSIR: generazione, trasmissione, ricezione, ordinamento e persistenza degli eventi di gioco.
 
 ## 2. Componenti coinvolti
 
 | Componente | Responsabilita | Protocollo principale |
 | :--- | :--- | :--- |
-| **Web App** | Visualizza locali, tavoli, sessioni live, eventi e statistiche. | HTTP/REST |
+| **Web App / Dashboard** | Visualizza sessioni live, eventi ricevuti, stato della partita e statistiche tecniche. | HTTP/REST |
 | **Backend BoardHub** | Espone API REST, valida i dati, persiste eventi e stato delle sessioni. | HTTP/REST, MQTT |
 | **Broker MQTT Mosquitto** | Smista i messaggi asincroni tra simulatori, edge e backend. | MQTT |
 | **Simulatore software** | Genera eventi di gioco in sostituzione dei sensori fisici. | MQTT |
-| **Componente Edge** | Rappresenta il nodo locale del tavolo connesso, bufferizza eventi e comunica con il broker. | MQTT |
-| **PostgreSQL** | Memorizza dati persistenti di locali, tavoli, sessioni, eventi e statistiche. | SQL interno |
+| **Componente Edge** | Rappresenta il nodo connesso associato al tavolo di gioco, bufferizza eventi e comunica con il broker. | MQTT |
+| **PostgreSQL** | Memorizza eventi, sessioni e informazioni utili a ricostruire lo stato della partita. | SQL interno |
 
 Il database non viene esposto direttamente ai client. Tutto l'accesso ai dati deve passare dal backend.
+
+### 2.1 Implementazione attuale
+
+| Componente | Stato | Note |
+| :--- | :--- | :--- |
+| Broker MQTT | Implementato in ambiente Docker | Disponibile tramite Mosquitto per i test locali. |
+| Simulatore software | Implementato | Pubblica una mini-sessione D&D ordinata sul topic `events`. |
+| Subscriber backend | Implementato | `event-service` riceve e interpreta gli eventi MQTT. |
+| Persistenza eventi | Implementata e verificata | `event-service` salva gli eventi in `game_schema.game_events`; test end-to-end eseguito con PostgreSQL Docker. |
+| API REST applicative | Da implementare | Gli endpoint sono gia definiti come contratto, ma non ancora esposti. |
 
 ## 3. Convenzioni di naming
 
@@ -34,13 +44,15 @@ Per evitare ambiguita tra documentazione, codice, payload JSON e database, i con
 
 | Concetto | Nome tecnico | Esempio |
 | :--- | :--- | :--- |
-| Locale | `venueId` | `venue-01` |
+| Nodo/installazione dimostrativa | `venueId` | `venue-01` |
 | Tavolo | `tableId` | `table-04` |
 | Sessione di gioco | `sessionId` | `session-20260630-001` |
 | Evento | `eventId` | `evt-000042` |
 | Avventuriero / personaggio | `characterId` | `adv-01` |
 | Mostro | `monsterId` | `mon-03` |
 | Nodo edge | `edgeId` | `edge-venue-01-table-04` |
+
+Nota: in questa fase `venueId` e usato solo come identificativo tecnico per separare una sorgente di eventi da un'altra.
 
 Regole generali:
 
@@ -67,21 +79,20 @@ Base path:
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/health` | Verifica lo stato del backend. |
 
-### 4.2 Locali e tavoli
+### 4.2 Sorgenti di gioco
 
 | Metodo | Endpoint | Scopo |
 | :--- | :--- | :--- |
-| `GET` | `/api/v1/venues` | Restituisce l'elenco dei locali registrati. |
-| `POST` | `/api/v1/venues` | Registra un nuovo locale. |
-| `GET` | `/api/v1/venues/{venueId}` | Restituisce il dettaglio di un locale. |
-| `GET` | `/api/v1/venues/{venueId}/tables` | Restituisce i tavoli connessi di un locale. |
-| `POST` | `/api/v1/venues/{venueId}/tables` | Registra un nuovo tavolo connesso. |
+| `GET` | `/api/v1/sources` | Restituisce le sorgenti tecniche note al sistema, ad esempio simulatori o nodi edge. |
+| `GET` | `/api/v1/sources/{sourceId}/status` | Restituisce lo stato tecnico di una sorgente di eventi. |
+
+Questi endpoint sono opzionali per l'MVP. La parte prioritaria resta la lettura delle sessioni e degli eventi persistiti.
 
 ### 4.3 Sessioni di gioco
 
 | Metodo | Endpoint | Scopo |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/sessions` | Crea una nuova sessione di gioco. |
+| `POST` | `/api/v1/sessions` | Crea una nuova sessione di gioco dimostrativa. |
 | `GET` | `/api/v1/sessions/{sessionId}` | Restituisce lo stato corrente della sessione. |
 | `GET` | `/api/v1/sessions/{sessionId}/events` | Restituisce lo storico eventi della sessione. |
 | `GET` | `/api/v1/sessions/{sessionId}/stats` | Restituisce statistiche aggregate della sessione. |
@@ -177,8 +188,8 @@ Tutti gli eventi MQTT pubblicati sul topic `events` devono rispettare questa str
 | :--- | :--- | :--- | :--- |
 | `eventId` | string | Si | Identificativo univoco dell'evento. |
 | `eventType` | string | Si | Tipo di evento. |
-| `venueId` | string | Si | Locale di provenienza. |
-| `tableId` | string | Si | Tavolo di provenienza. |
+| `venueId` | string | Si | Identificativo tecnico dell'installazione o sorgente logica. |
+| `tableId` | string | Si | Identificativo del tavolo o ambiente di gioco. |
 | `sessionId` | string | Si | Sessione di gioco associata. |
 | `source` | string | Si | Origine dell'evento: `SIMULATOR`, `EDGE`, `BACKEND`. |
 | `occurredAt` | string | Si | Timestamp ISO 8601 dell'evento. |
@@ -245,8 +256,8 @@ Codici principali:
 | Codice | Quando viene usato |
 | :--- | :--- |
 | `VALIDATION_ERROR` | Il payload della richiesta non rispetta il contratto. |
-| `VENUE_NOT_FOUND` | Il locale richiesto non esiste. |
-| `TABLE_NOT_FOUND` | Il tavolo richiesto non esiste. |
+| `SOURCE_NOT_FOUND` | La sorgente tecnica richiesta non esiste. |
+| `TABLE_NOT_FOUND` | Il tavolo o ambiente di gioco richiesto non esiste. |
 | `SESSION_NOT_FOUND` | La sessione richiesta non esiste. |
 | `DUPLICATE_EVENT` | Il backend ha gia ricevuto un evento con lo stesso `eventId`. |
 | `INTERNAL_ERROR` | Errore interno non previsto. |
@@ -263,7 +274,7 @@ Regole minime:
 - `sequenceNumber` cresce in modo progressivo per ogni sessione;
 - il backend deve ignorare eventi duplicati con lo stesso `eventId`;
 - se arrivano eventi fuori ordine, il backend deve usare `sequenceNumber` e `occurredAt` per ricostruire l'ordine logico;
-- durante una disconnessione, il componente edge puo accumulare eventi in locale;
+- durante una disconnessione, il componente edge puo accumulare eventi sul nodo;
 - alla riconnessione, gli eventi accumulati vengono pubblicati sul topic `sync`;
 - lo stato del tavolo viene ricostruito applicando gli eventi validi in ordine.
 
@@ -274,14 +285,14 @@ Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazi
 | Campo | Valore |
 | :--- | :--- |
 | Versione | `0.1` |
-| Stato | Bozza tecnica iniziale |
-| Data | 2026-06-30 |
+| Stato | Contratto iniziale con primo subscriber backend implementato |
+| Data | 2026-07-02 |
 | Ambito | MVP BoardHub |
 
 Prossimi passi:
 
 - validare il contratto con il collaboratore;
 - trasformare gli endpoint REST in una specifica OpenAPI;
-- implementare un primo simulatore MQTT compatibile con questi topic;
+- esporre una prima API REST per leggere gli eventi salvati;
 - verificare i payload con MQTT Explorer;
 - usare questi contratti come base per l'implementazione backend.

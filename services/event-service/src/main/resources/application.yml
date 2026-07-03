@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: event-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/boardhub_db
+    username: boardhub_user
+    password: boardhub_password
+    driver-class-name: org.postgresql.Driver
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+boardhub:
+  mqtt:
+    broker-uri: tcp://localhost:1883
+    client-id: boardhub-event-service
+    topic: boardhub/v1/venues/venue-01/tables/table-04/events
+    qos: 1

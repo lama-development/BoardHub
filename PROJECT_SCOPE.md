@@ -1,493 +1,301 @@
-## Piattaforma IoT per locali ludici con tavoli D&D connessi
+# BoardHub - Project Scope
 
-**Sottotitolo:** Connected Games Platform for Smart Venues
+## 1. Visione del progetto
 
-**Tipologia:** progetto software distribuito con edge computing, MQTT, microservizi REST e interfaccia web
+BoardHub e una piattaforma distribuita per sessioni fisiche di **Dungeons & Dragons** giocate su una plancia connessa.
 
----
+Il progetto immagina un locale ludico con piu tavoli. Ogni tavolo puo ospitare una sessione D&D e puo essere dotato di una plancia fisica intelligente. La plancia comunica con un nodo edge locale, il nodo edge invia eventi tramite MQTT, il backend centrale salva e rende disponibili gli eventi tramite API REST, mentre giocatori e Dungeon Master usano un'app mobile o una dashboard.
 
-## Abstract
+L'obiettivo per PISSIR non e realizzare un gestionale commerciale del locale, ma dimostrare un sistema distribuito che collega un oggetto fisico a servizi di rete.
 
-BoardHub e’ una piattaforma software pensata per locali ludici, ludoteche, sale gioco e spazi privati in cui si svolgono sessioni di gioco da tavolo e giochi di ruolo. Il progetto propone un caso d’uso specifico: un tavolo D&D/fantasy connesso, in cui una sessione fisica con avventurieri, mostri, mappa, ostacoli, round e combattimenti genera eventi digitali tramite sensori reali o simulatori software.
-
-Gli eventi prodotti dal tavolo vengono raccolti da un componente edge installato nel locale. L’edge valida gli eventi, mantiene lo stato locale della sessione e comunica con una piattaforma centrale tramite un broker MQTT. Il backend centrale, organizzato secondo un’architettura a microservizi, registra eventi, sessioni, prenotazioni, statistiche e stato dei tavoli, esponendo API REST verso una web app utilizzata da giocatori e amministratori del locale.
-
-L’obiettivo del progetto non e’ realizzare solamente un sito di prenotazione, ma dimostrare una piattaforma completa coerente con la traccia PISSIR: acquisizione dati da giochi fisici, componente edge, comunicazione tramite message broker, funzionamento offline, sincronizzazione, microservizi, interfaccia utente, test e demo end-to-end.
-
----
-
-## 1. Contesto e motivazione
-
-I giochi da tavolo e i giochi di ruolo sono attivita’ tradizionalmente fisiche. Le interazioni avvengono attorno a un tavolo, con mappe, pedine, miniature, dadi, personaggi e regole condivise. Questa natura fisica e’ parte del valore dell’esperienza, ma limita la raccolta automatica di dati: durata delle sessioni, eventi principali, andamento del combattimento, statistiche dei giocatori e utilizzo dei tavoli vengono normalmente gestiti a mano.
-
-BoardHub nasce come piattaforma per collegare questo mondo fisico a un sistema digitale. Il locale rimane il centro dell’esperienza, ma ogni tavolo puo’ diventare un punto di raccolta dati. Gli eventi di gioco vengono acquisiti, trasmessi, salvati e visualizzati senza eliminare la componente fisica del gioco.
-
-### Problema affrontato
-
-| Problema                                                                                     | Impatto                                                                            |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Le sessioni fisiche non producono dati strutturati.                                          | Statistiche e storico devono essere annotati manualmente.                          |
-| I locali non hanno una visione precisa dell’utilizzo dei tavoli.                             | Diventa difficile gestire prenotazioni, disponibilita’ e preferenze dei giocatori. |
-| Le partite non sono facilmente monitorabili in tempo reale.                                  | Giocatori, master e gestori non hanno una dashboard condivisa.                     |
-| In caso di rete instabile, un sistema centralizzato puro puo’ interrompere la raccolta dati. | Serve un edge locale capace di continuare a funzionare offline.                    |
-
-### Obiettivo generale
-
-Realizzare una piattaforma distribuita in cui un tavolo D&D fisico produce eventi digitali che vengono raccolti da un edge locale, trasmessi via MQTT, elaborati da microservizi e mostrati in una web app.
-
----
-
-## 2. Titolo e identita’ del progetto
-
-### Titolo proposto
-
-**BoardHub**
-
-### Sottotitolo
-
-**Connected Games Platform for Smart Venues**
-
-### Razionale del nome
-
-| Aspetto        | Motivazione                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------- |
-| Board          | Richiama giochi da tavolo, mappe, plance e sessioni fisiche.                                |
-| Hub            | Indica una piattaforma centrale che collega locali, tavoli, utenti, sessioni e statistiche. |
-| Espandibilita’ | Il nome non limita il progetto al solo D&D: in futuro puo’ includere altri giochi fisici.   |
-| Chiarezza      | Il nome e’ breve, leggibile e adatto a una presentazione universitaria.                     |
-
----
-
-## 3. Descrizione dell’idea progettuale
-
-BoardHub gestisce un locale ludico dotato di uno o piu’ tavoli prenotabili. Ogni tavolo puo’ ospitare una sessione di gioco. Nel caso d’uso principale, il tavolo ospita una sessione D&D/fantasy.
-
-Durante la sessione, il tavolo fisico viene rappresentato come una griglia. Sulla griglia possono essere presenti:
-
-- avventurieri;
-- mostri;
-- ostacoli;
-- muri;
-- stanze o aree della mappa;
-- eventi di movimento;
-- eventi di combattimento;
-- eventi di fine round.
-
-Questi eventi possono essere generati in due modi:
-
-1. **Sensori reali**, ad esempio pulsanti, lettori NFC/RFID, sensori sotto la griglia o pedine taggate.
-2. **Simulatori software**, usati nella fase di sviluppo e nella demo d’esame per evitare dipendenze hardware.
-
-Il simulatore non e’ un ripiego, ma un componente utile per testare scenari realistici in modo ripetibile.
-
----
-
-## 4. Allineamento con la traccia PISSIR
-
-BoardHub rispetta la traccia del progetto PISSIR perche’ contiene tutti gli elementi richiesti: gioco fisico, locale, sensori o emulatori, edge, MQTT/message broker, server centrale, microservizi, API REST, statistiche, interfaccia utente, offline sync e demo.
-
-| Richiesta PISSIR                   | Realizzazione in BoardHub                                              |
-| ---------------------------------- | ---------------------------------------------------------------------- |
-| Gioco fisico tradizionale connesso | Tavolo D&D/fantasy fisico con mappa e miniature.                       |
-| Locale identificabile              | Locale ludico con tavoli prenotabili e giochi installati.              |
-| Sensori reali o simulati           | Simulatore eventi D&D, con possibile estensione hardware.              |
-| Edge nel locale                    | Processo locale che raccoglie eventi, valida dati e gestisce offline.  |
-| Broker MQTT                        | Mosquitto per pubblicazione eventi e stato edge.                       |
-| Server centrale                    | Backend a microservizi con API REST.                                   |
-| Database                           | Persistenza di utenti, locali, tavoli, sessioni, eventi e statistiche. |
-| Interfaccia utente                 | Web app per giocatori, master e amministratori.                        |
-| Statistiche                        | Danni inflitti, mostri sconfitti, round, sessioni, utilizzo tavoli.    |
-| Demo funzionante                   | Scenario end-to-end con eventi, offline queue e sync.                  |
-
----
-
-## 5. Attori del sistema
-
-| Attore                           | Descrizione                                | Funzioni principali                                                                       |
-| -------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Giocatore                        | Utente che partecipa alle sessioni.        | Prenota, partecipa, consulta statistiche e storico.                                       |
-| Master                           | Utente che conduce una sessione D&D.       | Avvia sessione, gestisce eventi, controlla stato di mappa e mostri.                       |
-| Amministratore del locale        | Gestore del locale fisico.                 | Gestisce tavoli, prenotazioni, disponibilita’, dispositivi edge e statistiche del locale. |
-| Amministratore della piattaforma | Gestore globale del sistema.               | Gestisce utenti, locali, configurazioni, monitoraggio e statistiche aggregate.            |
-| Edge locale                      | Componente software installato nel locale. | Raccoglie eventi, pubblica su MQTT, salva offline e sincronizza.                          |
-| Backend centrale                 | Insieme dei microservizi.                  | Elabora eventi, persiste dati, espone API REST e calcola statistiche.                     |
-
----
-
-## 6. Modello di dominio
-
-### Entita’ principali
-
-| Entita’      | Descrizione                                           | Attributi indicativi                                    |
-| ------------ | ----------------------------------------------------- | ------------------------------------------------------- |
-| Locale       | Luogo fisico in cui sono installati tavoli e giochi.  | id, nome, indirizzo, gestore, stato.                    |
-| Tavolo       | Postazione fisica prenotabile.                        | id, locale, nome, stato, tipo gioco, edge associato.    |
-| Prenotazione | Fascia oraria riservata da un utente o gruppo.        | id, utente, tavolo, data, ora inizio, ora fine, stato.  |
-| Sessione     | Istanza di gioco avviata su un tavolo.                | id, tavolo, master, giocatori, stato, round corrente.   |
-| Avventuriero | Personaggio controllato da un giocatore.              | id, sessione, nome, giocatore, punti ferita, posizione. |
-| Mostro       | Entita’ ostile nella sessione.                        | id, sessione, tipo, punti ferita, posizione, stato.     |
-| Evento       | Fatto rilevante generato dal tavolo o dal simulatore. | id, tipo, timestamp, payload, sorgente, stato sync.     |
-| Statistica   | Dato aggregato calcolato dal backend.                 | id, utente/sessione/tavolo, metrica, valore, periodo.   |
-
-### Relazioni principali
-
-| Relazione                                             | Significato                                           |
-| ----------------------------------------------------- | ----------------------------------------------------- |
-| Un locale contiene molti tavoli.                      | Ogni tavolo e’ identificato nel contesto del locale.  |
-| Un tavolo ospita molte prenotazioni nel tempo.        | Le prenotazioni evitano sovrapposizioni.              |
-| Una prenotazione puo’ generare una sessione.          | La sessione e’ l’esecuzione reale della prenotazione. |
-| Una sessione contiene avventurieri, mostri ed eventi. | Il dominio D&D viene tracciato tramite eventi.        |
-| Gli eventi alimentano statistiche e stato live.       | Il backend aggrega dati e aggiorna la UI.             |
-
----
-
-## 7. Casi d’uso principali
-
-### UC1, Prenotare una sessione
-
-| Campo             | Descrizione                                                                                                      |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Attore primario   | Giocatore                                                                                                        |
-| Precondizioni     | Il locale e il tavolo sono registrati; esiste una fascia oraria disponibile.                                     |
-| Flusso principale | Il giocatore seleziona locale, tavolo, data e orario; il sistema verifica disponibilita’ e crea la prenotazione. |
-| Output            | Prenotazione confermata e associata a un tavolo.                                                                 |
-
-### UC2, Avviare una sessione D&D
-
-| Campo             | Descrizione                                                                   |
-| ----------------- | ----------------------------------------------------------------------------- |
-| Attore primario   | Master o amministratore del locale                                            |
-| Precondizioni     | Esiste una prenotazione valida o un tavolo disponibile.                       |
-| Flusso principale | Il master avvia la sessione, seleziona giocatori e imposta la mappa iniziale. |
-| Output            | Sessione attiva, edge pronto a ricevere/generare eventi.                      |
-
-### UC3, Registrare un evento di gioco
-
-| Campo             | Descrizione                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------- |
-| Attore primario   | Edge locale                                                                                       |
-| Precondizioni     | La sessione e’ attiva.                                                                            |
-| Flusso principale | Un sensore o simulatore genera un evento; l’edge lo valida e lo pubblica sul topic MQTT corretto. |
-| Output            | Evento ricevuto dal backend e salvato nel database.                                               |
-
-### UC4, Gestire offline e sincronizzazione
-
-| Campo             | Descrizione                                                                                    |
-| ----------------- | ---------------------------------------------------------------------------------------------- |
-| Attore primario   | Edge locale                                                                                    |
-| Precondizioni     | La connessione verso broker/backend non e’ disponibile.                                        |
-| Flusso principale | L’edge salva eventi in una coda locale; alla riconnessione invia gli eventi non sincronizzati. |
-| Output            | Nessuna perdita di dati; stato centrale riallineato.                                           |
-
-### UC5, Consultare statistiche e storico
-
-| Campo             | Descrizione                                                                                              |
-| ----------------- | -------------------------------------------------------------------------------------------------------- |
-| Attore primario   | Giocatore, master, amministratore del locale                                                             |
-| Precondizioni     | Esistono eventi e sessioni salvate.                                                                      |
-| Flusso principale | L’utente apre la web app e consulta sessioni, eventi, danni, mostri sconfitti, durata e utilizzo tavoli. |
-| Output            | Visualizzazione di dati e statistiche coerenti con il ruolo dell’utente.                                 |
-
----
-
-## 8. Eventi di gioco
-
-Gli eventi costituiscono il nucleo del sistema. Ogni evento descrive una variazione significativa dello stato della sessione.
-
-| Evento          | Descrizione                                | Esempio payload                                   |
-| --------------- | ------------------------------------------ | ------------------------------------------------- |
-| `SESSION_START` | Avvio della sessione.                      | `{ "sessionId": "s-102", "table": "tavolo-04" }`  |
-| `MOVE`          | Movimento di un personaggio sulla griglia. | `{ "actor": "hero-1", "from": "D4", "to": "E4" }` |
-| `SPAWN_MONSTER` | Comparsa di un mostro sulla mappa.         | `{ "monster": "goblin", "cell": "F6" }`           |
-| `ATTACK`        | Azione di attacco.                         | `{ "actor": "hero-1", "target": "monster-2" }`    |
-| `DAMAGE`        | Applicazione di danno a un bersaglio.      | `{ "target": "monster-2", "amount": 8 }`          |
-| `OBSTACLE`      | Attivazione o rimozione di un ostacolo.    | `{ "cell": "C3", "active": true }`                |
-| `WALL`          | Aggiornamento di un muro della mappa.      | `{ "cell": "D4", "side": "top", "active": true }` |
-| `ROUND_END`     | Fine di un round.                          | `{ "round": 4 }`                                  |
-| `SESSION_END`   | Chiusura della sessione.                   | `{ "sessionId": "s-102", "status": "completed" }` |
-
----
-
-## 9. Architettura logica
-
-```
-Sensori reali / Simulatore software
-        |
-        v
-Componente Edge del tavolo
-        |
-        v
-Broker MQTT
-        |
-        v
-Microservizi backend
-        |
-        v
-Database centrale
-        |
-        v
-Web app BoardHub
+```text
+plancia fisica / simulatore
+-> nodo edge del tavolo
+-> broker MQTT
+-> backend Java/Spring Boot
+-> PostgreSQL
+-> API REST
+-> app mobile / dashboard DM
 ```
 
-### Descrizione dei livelli
+## 2. Funzionamento nel locale
 
-| Livello            | Responsabilita’                                                          |
-| ------------------ | ------------------------------------------------------------------------ |
-| Sensori/simulatore | Generano eventi della sessione D&D.                                      |
-| Edge               | Valida eventi, mantiene stato locale, pubblica su MQTT, salva offline.   |
-| MQTT broker        | Disaccoppia edge e backend tramite publish/subscribe.                    |
-| Backend            | Elabora eventi, aggiorna sessioni, calcola statistiche, espone API REST. |
-| Database           | Persistenza di dominio, eventi, prenotazioni e statistiche.              |
-| Web app            | Interfaccia per gestione, visualizzazione live e consultazione storico.  |
+Nel locale sono presenti piu tavoli da gioco. Un tavolo BoardHub contiene:
 
----
+- una griglia fisica per D&D;
+- pedine o miniature dei personaggi;
+- un possibile QR code o tag NFC per associare pedina e giocatore;
+- un nodo edge collegato alla rete;
+- una sessione D&D gestita da un Dungeon Master;
+- una o piu app mobile collegate alla sessione;
+- un set di dadi fisici o digitali registrabili dal sistema.
 
-## 10. Topic MQTT
+Il giocatore arriva al tavolo, prende una pedina e la associa al proprio dispositivo. L'associazione puo avvenire scansionando un QR code o leggendo un tag NFC. Da quel momento il sistema sa che quella pedina rappresenta il personaggio di quel giocatore.
 
-La struttura dei topic deve essere gerarchica, leggibile e coerente con locale, tavolo e tipo di gioco.
+Il Dungeon Master prepara la sessione: sceglie la mappa, imposta il combattimento, posiziona personaggi e creature, modifica il terreno, inserisce muri, ostacoli e trappole. La plancia fisica rappresenta la mappa. In una versione reale potrebbe illuminare caselle, mostrare aree raggiungibili e segnalare errori di movimento. Nella demo universitaria questa parte viene simulata.
 
-| Topic                                                        | Direzione                 | Utilizzo                               |
-| ------------------------------------------------------------ | ------------------------- | -------------------------------------- |
-| `boardhub/v1/venues/{venueId}/tables/{tableId}/events`       | Edge -> Broker -> Backend | Eventi principali della sessione.      |
-| `boardhub/v1/venues/{venueId}/tables/{tableId}/status`       | Edge -> Broker -> Backend | Stato edge, heartbeat, online/offline. |
-| `boardhub/v1/venues/{venueId}/tables/{tableId}/commands`     | Backend -> Broker -> Edge | Comandi verso edge o display locale.   |
-| `boardhub/v1/venues/{venueId}/tables/{tableId}/sync`         | Edge -> Backend           | Invio degli eventi accumulati offline. |
+## 2.1 Materiale e regole operative
 
-### Esempio concreto
+Il progetto assume che il tavolo BoardHub fornisca un kit minimo per la sessione:
 
+| Materiale | Descrizione | Uso nel sistema |
+| :--- | :--- | :--- |
+| Plancia a griglia | Campo fisico della sessione D&D. | Produce o simula eventi di posizione. |
+| Pedine/miniature | Rappresentano personaggi e creature. | Vengono associate a `tokenId` e `characterId`. |
+| QR code o NFC | Identificatore fisico della pedina o del tavolo. | Collega dispositivo, giocatore, personaggio e tavolo. |
+| App mobile | Applicazione da installare sul dispositivo del giocatore. | Entra in sessione, configura personaggio, mostra azioni e log. |
+| Vista DM | App o dashboard del Dungeon Master. | Configura mappa, terreno, creature, turni e round. |
+| Dadi | Set fisico o digitale: `d4`, `d6`, `d8`, `d10`, `d%`, `d12`, `d20`. | I tiri digitali vengono salvati come eventi `DICE_ROLLED`. |
+
+Le regole D&D gestite dall'MVP sono intenzionalmente limitate:
+
+- il Dungeon Master controlla mappa, terreno, creature, trappole, turni e round;
+- il giocatore controlla il proprio personaggio tramite app mobile;
+- il movimento dipende dalla velocita del personaggio e dal costo delle caselle, non dal dado;
+- il `d20` viene usato per prove e attacchi;
+- gli altri dadi vengono usati per danni o effetti;
+- il sistema registra gli eventi principali, non automatizza l'intero regolamento D&D.
+
+## 3. Ruoli
+
+| Ruolo | Descrizione | Funzioni principali |
+| :--- | :--- | :--- |
+| Giocatore | Persona che controlla un personaggio. | Associa pedina, gestisce scheda base, vede turno, azioni, dadi e log. |
+| Dungeon Master | Gestisce sessione e combattimento. | Avvia encounter, posiziona mostri, muri, trappole, round e turni. |
+| Nodo edge | Componente vicino al tavolo fisico. | Raccoglie eventi, valida dati locali, pubblica MQTT, gestisce buffer offline. |
+| Backend centrale | Servizi lato server. | Riceve eventi, salva storico, espone API REST, ricostruisce stato. |
+| App mobile | Interfaccia principale per giocatori e DM. | Mostra personaggio, azioni, dadi, movimento e registro eventi. |
+| Dashboard opzionale | Vista pubblica o tecnica. | Mostra stato sessione, eventi e dati utili alla demo. |
+
+## 4. Flusso di una sessione
+
+1. Il Dungeon Master crea o avvia una sessione D&D su un tavolo.
+2. I giocatori entrano nella sessione dall'app mobile.
+3. Ogni giocatore associa una pedina al proprio personaggio tramite QR/NFC.
+4. Il DM posiziona personaggi, mostri, muri e ostacoli sulla mappa.
+5. Il sistema genera eventi iniziali di sessione e posizionamento.
+6. Durante il turno, il giocatore sceglie se muoversi, attaccare o eseguire un'altra azione.
+7. Se sceglie il movimento, il sistema calcola le caselle raggiungibili.
+8. La plancia o l'app mostra le caselle valide.
+9. Il giocatore sposta la pedina.
+10. Il nodo edge rileva o riceve la nuova posizione.
+11. Se serve un tiro, l'app registra il risultato del dado come evento.
+12. Il backend salva gli eventi e li rende disponibili tramite API REST.
+
+## 5. Movimento D&D su griglia
+
+BoardHub si concentra su Dungeons & Dragons. Per l'MVP, il movimento viene espresso direttamente in caselle della plancia. Una configurazione standard puo assegnare a un personaggio 6 caselle di movimento per turno, considerando ogni casella come unita logica della mappa, circa 1,5 metri.
+
+Il movimento non dipende dal tiro di dado. Dipende da:
+
+- velocita del personaggio;
+- posizione iniziale;
+- muri sui bordi delle caselle;
+- ostacoli o celle inaccessibili;
+- trappole visibili o nascoste;
+- caselle occupate;
+- movimento ortogonale e diagonale;
+- eventuali condizioni o bonus;
+- regole semplificate scelte per l'MVP.
+
+Per calcolare le caselle raggiungibili, l'MVP usera una versione semplificata dell'algoritmo di Dijkstra.
+
+```text
+input:
+  posizione iniziale
+  punti movimento disponibili
+  caselle normali
+  caselle di terreno difficile
+  muri sui bordi tra celle
+  ostacoli / celle inaccessibili / celle occupate
+  trappole nascoste o rivelate
+
+output:
+  insieme delle caselle raggiungibili con costo totale <= punti movimento
 ```
-boardhub/v1/venues/venue-01/tables/table-04/events
+
+La scelta di Dijkstra e motivata dal terreno difficile: non tutte le caselle hanno lo stesso costo. Una casella normale costa 1 punto movimento, una casella di terreno difficile costa 2 punti, mentre ostacoli, celle inaccessibili e celle occupate non sono attraversabili. I muri non sono terreno della cella: sono segmenti sui bordi e bloccano il passaggio tra due celle adiacenti.
+
+Il movimento diagonale e supportato in forma semplificata. Una diagonale costa quanto la casella di arrivo, ma non puo tagliare un angolo: se una delle due celle laterali e non attraversabile o se un muro blocca uno dei passaggi laterali coinvolti, la diagonale viene rifiutata.
+
+Le trappole non sono ostacoli: possono trovarsi su una casella attraversabile. Una trappola puo essere nascosta ai giocatori, rivelata dopo un tiro di percezione o attivata quando il percorso del personaggio attraversa la casella. Se il Dungeon Master la configura come sempre nascosta, il sistema puo registrare l'attivazione senza mostrarla preventivamente sulla plancia.
+
+La complessita, usando una coda di priorita, e:
+
+```text
+O((V + E) log V)
 ```
 
-Payload:
+dove `V` e il numero di caselle e `E` il numero di collegamenti tra caselle. Su una plancia D&D dimostrativa il costo resta molto basso.
+
+## 6. Algoritmi del progetto
+
+| Algoritmo | Stato | Dove viene usato | Perche viene usato |
+| :--- | :--- | :--- | :--- |
+| Ordinamento eventi per `sequenceNumber` | Implementato | `event-service`, lettura eventi sessione. | Ricostruisce l'ordine logico degli eventi salvati. |
+| Dijkstra semplificato | Implementato | Movimento su griglia. | Gestisce costi del terreno, celle non attraversabili e muri tra celle adiacenti. |
+| Parser dadi | Da implementare | Tiri digitali dall'app mobile. | Interpreta formule come `1d20+3` e registra risultati verificabili. |
+| Verifica trappole sul percorso | Implementata nel calcolo movimento | Movimento su griglia. | Controlla se il percorso scelto attraversa caselle con trappole nascoste o rivelate. |
+| Event replay | Da implementare | Ricostruzione stato partita. | Applica gli eventi in ordine per ricavare stato corrente. |
+| Linea di vista | Estensione futura | Attacchi a distanza e magie. | Verifica se muri, ostacoli o celle bloccate interrompono la visibilita. |
+
+### 6.1 Perche non BFS come scelta finale
+
+La BFS e corretta solo se ogni passaggio tra caselle ha lo stesso costo. BoardHub deve invece considerare anche il terreno difficile, che consuma piu movimento. Per questo Dijkstra e piu adatto come algoritmo principale del movimento.
+
+## 7. Validazione del movimento
+
+Quando il giocatore prova a spostare una pedina, il sistema confronta la casella di arrivo con le caselle raggiungibili.
+
+| Caso | Evento | Effetto |
+| :--- | :--- | :--- |
+| Movimento valido | `MOVE_CONFIRMED` | La posizione viene aggiornata. |
+| Movimento troppo lungo | `MOVE_REJECTED` | Il sistema segnala che la casella non e raggiungibile. |
+| Movimento bloccato da muro | `MOVE_REJECTED` | Il sistema segnala che il bordo tra due celle e chiuso. |
+| Movimento su casella occupata | `MOVE_REJECTED` | Il sistema impedisce la sovrapposizione. |
+
+Esempio:
 
 ```json
 {
-  "eventId": "evt-000042",
-  "eventType": "DAMAGE",
-  "venueId": "venue-01",
-  "tableId": "table-04",
-  "sessionId": "session-20260701-001",
-  "source": "SIMULATOR",
-  "occurredAt": "2026-07-01T16:30:00Z",
-  "sequenceNumber": 42,
+  "eventType": "MOVE_REJECTED",
   "payload": {
-    "targetId": "mon-01",
-    "amount": 8,
-    "remainingHitPoints": 4
+    "characterId": "adv-01",
+    "from": "A3",
+    "to": "A10",
+    "reason": "OUT_OF_RANGE",
+    "maxCells": 6
   }
 }
 ```
 
----
+## 8. Eventi principali
 
-## 11. Microservizi proposti
+| Evento | Significato |
+| :--- | :--- |
+| `SESSION_START` | Avvio della sessione. |
+| `PLAYER_JOINED` | Un giocatore entra nella sessione. |
+| `TOKEN_ASSIGNED` | Una pedina viene associata a giocatore/personaggio. |
+| `CHARACTER_CREATED` | Il giocatore configura il personaggio. |
+| `ENCOUNTER_START` | Il DM avvia un combattimento. |
+| `TOKEN_PLACED` | Una pedina viene posizionata sulla griglia. |
+| `TURN_STARTED` | Inizia il turno di un personaggio. |
+| `REACHABLE_CELLS_CALCULATED` | Il sistema calcola le celle raggiungibili. |
+| `MOVE_CONFIRMED` | Movimento accettato. |
+| `MOVE_REJECTED` | Movimento rifiutato. |
+| `DICE_ROLLED` | Tiro di dado digitale registrato dall'app. |
+| `ATTACK` | Attacco dichiarato. |
+| `DAMAGE` | Danno applicato. |
+| `TERRAIN_UPDATED` | Il DM modifica terreno normale, terreno difficile o aree bloccate. |
+| `TRAP_REVEALED` | Trappola rivelata. |
+| `TRAP_TRIGGERED` | Trappola attivata dal passaggio o dalla posizione del personaggio. |
+| `ROUND_END` | Fine round. |
+| `SESSION_END` | Fine sessione. |
 
-| Servizio        | Responsabilita’ principali                                    |
-| --------------- | ------------------------------------------------------------- |
-| User Service    | Utenti, ruoli, profili, autorizzazioni di base.               |
-| Venue Service   | Locali, tavoli, giochi installati e configurazioni edge.      |
-| Booking Service | Prenotazioni, disponibilita’ dei tavoli e fasce orarie.       |
-| Session Service | Sessioni D&D, stato live, round, avventurieri e mostri.       |
-| Event Service   | Ricezione, validazione e persistenza degli eventi MQTT.       |
-| Stats Service   | Calcolo di statistiche per utenti, tavoli, locali e sessioni. |
+## 9. Interfacce previste
 
-Per un MVP e’ possibile implementare meno processi fisici, ad esempio accorpando alcuni servizi. La relazione dovra’ comunque mostrare la decomposizione logica e motivare eventuali semplificazioni.
+### App mobile giocatore
 
----
+- associazione pedina tramite QR/NFC;
+- configurazione personaggio;
+- visualizzazione turno corrente;
+- azioni disponibili;
+- tiro dadi digitale;
+- registro combattimento;
+- feedback su movimento valido/non valido.
 
-## 12. API REST indicative
-
-Le API REST usano il prefisso versionato `/api/v1`, in coerenza con il documento dei contratti di comunicazione.
-
-| Metodo | Endpoint                                  | Descrizione                    |
-| ------ | ----------------------------------------- | ------------------------------ |
-| `GET`  | `/api/v1/health`                          | Stato del backend.             |
-| `GET`  | `/api/v1/venues`                          | Lista dei locali disponibili.  |
-| `POST` | `/api/v1/venues`                          | Registrazione di un locale.    |
-| `GET`  | `/api/v1/venues/{venueId}`                | Dettaglio di un locale.        |
-| `GET`  | `/api/v1/venues/{venueId}/tables`         | Tavoli presenti in un locale.  |
-| `POST` | `/api/v1/venues/{venueId}/tables`         | Registrazione di un tavolo.    |
-| `POST` | `/api/v1/sessions`                        | Avvio sessione.                |
-| `GET`  | `/api/v1/sessions/{sessionId}`            | Stato corrente della sessione. |
-| `GET`  | `/api/v1/sessions/{sessionId}/events`     | Storico eventi sessione.       |
-| `GET`  | `/api/v1/sessions/{sessionId}/stats`      | Statistiche della sessione.    |
-
-Le prenotazioni restano una funzionalita gestionale estendibile, ma non sono il centro dell'MVP tecnico. Le API definitive dovrebbero essere documentate tramite OpenAPI/Swagger YAML.
-
----
-
-## 13. Web app
-
-La web app non e’ un elemento accessorio isolato, ma la superficie che rende comprensibile il sistema.
-
-### Funzioni per giocatori
-
-- visualizzazione dei locali;
-- prenotazione di un tavolo;
-- storico delle sessioni;
-- statistiche personali;
-- consultazione della sessione in corso.
-
-### Funzioni per master
+### App o dashboard Dungeon Master
 
 - avvio sessione;
-- monitoraggio mappa;
-- visualizzazione eventi live;
-- controllo dello stato di avventurieri e mostri.
+- avvio encounter;
+- posizionamento mostri;
+- gestione muri, ostacoli e trappole;
+- consultazione log eventi;
+- controllo dello stato dei personaggi.
 
-### Funzioni per amministratori del locale
+### Plancia fisica
 
-- gestione tavoli;
-- gestione disponibilita’;
-- controllo stato edge;
-- statistiche di utilizzo;
-- consultazione delle sessioni concluse.
+- rappresentazione della griglia;
+- rilevamento o simulazione posizione pedine;
+- possibile illuminazione delle caselle raggiungibili;
+- segnalazione visiva di muri, ostacoli e celle non valide;
+- invio eventi al nodo edge.
 
----
+## 10. Componenti tecnici
 
-## 14. Funzionamento offline
+| Componente | Stato attuale | Ruolo |
+| :--- | :--- | :--- |
+| Docker | Implementato | Avvia Mosquitto e PostgreSQL. |
+| Mosquitto MQTT | Implementato | Broker eventi. |
+| Simulatore Python | Implementato | Simula eventi della plancia. |
+| `event-service` Spring Boot | Implementato | Riceve eventi MQTT, salva su DB, espone API REST. |
+| PostgreSQL | Implementato | Salva eventi in `game_schema.game_events`. |
+| OpenAPI | Implementata | Documenta l'API REST esistente. |
+| Modello griglia | Implementato | Rappresenta posizioni, celle, terreno e richieste di movimento. |
+| Algoritmo movimento | Implementato | Calcola celle raggiungibili, percorso e trappole attraversate. |
+| API celle raggiungibili | Implementata | Espone il risultato del movimento a dashboard/app. |
+| App mobile | Da implementare | Interfaccia giocatore/DM. |
+| Edge avanzato | Da implementare | Simulazione piu vicina alla plancia fisica. |
 
-Il funzionamento offline e’ una parte essenziale del progetto. Il tavolo fisico deve continuare a produrre eventi anche se la connessione verso la piattaforma centrale non e’ disponibile.
+## 11. MVP per l'esame
 
-### Strategia proposta
+L'MVP deve restare concentrato sulla parte PISSIR:
 
-| Fase                | Comportamento                                          |
-| ------------------- | ------------------------------------------------------ |
-| Connessione attiva  | L’edge pubblica gli eventi su MQTT.                    |
-| Connessione assente | L’edge salva eventi in una coda locale.                |
-| Riconnessione       | L’edge invia gli eventi pendenti al backend.           |
-| Conferma sync       | Gli eventi sincronizzati vengono marcati come inviati. |
+- una sessione D&D demo;
+- un tavolo/plancia simulata;
+- eventi MQTT;
+- backend che riceve e salva;
+- API REST per leggere eventi;
+- algoritmo movimento su griglia;
+- documentazione dei contratti;
+- demo end-to-end.
 
-### Dati da conservare localmente
+Non sono prioritari:
 
-- identificativo sessione;
-- timestamp evento;
-- tipo evento;
-- payload;
-- stato sincronizzazione;
-- tentativi di invio.
+- shop snack/drink;
+- prenotazioni avanzate;
+- pagamento;
+- autenticazione complessa;
+- hardware reale completo;
+- app mobile completa in produzione.
 
----
+## 12. Stato attuale del progetto
 
-## 15. Scope del progetto
+Gia realizzato:
 
-### MVP consigliato
+- infrastruttura Docker con PostgreSQL e Mosquitto;
+- simulatore Python che pubblica eventi D&D;
+- subscriber Python leggibile per debug;
+- `event-service` Java/Spring Boot;
+- parsing eventi MQTT;
+- salvataggio eventi su PostgreSQL;
+- API REST `GET /api/v1/sessions/{sessionId}/events`;
+- modello logico della griglia D&D;
+- algoritmo di movimento con Dijkstra semplificato;
+- API REST `POST /api/v1/movement/reachable-cells`;
+- test automatici;
+- documentazione tecnica iniziale;
+- specifica OpenAPI dell'endpoint implementato.
 
-| Area     | Scelta                                                                 |
-| -------- | ---------------------------------------------------------------------- |
-| Locale   | Un locale demo.                                                        |
-| Tavolo   | Un tavolo D&D/fantasy connesso.                                        |
-| Sensori  | Simulatore software di eventi.                                         |
-| Edge     | Processo locale con buffer offline.                                    |
-| Broker   | Mosquitto MQTT.                                                        |
-| Backend  | Java/Spring Boot con API REST.                                         |
-| Database | PostgreSQL lato server, SQLite o file lato edge.                       |
-| Frontend | Web app responsive dimostrativa.                                       |
-| Demo     | Sessione D&D con movimento, mostri, danni, statistiche e sync offline. |
+Prossimi passi consigliati:
 
-### Estensioni future
+1. aggiungere eventi `MOVE_CONFIRMED`, `MOVE_REJECTED` e `TRAP_TRIGGERED`;
+2. aggiungere modello logico per personaggio, pedina e associazione QR/NFC;
+3. collegare il movimento a sessioni salvate invece che a una griglia inviata nel body;
+4. preparare una demo piu vicina alla plancia fisica.
 
-| Estensione             | Priorita’ | Motivazione                                                  |
-| ---------------------- | --------- | ------------------------------------------------------------ |
-| Sensori hardware reali | Media     | Interessante, ma non necessaria per validare l’architettura. |
-| Snack e drink          | Bassa     | Utile per il locale, ma non centrale per PISSIR.             |
-| OAuth                  | Bassa     | Aggiunge complessita’ di sicurezza non indispensabile.       |
-| Notifiche push         | Bassa     | Richiede infrastruttura aggiuntiva.                          |
-| Leaderboard globale    | Media     | Coerente con statistiche, ma implementabile dopo l’MVP.      |
-| Analytics avanzate     | Bassa     | Valore gestionale, ma non necessario per la demo tecnica.    |
+## 13. Perche il progetto resta coerente con PISSIR
 
----
+BoardHub permette di mostrare:
 
-## 16. Valutazione di fattibilita’
+- oggetto fisico connesso;
+- nodo edge;
+- comunicazione MQTT;
+- broker publish/subscribe;
+- backend REST;
+- persistenza eventi;
+- sincronizzazione dello stato;
+- possibile funzionamento offline;
+- algoritmo distribuito/applicativo legato alla plancia.
 
-| Aspetto                | Valutazione | Nota                                                                    |
-| ---------------------- | ----------- | ----------------------------------------------------------------------- |
-| Coerenza con PISSIR    | Alta        | Include tutti i componenti richiesti dalla traccia.                     |
-| Complessita’ tecnica   | Media       | La complessita’ e’ gestibile se sensori e hardware restano simulati.    |
-| Valore dimostrativo    | Alto        | Il caso D&D rende chiaro il passaggio da evento fisico a dato digitale. |
-| Rischio di scope creep | Alto        | Prenotazioni, shop, OAuth e analytics devono rimanere secondari.        |
-| Realizzabilita’ MVP    | Buona       | Un simulatore edge + MQTT + backend REST + web app e’ fattibile.        |
-
-### Rischi principali
-
-| Rischio                          | Impatto                             | Mitigazione                                                 |
-| -------------------------------- | ----------------------------------- | ----------------------------------------------------------- |
-| Troppi microservizi fisici       | Aumento tempi e complessita’.       | Distinguere decomposizione logica e implementazione MVP.    |
-| Hardware non disponibile         | Demo bloccata o instabile.          | Usare simulatore software come sorgente principale.         |
-| UI troppo orientata al marketing | Perdita di coerenza con PISSIR.     | Presentare sempre pipeline e componenti tecnici.            |
-| Offline sync sottovalutato       | Perdita di un requisito importante. | Implementare almeno una coda locale semplice.               |
-| Regole D&D troppo complesse      | Dominio difficile da completare.    | Usare regole semplificate: movimento, danno, round, mostri. |
-
----
-
-## 17. Scenario demo
-
-La demo deve raccontare il sistema in modo lineare.
-
-| Passo | Azione                                              | Componente dimostrato              |
-| ----- | --------------------------------------------------- | ---------------------------------- |
-| 1     | Un utente prenota il Tavolo 04.                     | Web app, prenotazioni, locale.     |
-| 2     | Il master avvia la sessione D&D.                    | Session service, stato iniziale.   |
-| 3     | Il simulatore genera un movimento.                  | Sensore/simulatore, evento `MOVE`. |
-| 4     | Compare un mostro sulla mappa.                      | Evento `SPAWN_MONSTER`.            |
-| 5     | L’avventuriero attacca e produce danno.             | Eventi `ATTACK` e `DAMAGE`.        |
-| 6     | L’edge pubblica su MQTT.                            | Broker e topic gerarchici.         |
-| 7     | Il backend aggiorna database e statistiche.         | Microservizi e persistenza.        |
-| 8     | La web app aggiorna mappa, log e metriche.          | UI e stato live.                   |
-| 9     | Si simula una perdita di rete.                      | Modalita’ offline.                 |
-| 10    | Gli eventi vengono salvati in coda e sincronizzati. | Offline buffer e sync.             |
-
----
-
-## 18. Validazione e test
-
-### Test unitari
-
-- validazione payload eventi;
-- aggiornamento stato sessione;
-- calcolo danni e statistiche;
-- gestione prenotazioni;
-- gestione coda offline.
-
-### Test di integrazione
-
-- simulatore -> edge -> MQTT;
-- MQTT -> backend -> database;
-- backend -> REST API -> web app;
-- offline -> coda locale -> sync.
-
-### Test demo
-
-| Scenario               | Risultato atteso                                     |
-| ---------------------- | ---------------------------------------------------- |
-| Avvio sessione         | Stato sessione attivo e tavolo disponibile nella UI. |
-| Movimento avventuriero | Evento registrato e posizione aggiornata.            |
-| Danno a mostro         | Punti ferita e statistiche aggiornate.               |
-| Rete offline           | Eventi salvati in coda locale.                       |
-| Riconnessione          | Eventi sincronizzati senza perdita dati.             |
-
----
-
-## 19. Deliverable consigliati
-
-| Deliverable              | Contenuto                                                                    |
-| ------------------------ | ---------------------------------------------------------------------------- |
-| Relazione tecnica        | Specifiche, analisi tecnologica, architettura, implementazione, validazione. |
-| Diagramma casi d’uso     | Prenotazione, avvio sessione, evento, statistiche, sync offline.             |
-| Diagramma classi dominio | Locale, Tavolo, Sessione, Evento, Avventuriero, Mostro, Prenotazione.        |
-| Diagrammi di sequenza    | Evento live e sincronizzazione offline.                                      |
-| OpenAPI YAML             | REST API del backend.                                                        |
-| Tabella MQTT             | Topic, direzioni, payload.                                                   |
-| Codice demo              | Simulatore, edge, backend, web app.                                          |
-| Test                     | Unitari e integrazione.                                                      |
-
----
-
-## 20. Conclusione
-
-BoardHub e’ una proposta progettuale coerente con le richieste PISSIR perche’ combina un dominio fisico riconoscibile, il tavolo D&D/fantasy, con un’architettura distribuita completa. Il progetto permette di mostrare in modo concreto come un evento generato da un gioco fisico possa attraversare sensori o simulatori, edge computing, MQTT, microservizi, database e interfaccia web.
-
-La forza dell’idea e’ la sua doppia natura: da un lato e’ comprensibile e presentabile come servizio per un locale ludico, dall’altro contiene tutti gli elementi tecnici richiesti dal corso. Per mantenerla realizzabile, e’ fondamentale limitare lo scope al tavolo D&D smart, usare sensori emulati per la demo, implementare l’offline sync in forma semplice e trattare prenotazioni avanzate, shop, OAuth, notifiche e hardware reale come estensioni future.
-
-La versione consigliata per l’esame e’ quindi un MVP solido: un locale demo, un tavolo D&D connesso, un simulatore di eventi, un edge locale con buffer offline, un broker MQTT, un backend REST a microservizi e una web app capace di mostrare stato, eventi e statistiche in tempo reale.
+Il progetto resta quindi centrato su reti, servizi, comunicazione e sistemi distribuiti. L'app mobile e la dashboard servono a rendere visibile il sistema, ma non sostituiscono la parte tecnica principale.

@@ -1,47 +1,77 @@
 # BoardHub
 
-**Connected Games Platform for Smart Venues**
+**Connected D&D Board Platform**
 
-BoardHub e una piattaforma sperimentale per collegare tavoli D&D/fantasy fisici a un sistema digitale tramite eventi MQTT, backend REST, database e interfaccia web.
+BoardHub è una piattaforma distribuita per sessioni di **Dungeons & Dragons** giocate su una plancia fisica connessa o simulata.
 
-Lo stato attuale del progetto copre la prima pipeline applicativa:
+Il progetto collega un tavolo di gioco a componenti software di rete: una plancia o un simulatore genera eventi, un nodo edge li raccoglie, MQTT li trasporta verso il backend, PostgreSQL conserva lo storico e le API REST rendono i dati disponibili ad applicazioni client.
 
 ```text
-simulatore Python -> broker MQTT Mosquitto -> event-service Java/Spring Boot -> PostgreSQL
+plancia fisica / simulatore
+-> nodo edge
+-> broker MQTT
+-> event-service Java/Spring Boot
+-> PostgreSQL
+-> API REST
+-> app mobile / dashboard
 ```
 
-## Struttura
+I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del Dungeon Master e algoritmi previsti sono descritti in [PROJECT_SCOPE.md](PROJECT_SCOPE.md).
 
-| Cartella | Scopo |
+## Stato attuale
+
+| Area | Stato |
 | :--- | :--- |
-| `docker/` | Infrastruttura locale con PostgreSQL e Mosquitto. |
-| `docs/` | Documentazione condivisa: contratti e changelog. |
-| `services/event-service/` | Primo microservizio Spring Boot che ascolta e salva gli eventi MQTT di gioco. |
-| `simulator/` | Script Python per pubblicare e leggere eventi MQTT demo. |
+| Infrastruttura Docker | Implementata con Mosquitto MQTT e PostgreSQL. |
+| Contratti REST/MQTT | Definiti in `docs/CONTRATTI_DI_COMUNICAZIONE.md`. |
+| Simulatore Python | Implementato per pubblicare una mini-sessione D&D su MQTT. |
+| Subscriber Python | Implementato per leggere gli eventi MQTT in forma comprensibile. |
+| `event-service` | Implementato come microservizio Spring Boot che riceve eventi MQTT. |
+| Persistenza eventi | Implementata su PostgreSQL tramite repository JDBC. |
+| API REST eventi | Implementata con `GET /api/v1/sessions/{sessionId}/events`. |
+| OpenAPI | Specifica iniziale disponibile in `docs/openapi/event-service.openapi.yml`. |
+| Modello griglia | Implementato per posizioni, celle, terreno e richieste di movimento. |
+| Algoritmo movimento | Implementato con Dijkstra semplificato. |
+| API celle raggiungibili | Implementata con `POST /api/v1/movement/reachable-cells`. |
+| App mobile / dashboard | Da implementare. |
+
+## Struttura del repository
+
+| Percorso | Contenuto |
+| :--- | :--- |
+| `docker/` | Configurazione locale di Mosquitto e PostgreSQL. |
+| `docs/` | Changelog pubblico, contratti di comunicazione e specifica OpenAPI. |
+| `services/event-service/` | Microservizio Java/Spring Boot per ricezione, salvataggio e lettura degli eventi. |
+| `simulator/` | Script Python per pubblicare e leggere eventi MQTT dimostrativi. |
 
 ## Avvio rapido
 
-Avviare i servizi locali:
+Avviare Mosquitto e PostgreSQL:
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-Controllare lo stato:
+Controllare lo stato dei container:
 
 ```bash
 docker compose -f docker/docker-compose.yml ps
 ```
 
-Avviare il subscriber leggibile:
+Avviare il backend:
 
 ```bash
-cd simulator
-source .venv/bin/activate
-python subscribe_events.py
+cd services/event-service
+mvn spring-boot:run
 ```
 
-In un secondo terminale pubblicare la mini-sessione D&D:
+Verificare lo stato del servizio:
+
+```bash
+curl http://localhost:8082/actuator/health
+```
+
+In un altro terminale, pubblicare una mini-sessione D&D:
 
 ```bash
 cd simulator
@@ -49,39 +79,34 @@ source .venv/bin/activate
 python publish_event.py
 ```
 
-Avviare il backend che riceve gli eventi MQTT:
+Leggere gli eventi salvati:
 
 ```bash
-cd services/event-service
-mvn spring-boot:run
+curl http://localhost:8082/api/v1/sessions/session-20260630-001/events
 ```
 
-Verificare che il service sia attivo:
+Calcolare le celle raggiungibili:
 
 ```bash
-curl http://localhost:8082/actuator/health
+curl -X POST http://localhost:8082/api/v1/movement/reachable-cells \
+  -H "Content-Type: application/json" \
+  -d '{"characterId":"adv-01","start":"A1","movementPoints":2,"grid":{"width":3,"height":3,"traps":[{"trapId":"trap-01","cell":"B1","visibility":"HIDDEN","armed":true}]}}'
 ```
 
-Eseguire i test automatici del service:
+Eseguire i test automatici:
 
 ```bash
 cd services/event-service
 mvn test
 ```
 
-Nota: se il volume Docker di PostgreSQL esisteva gia prima dell'aggiunta della tabella `game_schema.game_events`, lo script `docker/postgres/init.sql` potrebbe non essere rieseguito automaticamente. In quel caso occorre ricreare il volume o applicare manualmente lo schema aggiornato.
-
 ## Documentazione
 
+- [Project Scope](PROJECT_SCOPE.md)
 - [Contratti di comunicazione](docs/CONTRATTI_DI_COMUNICAZIONE.md)
+- [Specifica OpenAPI event-service](docs/openapi/event-service.openapi.yml)
 - [Changelog](docs/CHANGELOG.md)
 
-## Stato
+## Note operative
 
-- Docker locale configurato.
-- Contratti REST/MQTT definiti.
-- Simulatore MQTT funzionante.
-- Subscriber MQTT leggibile funzionante.
-- Primo backend Java/Spring Boot implementato come subscriber MQTT.
-- Repository JDBC per salvare eventi su PostgreSQL implementato e testato con H2.
-- Web app ancora da implementare.
+Se il volume Docker di PostgreSQL esisteva già prima dell'aggiunta della tabella `game_schema.game_events`, lo script `docker/postgres/init.sql` potrebbe non essere rieseguito automaticamente. In quel caso occorre ricreare il volume o applicare manualmente lo schema aggiornato.

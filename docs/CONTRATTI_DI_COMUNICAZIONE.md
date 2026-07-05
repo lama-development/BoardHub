@@ -13,22 +13,38 @@ L'obiettivo e stabilire in modo esplicito:
 
 Il documento segue un approccio **contract-first**: le interfacce vengono definite prima dell'implementazione dei servizi applicativi, in modo da ridurre ambiguita tra frontend, backend, simulatore e componente edge.
 
-Questa versione descrive il contratto iniziale dell'MVP e si concentra sul nucleo rilevante per PISSIR: generazione, trasmissione, ricezione, ordinamento e persistenza degli eventi di gioco.
+Questa versione descrive il contratto iniziale dell'MVP e si concentra sul nucleo rilevante per PISSIR: generazione, trasmissione, ricezione, ordinamento e persistenza degli eventi di gioco prodotti da una plancia D&D fisica o simulata.
 
 ## 2. Componenti coinvolti
 
 | Componente | Responsabilita | Protocollo principale |
 | :--- | :--- | :--- |
-| **Web App / Dashboard** | Visualizza sessioni live, eventi ricevuti, stato della partita e statistiche tecniche. | HTTP/REST |
+| **App Mobile Giocatore** | Associa pedina e personaggio, mostra turno, azioni, dadi e registro combattimento. | HTTP/REST |
+| **Dashboard/App Dungeon Master** | Avvia sessione, imposta mappa, mostri, muri, trappole, turni e round. | HTTP/REST |
+| **Plancia fisica / simulata** | Rappresenta la griglia D&D, rileva o simula posizione pedine e feedback visivo. | MQTT |
 | **Backend BoardHub** | Espone API REST, valida i dati, persiste eventi e stato delle sessioni. | HTTP/REST, MQTT |
 | **Broker MQTT Mosquitto** | Smista i messaggi asincroni tra simulatori, edge e backend. | MQTT |
-| **Simulatore software** | Genera eventi di gioco in sostituzione dei sensori fisici. | MQTT |
-| **Componente Edge** | Rappresenta il nodo connesso associato al tavolo di gioco, bufferizza eventi e comunica con il broker. | MQTT |
+| **Simulatore software** | Genera eventi di gioco in sostituzione temporanea della plancia fisica. | MQTT |
+| **Componente Edge** | Nodo associato al tavolo: bufferizza eventi, valida dati locali e comunica con il broker. | MQTT |
 | **PostgreSQL** | Memorizza eventi, sessioni e informazioni utili a ricostruire lo stato della partita. | SQL interno |
 
 Il database non viene esposto direttamente ai client. Tutto l'accesso ai dati deve passare dal backend.
 
-### 2.1 Implementazione attuale
+### 2.1 Regole operative del tavolo
+
+Il tavolo BoardHub rappresenta una sessione D&D fisica o simulata. Per l'MVP il dominio viene limitato a poche regole operative, sufficienti per generare eventi chiari e verificabili:
+
+| Area | Regola | Effetto sui contratti |
+| :--- | :--- | :--- |
+| Accesso giocatore | Il giocatore usa l'app mobile e associa una pedina tramite QR/NFC. | Eventi `PLAYER_JOINED`, `TOKEN_ASSIGNED`, `CHARACTER_CREATED`. |
+| Preparazione mappa | Il Dungeon Master posiziona personaggi, creature, muri, ostacoli, terreno difficile e trappole visibili o nascoste. | Eventi `TOKEN_PLACED`, `SPAWN_MONSTER`, `WALL`, `OBSTACLE`, `TERRAIN_UPDATED`, `TRAP_REVEALED`, `TRAP_TRIGGERED`. |
+| Movimento | Il movimento dipende da velocita, casella iniziale e costo del terreno. | Eventi `REACHABLE_CELLS_CALCULATED`, `MOVE_CONFIRMED`, `MOVE_REJECTED`. |
+| Dadi | Il set previsto e `d4`, `d6`, `d8`, `d10`, `d%`, `d12`, `d20`. | Eventi `DICE_ROLLED`; il `d20` e usato per prove/attacchi, gli altri per danni/effetti. |
+| Turni e round | Il Dungeon Master controlla l'avanzamento logico del combattimento. | Eventi `TURN_STARTED`, `ROUND_END`, `SESSION_END`. |
+
+I contratti non automatizzano tutto il regolamento D&D. Descrivono solo le informazioni necessarie per dimostrare plancia connessa, comunicazione MQTT, persistenza e consultazione tramite API.
+
+### 2.2 Implementazione attuale
 
 | Componente | Stato | Note |
 | :--- | :--- | :--- |
@@ -36,7 +52,7 @@ Il database non viene esposto direttamente ai client. Tutto l'accesso ai dati de
 | Simulatore software | Implementato | Pubblica una mini-sessione D&D ordinata sul topic `events`. |
 | Subscriber backend | Implementato | `event-service` riceve e interpreta gli eventi MQTT. |
 | Persistenza eventi | Implementata e verificata | `event-service` salva gli eventi in `game_schema.game_events`; test end-to-end eseguito con PostgreSQL Docker. |
-| API REST applicative | Da implementare | Gli endpoint sono gia definiti come contratto, ma non ancora esposti. |
+| API REST eventi | Implementata | `event-service` espone gli eventi persistiti tramite `GET /api/v1/sessions/{sessionId}/events`. |
 
 ## 3. Convenzioni di naming
 
@@ -48,9 +64,12 @@ Per evitare ambiguita tra documentazione, codice, payload JSON e database, i con
 | Tavolo | `tableId` | `table-04` |
 | Sessione di gioco | `sessionId` | `session-20260630-001` |
 | Evento | `eventId` | `evt-000042` |
+| Giocatore | `playerId` | `player-01` |
 | Avventuriero / personaggio | `characterId` | `adv-01` |
+| Pedina fisica | `tokenId` | `token-adv-01` |
 | Mostro | `monsterId` | `mon-03` |
 | Nodo edge | `edgeId` | `edge-venue-01-table-04` |
+| Cella della griglia | `cell` | `A3` |
 
 Nota: in questa fase `venueId` e usato solo come identificativo tecnico per separare una sorgente di eventi da un'altra.
 
@@ -73,6 +92,12 @@ Base path:
 /api/v1
 ```
 
+La specifica OpenAPI dell'`event-service` e disponibile in:
+
+```text
+docs/openapi/event-service.openapi.yml
+```
+
 ### 4.1 Endpoint infrastrutturali
 
 | Metodo | Endpoint | Scopo |
@@ -88,16 +113,107 @@ Base path:
 
 Questi endpoint sono opzionali per l'MVP. La parte prioritaria resta la lettura delle sessioni e degli eventi persistiti.
 
-### 4.3 Sessioni di gioco
+### 4.3 Sessioni di gioco e stato
 
 | Metodo | Endpoint | Scopo |
 | :--- | :--- | :--- |
 | `POST` | `/api/v1/sessions` | Crea una nuova sessione di gioco dimostrativa. |
 | `GET` | `/api/v1/sessions/{sessionId}` | Restituisce lo stato corrente della sessione. |
-| `GET` | `/api/v1/sessions/{sessionId}/events` | Restituisce lo storico eventi della sessione. |
+| `GET` | `/api/v1/sessions/{sessionId}/events` | Restituisce lo storico eventi della sessione, ordinato per `sequenceNumber`. |
 | `GET` | `/api/v1/sessions/{sessionId}/stats` | Restituisce statistiche aggregate della sessione. |
+| `POST` | `/api/v1/movement/reachable-cells` | Calcola le celle raggiungibili su una griglia fornita nella richiesta. |
 
-### 4.4 Esempio creazione sessione
+L'endpoint `reachable-cells` e implementato come operazione `POST` perche riceve una griglia completa: dimensioni, terreno difficile, celle bloccate, celle occupate, muri e trappole. In una fase successiva potra essere collegato direttamente allo stato persistito di una sessione.
+
+### 4.4 Esempio calcolo celle raggiungibili
+
+Richiesta:
+
+```http
+POST /api/v1/movement/reachable-cells
+Content-Type: application/json
+```
+
+```json
+{
+  "characterId": "adv-01",
+  "start": "A1",
+  "movementPoints": 2,
+  "grid": {
+    "width": 3,
+    "height": 3,
+    "difficultCells": ["C1"],
+    "blockedCells": ["A2"],
+    "obstacleCells": [],
+    "occupiedCells": [],
+    "walls": [
+      { "cell": "B1", "direction": "SOUTH" }
+    ],
+    "traps": [
+      {
+        "trapId": "trap-01",
+        "cell": "B1",
+        "visibility": "HIDDEN",
+        "armed": true
+      }
+    ]
+  }
+}
+```
+
+Risposta:
+
+```json
+{
+  "characterId": "adv-01",
+  "reachableCells": [
+    {
+      "cell": "A1",
+      "cost": 0,
+      "path": ["A1"],
+      "trapsOnPath": []
+    },
+    {
+      "cell": "B1",
+      "cost": 1,
+      "path": ["A1", "B1"],
+      "trapsOnPath": ["trap-01"]
+    }
+  ]
+}
+```
+
+### 4.5 Esempio lettura eventi sessione
+
+Richiesta:
+
+```http
+GET /api/v1/sessions/session-20260630-001/events
+```
+
+Risposta:
+
+```json
+[
+  {
+    "eventId": "evt-000042",
+    "eventType": "MOVE",
+    "venueId": "venue-01",
+    "tableId": "table-04",
+    "sessionId": "session-20260630-001",
+    "source": "SIMULATOR",
+    "occurredAt": "2026-06-30T17:45:00Z",
+    "sequenceNumber": 2,
+    "payload": {
+      "characterId": "adv-01",
+      "from": "A3",
+      "to": "A4"
+    }
+  }
+]
+```
+
+### 4.6 Esempio creazione sessione
 
 Richiesta:
 
@@ -152,13 +268,103 @@ boardhub/v1/venues/venue-01/tables/table-04/events
 | :--- | :--- |
 | `SESSION_START` | Avvio di una nuova sessione. |
 | `SESSION_END` | Chiusura di una sessione. |
+| `PLAYER_JOINED` | Un giocatore entra nella sessione. |
+| `TOKEN_ASSIGNED` | Una pedina fisica viene associata a giocatore e personaggio. |
+| `CHARACTER_CREATED` | Creazione o configurazione del personaggio. |
+| `ENCOUNTER_START` | Avvio di un combattimento da parte del Dungeon Master. |
+| `TOKEN_PLACED` | Posizionamento iniziale di una pedina sulla griglia. |
+| `TURN_STARTED` | Inizio turno di un personaggio o mostro. |
+| `REACHABLE_CELLS_CALCULATED` | Calcolo delle celle raggiungibili per il movimento. |
 | `MOVE` | Movimento di un personaggio o mostro sulla griglia. |
+| `MOVE_CONFIRMED` | Movimento accettato dal sistema. |
+| `MOVE_REJECTED` | Movimento rifiutato per distanza, muro tra celle, ostacolo o casella non valida. |
 | `SPAWN_MONSTER` | Creazione di un mostro sulla mappa. |
+| `DICE_ROLLED` | Tiro di dado digitale registrato dall'app. |
 | `ATTACK` | Attacco tra due entita. |
 | `DAMAGE` | Applicazione di danno a un bersaglio. |
 | `OBSTACLE` | Inserimento di un ostacolo sulla mappa. |
-| `WALL` | Inserimento o modifica di una parete. |
+| `WALL` | Inserimento o modifica di una parete sul bordo tra due celle. |
+| `TERRAIN_UPDATED` | Modifica del tipo di terreno di una o piu caselle. |
+| `TRAP_REVEALED` | Rivelazione di una trappola. |
+| `TRAP_TRIGGERED` | Attivazione di una trappola attraversata o raggiunta da un personaggio. |
 | `ROUND_END` | Fine di un round di gioco. |
+
+### 5.2 Regole di movimento D&D per l'MVP
+
+Per l'MVP BoardHub si assume una griglia D&D semplificata:
+
+- una casella e l'unita logica della plancia, circa 1,5 metri;
+- un personaggio standard puo avere 6 punti movimento per turno;
+- una casella normale costa 1 punto movimento;
+- una casella di terreno difficile costa 2 punti movimento;
+- il movimento puo essere ortogonale o diagonale;
+- una diagonale costa quanto la casella di arrivo;
+- una diagonale non puo tagliare angoli bloccati da muri o celle non attraversabili;
+- il movimento non dipende dal tiro di dado;
+- i muri stanno sui bordi tra celle adiacenti e bloccano il passaggio;
+- ostacoli, celle inaccessibili e caselle occupate bloccano l'ingresso nella casella;
+- le trappole non bloccano necessariamente il movimento e possono restare nascoste ai giocatori;
+- una trappola nascosta puo essere rivelata con una prova o attivata quando il percorso la attraversa;
+- il sistema deve distinguere movimento valido e movimento non valido.
+
+Il calcolo interno delle celle raggiungibili usa Dijkstra semplificato sulla griglia. Questo permette alla plancia o all'app di mostrare al giocatore solo le caselle valide anche quando sono presenti terreni con costi diversi.
+
+Quando il movimento non viene eseguito passo per passo, il backend mantiene anche il percorso scelto dall'algoritmo. Questo serve a verificare se il tragitto attraversa una casella con trappola, anche se la casella finale e diversa.
+
+### 5.3 Regole dei dadi per l'MVP
+
+I dadi possono essere tirati fisicamente e registrati dal Dungeon Master oppure tirati digitalmente dall'app. Per la demo e preferibile il tiro digitale, perche produce un evento verificabile e sincronizzato.
+
+| Dado | Uso principale nel progetto |
+| :--- | :--- |
+| `d20` | Prove, attacchi e tiri salvezza semplificati. |
+| `d4`, `d6`, `d8`, `d10`, `d12` | Danni o effetti. |
+| `d%` | Valori percentuali opzionali, non prioritari per l'MVP. |
+
+Esempio evento di tiro dado:
+
+```json
+{
+  "eventId": "evt-000056",
+  "eventType": "DICE_ROLLED",
+  "venueId": "venue-01",
+  "tableId": "table-04",
+  "sessionId": "session-20260630-001",
+  "source": "APP",
+  "occurredAt": "2026-06-30T17:50:00Z",
+  "sequenceNumber": 56,
+  "payload": {
+    "characterId": "adv-01",
+    "dice": "1d20",
+    "modifier": 3,
+    "result": 17,
+    "total": 20,
+    "reason": "ATTACK_ROLL"
+  }
+}
+```
+
+Esempio evento di movimento rifiutato:
+
+```json
+{
+  "eventId": "evt-000055",
+  "eventType": "MOVE_REJECTED",
+  "venueId": "venue-01",
+  "tableId": "table-04",
+  "sessionId": "session-20260630-001",
+  "source": "EDGE",
+  "occurredAt": "2026-06-30T17:49:00Z",
+  "sequenceNumber": 55,
+  "payload": {
+    "characterId": "adv-01",
+    "from": "A3",
+    "to": "A10",
+    "reason": "OUT_OF_RANGE",
+    "maxCells": 6
+  }
+}
+```
 
 ## 6. Formato standard degli eventi
 
@@ -218,7 +424,30 @@ Tutti gli eventi MQTT pubblicati sul topic `events` devono rispettare questa str
 }
 ```
 
-### 6.3 Esempio status del nodo edge
+### 6.3 Esempio associazione pedina
+
+Questo evento rappresenta l'associazione tra giocatore, personaggio e pedina fisica tramite QR code o NFC.
+
+```json
+{
+  "eventId": "evt-000010",
+  "eventType": "TOKEN_ASSIGNED",
+  "venueId": "venue-01",
+  "tableId": "table-04",
+  "sessionId": "session-20260630-001",
+  "source": "MOBILE_APP",
+  "occurredAt": "2026-06-30T17:40:00Z",
+  "sequenceNumber": 10,
+  "payload": {
+    "playerId": "player-01",
+    "characterId": "adv-01",
+    "tokenId": "token-adv-01",
+    "assignmentMethod": "QR"
+  }
+}
+```
+
+### 6.4 Esempio status del nodo edge
 
 Topic:
 
@@ -285,14 +514,14 @@ Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazi
 | Campo | Valore |
 | :--- | :--- |
 | Versione | `0.1` |
-| Stato | Contratto iniziale con primo subscriber backend implementato |
-| Data | 2026-07-02 |
+| Stato | Contratto iniziale con subscriber, persistenza e prima API REST eventi implementati |
+| Data | 2026-07-03 |
 | Ambito | MVP BoardHub |
 
 Prossimi passi:
 
 - validare il contratto con il collaboratore;
 - trasformare gli endpoint REST in una specifica OpenAPI;
-- esporre una prima API REST per leggere gli eventi salvati;
+- aggiungere filtri o paginazione alla lettura eventi se il volume dati cresce;
 - verificare i payload con MQTT Explorer;
 - usare questi contratti come base per l'implementazione backend.

@@ -1,0 +1,315 @@
+openapi: 3.0.3
+info:
+  title: BoardHub Event Service API
+  version: 0.8.0
+  description: API REST dell'event-service BoardHub per leggere eventi di gioco e calcolare movimenti su griglia.
+servers:
+  - url: http://localhost:8082
+    description: Ambiente locale di sviluppo
+tags:
+  - name: Health
+    description: Stato tecnico del servizio
+  - name: Events
+    description: Lettura eventi di gioco
+  - name: Movement
+    description: Calcolo movimento su griglia
+paths:
+  /actuator/health:
+    get:
+      tags:
+        - Health
+      summary: Verifica lo stato del servizio
+      responses:
+        "200":
+          description: Servizio attivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                up:
+                  value:
+                    status: UP
+  /api/v1/sessions/{sessionId}/events:
+    get:
+      tags:
+        - Events
+      summary: Restituisce gli eventi salvati di una sessione
+      description: Gli eventi vengono restituiti in ordine crescente di sequenceNumber.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Identificativo della sessione di gioco.
+          schema:
+            type: string
+          example: session-20260630-001
+      responses:
+        "200":
+          description: Lista eventi della sessione
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameEvent"
+              examples:
+                moveEvent:
+                  value:
+                    - eventId: evt-000001
+                      eventType: MOVE
+                      venueId: venue-01
+                      tableId: table-04
+                      sessionId: session-20260630-001
+                      source: SIMULATOR
+                      occurredAt: "2026-06-30T17:45:00Z"
+                      sequenceNumber: 2
+                      payload:
+                        characterId: adv-01
+                        from: A3
+                        to: A4
+  /api/v1/movement/reachable-cells:
+    post:
+      tags:
+        - Movement
+      summary: Calcola le celle raggiungibili
+      description: Calcola celle raggiungibili, costo, percorso e trappole attraversate partendo da una griglia fornita nella richiesta.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReachableCellsRequest"
+            examples:
+              simpleMovement:
+                value:
+                  characterId: adv-01
+                  start: A1
+                  movementPoints: 2
+                  grid:
+                    width: 3
+                    height: 3
+                    difficultCells:
+                      - C1
+                    blockedCells:
+                      - A2
+                    obstacleCells: []
+                    occupiedCells: []
+                    walls:
+                      - cell: B1
+                        direction: SOUTH
+                    traps:
+                      - trapId: trap-01
+                        cell: B1
+                        visibility: HIDDEN
+                        armed: true
+      responses:
+        "200":
+          description: Celle raggiungibili calcolate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReachableCellsResponse"
+              examples:
+                reachableCells:
+                  value:
+                    characterId: adv-01
+                    reachableCells:
+                      - cell: A1
+                        cost: 0
+                        path:
+                          - A1
+                        trapsOnPath: []
+                      - cell: B1
+                        cost: 1
+                        path:
+                          - A1
+                          - B1
+                        trapsOnPath:
+                          - trap-01
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: UP
+      required:
+        - status
+    GameEvent:
+      type: object
+      properties:
+        eventId:
+          type: string
+          example: evt-000001
+        eventType:
+          type: string
+          example: MOVE
+        venueId:
+          type: string
+          example: venue-01
+        tableId:
+          type: string
+          example: table-04
+        sessionId:
+          type: string
+          example: session-20260630-001
+        source:
+          type: string
+          example: SIMULATOR
+        occurredAt:
+          type: string
+          format: date-time
+          example: "2026-06-30T17:45:00Z"
+        sequenceNumber:
+          type: integer
+          format: int64
+          example: 2
+        payload:
+          type: object
+          additionalProperties: true
+          example:
+            characterId: adv-01
+            from: A3
+            to: A4
+      required:
+        - eventId
+        - eventType
+        - venueId
+        - tableId
+        - sessionId
+        - source
+        - occurredAt
+        - sequenceNumber
+        - payload
+    ReachableCellsRequest:
+      type: object
+      properties:
+        characterId:
+          type: string
+          example: adv-01
+        start:
+          type: string
+          example: A1
+        movementPoints:
+          type: integer
+          example: 2
+        grid:
+          $ref: "#/components/schemas/MovementGrid"
+      required:
+        - characterId
+        - start
+        - movementPoints
+        - grid
+    MovementGrid:
+      type: object
+      properties:
+        width:
+          type: integer
+          example: 3
+        height:
+          type: integer
+          example: 3
+        difficultCells:
+          type: array
+          items:
+            type: string
+          example: [C1]
+        blockedCells:
+          type: array
+          items:
+            type: string
+          example: [A2]
+        obstacleCells:
+          type: array
+          items:
+            type: string
+          example: []
+        occupiedCells:
+          type: array
+          items:
+            type: string
+          example: []
+        walls:
+          type: array
+          items:
+            $ref: "#/components/schemas/MovementWall"
+        traps:
+          type: array
+          items:
+            $ref: "#/components/schemas/MovementTrap"
+      required:
+        - width
+        - height
+    MovementWall:
+      type: object
+      properties:
+        cell:
+          type: string
+          example: B1
+        direction:
+          type: string
+          enum: [NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST, NORTH_WEST]
+          example: SOUTH
+      required:
+        - cell
+        - direction
+    MovementTrap:
+      type: object
+      properties:
+        trapId:
+          type: string
+          example: trap-01
+        cell:
+          type: string
+          example: B1
+        visibility:
+          type: string
+          enum: [HIDDEN, REVEALED, ALWAYS_HIDDEN]
+          example: HIDDEN
+        armed:
+          type: boolean
+          example: true
+      required:
+        - trapId
+        - cell
+        - visibility
+        - armed
+    ReachableCellsResponse:
+      type: object
+      properties:
+        characterId:
+          type: string
+          example: adv-01
+        reachableCells:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachableCell"
+      required:
+        - characterId
+        - reachableCells
+    ReachableCell:
+      type: object
+      properties:
+        cell:
+          type: string
+          example: B1
+        cost:
+          type: integer
+          example: 1
+        path:
+          type: array
+          items:
+            type: string
+          example: [A1, B1]
+        trapsOnPath:
+          type: array
+          items:
+            type: string
+          example: [trap-01]
+      required:
+        - cell
+        - cost
+        - path
+        - trapsOnPath

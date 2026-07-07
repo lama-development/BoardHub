@@ -42,6 +42,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | `docker/` | Configurazione locale di Mosquitto e PostgreSQL. |
 | `docs/` | Changelog pubblico, contratti di comunicazione e specifica OpenAPI. |
 | `services/event-service/` | Microservizio Java/Spring Boot per ricezione, salvataggio e lettura degli eventi. |
+| `frontend/` | Dashboard web per monitorare eventi e stato minimo di una sessione. |
 | `simulator/` | Script Python per pubblicare e leggere eventi MQTT dimostrativi. |
 
 ## Avvio rapido
@@ -84,6 +85,16 @@ Leggere gli eventi salvati:
 ```bash
 curl http://localhost:8082/api/v1/sessions/session-20260630-001/events
 ```
+
+Avviare la dashboard:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Aprire `http://localhost:5173` e usare `session-20260630-001` per leggere gli eventi della mini-sessione pubblicata dal simulatore.
 
 Calcolare le celle raggiungibili:
 

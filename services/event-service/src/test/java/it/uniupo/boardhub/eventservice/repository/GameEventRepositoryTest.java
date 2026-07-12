@@ -42,6 +42,7 @@ class GameEventRepositoryTest {
                     received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """);
+        jdbcTemplate.execute("CREATE UNIQUE INDEX uq_game_events_session_sequence ON game_schema.game_events (session_id, sequence_number)");
     }
 
     @Test
@@ -126,5 +127,20 @@ class GameEventRepositoryTest {
 
         assertThat(events).extracting(GameEvent::eventType).containsExactly("MOVE", "DAMAGE");
         assertThat(events.get(0).payload().get("characterId").asText()).isEqualTo("adv-01");
+    }
+
+    @Test
+    void ignoraUnaSequenzaDuplicataNellaStessaSessione() throws Exception {
+        GameEvent firstEvent = new GameEvent(
+                "evt-000001", "MOVE", "venue-01", "table-04", "session-20260702-001",
+                "SIMULATOR", "2026-07-02T10:00:00Z", 1, objectMapper.readTree("{}")
+        );
+        GameEvent duplicateSequence = new GameEvent(
+                "evt-000002", "DAMAGE", "venue-01", "table-04", "session-20260702-001",
+                "SIMULATOR", "2026-07-02T10:00:01Z", 1, objectMapper.readTree("{}")
+        );
+
+        assertThat(repository.save(firstEvent)).isTrue();
+        assertThat(repository.save(duplicateSequence)).isFalse();
     }
 }

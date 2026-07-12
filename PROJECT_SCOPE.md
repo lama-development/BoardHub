@@ -4,7 +4,9 @@
 
 BoardHub e una piattaforma distribuita per sessioni fisiche di **Dungeons & Dragons** giocate su una plancia connessa.
 
-Il progetto immagina un locale ludico con piu tavoli. Ogni tavolo puo ospitare una sessione D&D e puo essere dotato di una plancia fisica intelligente. La plancia comunica con un nodo edge locale, il nodo edge invia eventi tramite MQTT, il backend centrale salva e rende disponibili gli eventi tramite API REST, mentre giocatori e Dungeon Master usano un'app mobile o una dashboard.
+Il progetto immagina un locale ludico con piu tavoli. Ogni tavolo puo ospitare una sessione D&D e puo essere dotato di una plancia fisica intelligente. Nell'architettura completa la plancia comunica con un nodo edge locale, che invia eventi tramite MQTT; il backend centrale li salva e li rende disponibili tramite API REST a giocatori e Dungeon Master.
+
+L'MVP attuale simula plancia e sensori in software. Broker, backend, database, contratti e algoritmo di movimento sono operativi; nodo edge, app mobile e rilevamento fisico restano fasi successive.
 
 L'obiettivo per PISSIR non e realizzare un gestionale commerciale del locale, ma dimostrare un sistema distribuito che collega un oggetto fisico a servizi di rete.
 
@@ -78,7 +80,7 @@ Le regole D&D gestite dall'MVP sono intenzionalmente limitate:
 7. Se sceglie il movimento, il sistema calcola le caselle raggiungibili.
 8. La plancia o l'app mostra le caselle valide.
 9. Il giocatore sposta la pedina.
-10. Il nodo edge rileva o riceve la nuova posizione.
+10. Il simulatore, e in futuro il nodo edge, riceve la nuova posizione.
 11. Se serve un tiro, l'app registra il risultato del dado come evento.
 12. Il backend salva gli eventi e li rende disponibili tramite API REST.
 
@@ -135,7 +137,7 @@ dove `V` e il numero di caselle e `E` il numero di collegamenti tra caselle. Su 
 | Ordinamento eventi per `sequenceNumber` | Implementato | `event-service`, lettura eventi sessione. | Ricostruisce l'ordine logico degli eventi salvati. |
 | Dijkstra semplificato | Implementato | Movimento su griglia. | Gestisce costi del terreno, celle non attraversabili e muri tra celle adiacenti. |
 | Parser dadi | Da implementare | Tiri digitali dall'app mobile. | Interpreta formule come `1d20+3` e registra risultati verificabili. |
-| Verifica trappole sul percorso | Implementata nel calcolo movimento | Movimento su griglia. | Controlla se il percorso scelto attraversa caselle con trappole nascoste o rivelate. |
+| Verifica trappole sul percorso | Implementata internamente; trappole nascoste mascherate nelle API client | Movimento su griglia. | Permette al backend di rilevare il percorso interessato senza rivelare informazioni riservate al giocatore. |
 | Event replay | Da implementare | Ricostruzione stato partita. | Applica gli eventi in ordine per ricavare stato corrente. |
 | Linea di vista | Estensione futura | Attacchi a distanza e magie. | Verifica se muri, ostacoli o celle bloccate interrompono la visibilita. |
 
@@ -143,9 +145,9 @@ dove `V` e il numero di caselle e `E` il numero di collegamenti tra caselle. Su 
 
 La BFS e corretta solo se ogni passaggio tra caselle ha lo stesso costo. BoardHub deve invece considerare anche il terreno difficile, che consuma piu movimento. Per questo Dijkstra e piu adatto come algoritmo principale del movimento.
 
-## 7. Validazione del movimento
+## 7. Conferma del movimento prevista
 
-Quando il giocatore prova a spostare una pedina, il sistema confronta la casella di arrivo con le caselle raggiungibili.
+Il backend attuale calcola l'insieme delle caselle raggiungibili, ma non aggiorna ancora la posizione persistita. Il passo applicativo successivo confrontera la destinazione scelta con questo insieme e produrra uno dei seguenti eventi.
 
 | Caso | Evento | Effetto |
 | :--- | :--- | :--- |
@@ -169,7 +171,9 @@ Esempio:
 }
 ```
 
-## 8. Eventi principali
+## 8. Eventi
+
+Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAWN_MONSTER`, `ATTACK`, `DAMAGE` e `ROUND_END`. Gli eventi seguenti descrivono il dominio previsto e non sono tutti ancora implementati.
 
 | Evento | Significato |
 | :--- | :--- |
@@ -230,10 +234,15 @@ Esempio:
 | Simulatore Python | Implementato | Simula eventi della plancia. |
 | `event-service` Spring Boot | Implementato | Riceve eventi MQTT, salva su DB, espone API REST. |
 | PostgreSQL | Implementato | Salva eventi in `game_schema.game_events`. |
+| Persistenza sessione/plancia | Base implementata | Memorizza sessione, celle configurate, muri e trappole della mappa. |
 | OpenAPI | Implementata | Documenta l'API REST esistente. |
+| API creazione sessione | Implementata | Permette di salvare una sessione con griglia iniziale. |
 | Modello griglia | Implementato | Rappresenta posizioni, celle, terreno e richieste di movimento. |
 | Algoritmo movimento | Implementato | Calcola celle raggiungibili, percorso e trappole attraversate. |
 | API celle raggiungibili | Implementata | Espone il risultato del movimento a dashboard/app. |
+| Ricostruzione griglia da sessione | Implementata | Trasforma lo stato persistito della sessione in `GameGrid`. |
+| API movimento da sessione | Implementata | Calcola le celle raggiungibili usando la griglia persistita della sessione. |
+| Limiti di elaborazione | Implementati | Proteggono il servizio da griglie oltre 2.500 celle e budget di movimento oltre 100. |
 | App mobile | Da implementare | Interfaccia giocatore/DM. |
 | Edge avanzato | Da implementare | Simulazione piu vicina alla plancia fisica. |
 
@@ -273,29 +282,26 @@ Gia realizzato:
 - modello logico della griglia D&D;
 - algoritmo di movimento con Dijkstra semplificato;
 - API REST `POST /api/v1/movement/reachable-cells`;
+- API REST per creare sessioni e calcolare il movimento dalla griglia persistita;
 - test automatici;
 - documentazione tecnica iniziale;
 - specifica OpenAPI dell'endpoint implementato.
 
 Prossimi passi consigliati:
 
-1. aggiungere eventi `MOVE_CONFIRMED`, `MOVE_REJECTED` e `TRAP_TRIGGERED`;
-2. aggiungere modello logico per personaggio, pedina e associazione QR/NFC;
-3. collegare il movimento a sessioni salvate invece che a una griglia inviata nel body;
-4. preparare una demo piu vicina alla plancia fisica.
+1. integrare e verificare la dashboard web sviluppata sul ramo remoto;
+2. aggiornare la posizione persistita e produrre `MOVE_CONFIRMED`, `MOVE_REJECTED` e `TRAP_TRIGGERED`;
+3. realizzare un edge simulato con coda offline e reinvio idempotente;
+4. aggiungere modello logico per personaggio, pedina e associazione QR/NFC;
+5. misurare traffico, latenza e comportamento durante una disconnessione;
+6. preparare una demo completa dal tavolo simulato alla dashboard.
 
-## 13. Perche il progetto resta coerente con PISSIR
+## 13. Fattibilita nel contesto reale
 
-BoardHub permette di mostrare:
+QR code e NFC identificano tavolo, pedina o personaggio, ma non misurano in modo continuo la posizione sulla griglia. Nell'MVP la posizione viene quindi prodotta dal simulatore; una plancia reale richiederebbe una matrice di sensori, lettori distribuiti o inserimento assistito dall'app.
 
-- oggetto fisico connesso;
-- nodo edge;
-- comunicazione MQTT;
-- broker publish/subscribe;
-- backend REST;
-- persistenza eventi;
-- sincronizzazione dello stato;
-- possibile funzionamento offline;
-- algoritmo distribuito/applicativo legato alla plancia.
+Nel locale il nodo edge deve aprire connessioni in uscita verso il broker, evitando configurazioni manuali del router. In produzione MQTT deve usare autenticazione e TLS; le porte Docker attuali sono invece limitate a `localhost` per lo sviluppo.
 
-Il progetto resta quindi centrato su reti, servizi, comunicazione e sistemi distribuiti. L'app mobile e la dashboard servono a rendere visibile il sistema, ma non sostituiscono la parte tecnica principale.
+La perdita temporanea della rete richiedera una coda persistente sul nodo edge. Ogni evento conserva `eventId`, `sessionId` e `sequenceNumber`; al ripristino della connessione l'edge potra ritrasmetterlo e il backend dovra ignorare i duplicati. Questa sincronizzazione offline e progettata nei contratti, ma non e ancora implementata.
+
+Il carico previsto e ridotto: gli eventi sono piccoli messaggi JSON generati alla velocita delle azioni umane. Il requisito e di tipo soft real-time: un aggiornamento entro poche centinaia di millisecondi rende la plancia reattiva, senza richiedere garanzie temporali hard real-time. La validazione sperimentale dovra comunque misurare dimensione dei messaggi, latenza, perdita e tempi di recupero.

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,6 +27,9 @@ public class MovementService {
 
         if (!grid.contains(request.start())) {
             throw new IllegalArgumentException("La posizione iniziale non appartiene alla griglia.");
+        }
+        if (!grid.cellAt(request.start()).terrainType().isWalkable()) {
+            throw new IllegalArgumentException("La posizione iniziale non e attraversabile.");
         }
 
         Map<GridPosition, Integer> costs = new HashMap<>();
@@ -99,19 +101,18 @@ public class MovementService {
             GridPosition target,
             Map<GridPosition, GridPosition> previous
     ) {
-        LinkedHashMap<GridPosition, Boolean> reversedPath = new LinkedHashMap<>();
+        List<GridPosition> reversedPath = new ArrayList<>();
         GridPosition current = target;
         while (current != null) {
-            reversedPath.put(current, true);
+            reversedPath.add(current);
             if (current.equals(start)) {
                 break;
             }
             current = previous.get(current);
         }
 
-        List<GridPosition> path = new ArrayList<>(reversedPath.keySet());
-        java.util.Collections.reverse(path);
-        return path;
+        java.util.Collections.reverse(reversedPath);
+        return List.copyOf(reversedPath);
     }
 
     // Restituisce la posizione vicina nella direzione richiesta, se resta in coordinate positive.

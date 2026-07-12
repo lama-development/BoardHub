@@ -72,6 +72,17 @@ class MovementServiceTest {
     }
 
     @Test
+    void rifiutaUnaPosizioneInizialeSuTerrenoBloccato() {
+        GameGrid grid = GameGrid.empty(3, 3)
+                .withCell(new GridCell(GridPosition.fromCell("B2"), TerrainType.BLOCKED, false));
+        MovementRequest request = new MovementRequest("adv-01", GridPosition.fromCell("B2"), 1);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.calculateReachableCells(grid, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("La posizione iniziale non e attraversabile.");
+    }
+
+    @Test
     void rispettaMuriTraCelleAdiacenti() {
         GridPosition b2 = GridPosition.fromCell("B2");
         GameGrid grid = GameGrid.empty(3, 3)

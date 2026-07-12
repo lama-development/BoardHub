@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: BoardHub Event Service API
-  version: 0.8.0
+  version: 0.15.0
   description: API REST dell'event-service BoardHub per leggere eventi di gioco e calcolare movimenti su griglia.
 servers:
   - url: http://localhost:8082
@@ -11,6 +11,8 @@ tags:
     description: Stato tecnico del servizio
   - name: Events
     description: Lettura eventi di gioco
+  - name: Sessions
+    description: Creazione e gestione sessioni di gioco
   - name: Movement
     description: Calcolo movimento su griglia
 paths:
@@ -30,6 +32,85 @@ paths:
                 up:
                   value:
                     status: UP
+  /api/v1/sessions:
+    post:
+      tags:
+        - Sessions
+      summary: Crea una sessione di gioco
+      description: Crea una sessione D&D attiva con configurazione iniziale della griglia.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGameSessionRequest"
+            examples:
+              demoSession:
+                value:
+                  sessionId: session-20260705-001
+                  venueId: venue-01
+                  tableId: table-04
+                  title: Cripta del Re Caduto
+                  gameType: DND
+                  grid:
+                    width: 3
+                    height: 3
+                    difficultCells:
+                      - C1
+                    blockedCells:
+                      - A2
+                    obstacleCells: []
+                    occupiedCells:
+                      - A1
+                    walls:
+                      - cell: B1
+                        direction: SOUTH
+                    traps:
+                      - trapId: trap-01
+                        cell: B1
+                        visibility: HIDDEN
+                        armed: true
+      responses:
+        "201":
+          description: Sessione creata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateGameSessionResponse"
+              examples:
+                created:
+                  value:
+                    sessionId: session-20260705-001
+                    venueId: venue-01
+                    tableId: table-04
+                    title: Cripta del Re Caduto
+                    gameType: DND
+                    status: ACTIVE
+                    gridWidth: 3
+                    gridHeight: 3
+                    createdAt: "2026-07-05T16:00:00Z"
+        "400":
+          description: Richiesta non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingGrid:
+                  value:
+                    code: BAD_REQUEST
+                    message: La griglia iniziale e obbligatoria.
+        "409":
+          description: Sessione gia esistente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                duplicateSession:
+                  value:
+                    code: DUPLICATE_SESSION
+                    message: "Sessione gia esistente: session-20260705-001"
   /api/v1/sessions/{sessionId}/events:
     get:
       tags:
@@ -125,8 +206,89 @@ paths:
                         path:
                           - A1
                           - B1
-                        trapsOnPath:
-                          - trap-01
+                        trapsOnPath: []
+        "400":
+          description: Richiesta non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidStart:
+                  value:
+                    code: BAD_REQUEST
+                    message: "Formato cella non valido: 1A"
+  /api/v1/sessions/{sessionId}/movement/reachable-cells:
+    post:
+      tags:
+        - Movement
+      summary: Calcola le celle raggiungibili da una sessione salvata
+      description: Ricostruisce la griglia persistita della sessione e calcola celle raggiungibili, costo, percorso e trappole attraversate.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Identificativo della sessione di gioco.
+          schema:
+            type: string
+          example: session-20260705-001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionReachableCellsRequest"
+            examples:
+              sessionMovement:
+                value:
+                  characterId: adv-01
+                  start: A1
+                  movementPoints: 2
+      responses:
+        "200":
+          description: Celle raggiungibili calcolate dalla griglia persistita
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReachableCellsResponse"
+              examples:
+                reachableCells:
+                  value:
+                    characterId: adv-01
+                    reachableCells:
+                      - cell: A1
+                        cost: 0
+                        path:
+                          - A1
+                        trapsOnPath: []
+                      - cell: B1
+                        cost: 1
+                        path:
+                          - A1
+                          - B1
+                        trapsOnPath: []
+        "400":
+          description: Richiesta non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidMovement:
+                  value:
+                    code: BAD_REQUEST
+                    message: I punti movimento non possono essere negativi.
+        "404":
+          description: Sessione non trovata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingSession:
+                  value:
+                    code: SESSION_NOT_FOUND
+                    message: "Sessione non trovata: session-non-esistente"
 components:
   schemas:
     HealthResponse:
@@ -183,17 +345,87 @@ components:
         - occurredAt
         - sequenceNumber
         - payload
+    CreateGameSessionRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: Identificativo opzionale; se assente viene generato dal backend.
+          example: session-20260705-001
+        venueId:
+          type: string
+          example: venue-01
+        tableId:
+          type: string
+          example: table-04
+        title:
+          type: string
+          example: Cripta del Re Caduto
+        gameType:
+          type: string
+          example: DND
+        grid:
+          $ref: "#/components/schemas/MovementGrid"
+      required:
+        - venueId
+        - tableId
+        - title
+        - grid
+    CreateGameSessionResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          example: session-20260705-001
+        venueId:
+          type: string
+          example: venue-01
+        tableId:
+          type: string
+          example: table-04
+        title:
+          type: string
+          example: Cripta del Re Caduto
+        gameType:
+          type: string
+          example: DND
+        status:
+          type: string
+          example: ACTIVE
+        gridWidth:
+          type: integer
+          example: 3
+        gridHeight:
+          type: integer
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-07-05T16:00:00Z"
+      required:
+        - sessionId
+        - venueId
+        - tableId
+        - title
+        - gameType
+        - status
+        - gridWidth
+        - gridHeight
+        - createdAt
     ReachableCellsRequest:
       type: object
       properties:
         characterId:
           type: string
+          minLength: 1
           example: adv-01
         start:
           type: string
           example: A1
         movementPoints:
           type: integer
+          minimum: 0
+          maximum: 100
           example: 2
         grid:
           $ref: "#/components/schemas/MovementGrid"
@@ -202,14 +434,36 @@ components:
         - start
         - movementPoints
         - grid
+    SessionReachableCellsRequest:
+      type: object
+      properties:
+        characterId:
+          type: string
+          minLength: 1
+          example: adv-01
+        start:
+          type: string
+          example: A1
+        movementPoints:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 2
+      required:
+        - characterId
+        - start
+        - movementPoints
     MovementGrid:
       type: object
+      description: La griglia deve contenere al massimo 2.500 celle complessive (width moltiplicato per height).
       properties:
         width:
           type: integer
+          minimum: 1
           example: 3
         height:
           type: integer
+          minimum: 1
           example: 3
         difficultCells:
           type: array
@@ -250,7 +504,7 @@ components:
           example: B1
         direction:
           type: string
-          enum: [NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST, NORTH_WEST]
+          enum: [NORTH, EAST, SOUTH, WEST]
           example: SOUTH
       required:
         - cell
@@ -289,6 +543,18 @@ components:
       required:
         - characterId
         - reachableCells
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: SESSION_NOT_FOUND
+        message:
+          type: string
+          example: "Sessione non trovata: session-non-esistente"
+      required:
+        - code
+        - message
     ReachableCell:
       type: object
       properties:
@@ -304,6 +570,7 @@ components:
             type: string
           example: [A1, B1]
         trapsOnPath:
+          description: Identificativi delle sole trappole gia rivelate ai giocatori.
           type: array
           items:
             type: string

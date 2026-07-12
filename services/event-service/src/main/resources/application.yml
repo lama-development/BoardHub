@@ -2,9 +2,9 @@ spring:
   application:
     name: event-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/boardhub_db
-    username: boardhub_user
-    password: boardhub_password
+    url: ${BOARDHUB_DB_URL:jdbc:postgresql://localhost:5432/boardhub_db}
+    username: ${BOARDHUB_DB_USERNAME:boardhub_user}
+    password: ${BOARDHUB_DB_PASSWORD:boardhub_password}
     driver-class-name: org.postgresql.Driver
 
 server:
@@ -18,7 +18,7 @@ management:
 
 boardhub:
   mqtt:
-    broker-uri: tcp://localhost:1883
-    client-id: boardhub-event-service
-    topic: boardhub/v1/venues/venue-01/tables/table-04/events
-    qos: 1
+    broker-uri: ${BOARDHUB_MQTT_BROKER_URI:tcp://localhost:1883}
+    client-id: ${BOARDHUB_MQTT_CLIENT_ID:boardhub-event-service}
+    topic: ${BOARDHUB_MQTT_TOPIC:boardhub/v1/venues/venue-01/tables/table-04/events}
+    qos: ${BOARDHUB_MQTT_QOS:1}

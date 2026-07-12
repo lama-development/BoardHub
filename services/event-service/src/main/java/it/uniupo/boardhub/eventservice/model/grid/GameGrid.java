@@ -14,6 +14,7 @@ public record GameGrid(
         Map<GridPosition, GridTrap> traps
 ) {
 
+    // Mantiene la griglia immutabile e valida fin dalla costruzione.
     public GameGrid {
         if (width < 1) {
             throw new IllegalArgumentException("La larghezza della griglia deve essere maggiore di zero.");
@@ -29,14 +30,17 @@ public record GameGrid(
         traps = Map.copyOf(traps);
     }
 
+    // Crea una griglia senza terreno speciale, muri o trappole.
     public static GameGrid empty(int width, int height) {
         return new GameGrid(width, height, Map.of(), Set.of(), Map.of());
     }
 
+    // Verifica se una posizione appartiene ai limiti della plancia.
     public boolean contains(GridPosition position) {
         return position.row() <= height && position.column() <= width;
     }
 
+    // Restituisce la cella configurata o una cella normale di default.
     public GridCell cellAt(GridPosition position) {
         if (!contains(position)) {
             throw new IllegalArgumentException("La posizione non appartiene alla griglia: " + position.toCell());
@@ -44,6 +48,7 @@ public record GameGrid(
         return cells.getOrDefault(position, new GridCell(position, TerrainType.NORMAL, false));
     }
 
+    // Aggiunge o sostituisce una cella mantenendo immutabile la griglia originale.
     public GameGrid withCell(GridCell cell) {
         if (!contains(cell.position())) {
             throw new IllegalArgumentException("La cella non appartiene alla griglia: " + cell.position().toCell());
@@ -54,6 +59,7 @@ public record GameGrid(
         return new GameGrid(width, height, updatedCells, walls, traps);
     }
 
+    // Registra un muro su entrambi i lati delle due celle adiacenti.
     public GameGrid withWall(GridWall wall) {
         if (!contains(wall.position())) {
             throw new IllegalArgumentException("Il muro parte da una cella fuori griglia: " + wall.position().toCell());
@@ -70,6 +76,7 @@ public record GameGrid(
         return new GameGrid(width, height, cells, updatedWalls, traps);
     }
 
+    // Aggiunge una trappola alla cella indicata.
     public GameGrid withTrap(GridTrap trap) {
         if (!contains(trap.position())) {
             throw new IllegalArgumentException("La trappola non appartiene alla griglia: " + trap.position().toCell());
@@ -80,6 +87,7 @@ public record GameGrid(
         return new GameGrid(width, height, cells, walls, updatedTraps);
     }
 
+    // Recupera la trappola presente sulla cella, se esiste.
     public GridTrap trapAt(GridPosition position) {
         if (!contains(position)) {
             throw new IllegalArgumentException("La posizione non appartiene alla griglia: " + position.toCell());
@@ -87,10 +95,12 @@ public record GameGrid(
         return traps.get(position);
     }
 
+    // Controlla se da una cella parte un muro nella direzione indicata.
     public boolean hasWall(GridPosition position, GridDirection direction) {
         return walls.contains(new GridWall(position, direction));
     }
 
+    // Controlla se il bordo tra due celle adiacenti e bloccato da un muro.
     public boolean hasWallBetween(GridPosition from, GridPosition to) {
         if (!contains(from) || !contains(to)) {
             throw new IllegalArgumentException("Le posizioni devono appartenere alla griglia.");

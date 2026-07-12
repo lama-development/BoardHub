@@ -23,4 +23,14 @@ class MovementRequestTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new MovementRequest("adv-01", GridPosition.fromCell("A3"), -1));
     }
+
+    @Test
+    void rifiutaPuntiMovimentoSproporzionati() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new MovementRequest(
+                        "adv-01",
+                        GridPosition.fromCell("A3"),
+                        MovementRequest.MAX_MOVEMENT_POINTS + 1
+                ));
+    }
 }

@@ -28,12 +28,14 @@ public class GameSessionRepository {
                 table_id,
                 title,
                 game_type,
+                public_summary,
+                accepting_join_requests,
                 status,
                 grid_width,
                 grid_height,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
     private static final String INSERT_CELL_SQL = """
@@ -73,6 +75,8 @@ public class GameSessionRepository {
                 table_id,
                 title,
                 game_type,
+                public_summary,
+                accepting_join_requests,
                 status,
                 grid_width,
                 grid_height,
@@ -117,6 +121,8 @@ public class GameSessionRepository {
                 session.tableId(),
                 session.title(),
                 session.gameType(),
+                session.publicSummary(),
+                session.acceptingJoinRequests(),
                 session.status().name(),
                 session.gridWidth(),
                 session.gridHeight(),
@@ -163,6 +169,25 @@ public class GameSessionRepository {
         return sessions.stream().findFirst();
     }
 
+    // Serializza le decisioni concorrenti che modificano partecipanti della stessa sessione.
+    public Optional<GameSession> findSessionByIdForUpdate(String sessionId) {
+        List<GameSession> sessions = jdbcTemplate.query(
+                FIND_SESSION_SQL + " FOR UPDATE",
+                new GameSessionRowMapper(),
+                sessionId
+        );
+        return sessions.stream().findFirst();
+    }
+
+    // Conclude la sessione solo se e ancora attiva.
+    public boolean endSession(String sessionId) {
+        return jdbcTemplate.update("""
+                UPDATE game_schema.game_sessions
+                SET status = 'ENDED', accepting_join_requests = FALSE
+                WHERE session_id = ? AND status = 'ACTIVE'
+                """, sessionId) == 1;
+    }
+
     // Recupera le celle configurate della griglia.
     public List<GridCellState> findCellsBySessionId(String sessionId) {
         return jdbcTemplate.query(FIND_CELLS_SQL, new GridCellStateRowMapper(), sessionId);
@@ -189,6 +214,8 @@ public class GameSessionRepository {
                     rs.getString("table_id"),
                     rs.getString("title"),
                     rs.getString("game_type"),
+                    rs.getString("public_summary"),
+                    rs.getBoolean("accepting_join_requests"),
                     GameSessionStatus.valueOf(rs.getString("status")),
                     rs.getInt("grid_width"),
                     rs.getInt("grid_height"),

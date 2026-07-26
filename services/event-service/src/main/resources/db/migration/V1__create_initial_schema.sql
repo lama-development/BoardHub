@@ -1,4 +1,4 @@
--- Creazione schemi isolati
+-- Schema iniziale gestito e versionato da Flyway.
 CREATE SCHEMA IF NOT EXISTS venue_schema;
 CREATE SCHEMA IF NOT EXISTS game_schema;
 CREATE SCHEMA IF NOT EXISTS stats_schema;

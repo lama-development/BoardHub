@@ -1,7 +1,6 @@
 package it.uniupo.boardhub.eventservice.service;
 
-import it.uniupo.boardhub.eventservice.controller.dto.MovementGridRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementWallRequest;
+import it.uniupo.boardhub.eventservice.model.grid.GridConfiguration;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,7 +13,7 @@ class MovementGridFactoryTest {
 
     @Test
     void rifiutaCellaFuoriDallaGriglia() {
-        assertThatThrownBy(() -> factory.create(new MovementGridRequest(
+        assertThatThrownBy(() -> factory.create(new GridConfiguration(
                 3, 3, List.of("D1"), List.of(), List.of(), List.of(), List.of(), List.of()
         )))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -23,7 +22,7 @@ class MovementGridFactoryTest {
 
     @Test
     void rifiutaCellaConTerreniInConflitto() {
-        assertThatThrownBy(() -> factory.create(new MovementGridRequest(
+        assertThatThrownBy(() -> factory.create(new GridConfiguration(
                 3, 3, List.of("B2"), List.of("B2"), List.of(), List.of(), List.of(), List.of()
         )))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -32,9 +31,9 @@ class MovementGridFactoryTest {
 
     @Test
     void rifiutaMuroDiagonale() {
-        assertThatThrownBy(() -> factory.create(new MovementGridRequest(
+        assertThatThrownBy(() -> factory.create(new GridConfiguration(
                 3, 3, List.of(), List.of(), List.of(), List.of(),
-                List.of(new MovementWallRequest("B2", "SOUTH_EAST")), List.of()
+                List.of(new GridConfiguration.WallConfiguration("B2", "SOUTH_EAST")), List.of()
         )))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Un muro puo trovarsi solo su un bordo ortogonale.");
@@ -42,7 +41,7 @@ class MovementGridFactoryTest {
 
     @Test
     void rifiutaGrigliaSproporzionataPerLaDemo() {
-        assertThatThrownBy(() -> factory.create(new MovementGridRequest(
+        assertThatThrownBy(() -> factory.create(new GridConfiguration(
                 51, 50, List.of(), List.of(), List.of(), List.of(), List.of(), List.of()
         )))
                 .isInstanceOf(IllegalArgumentException.class)

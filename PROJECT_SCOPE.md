@@ -237,6 +237,9 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | Persistenza sessione/plancia | Base implementata | Memorizza sessione, celle configurate, muri e trappole della mappa. |
 | OpenAPI | Implementata | Documenta l'API REST esistente. |
 | API creazione sessione | Implementata | Permette di salvare una sessione con griglia iniziale. |
+| Tavoli e QR | Implementati | Il QR stabile risolve lo stato pubblico del tavolo e la sessione attiva. |
+| Ingresso giocatori | Implementato | Gestisce richiesta idempotente, decisione DM, partecipante e chiusura. |
+| Accesso giocatore | Implementato per l'MVP locale | Verifica token HMAC Bearer e stato attivo del partecipante/sessione. |
 | Modello griglia | Implementato | Rappresenta posizioni, celle, terreno e richieste di movimento. |
 | Algoritmo movimento | Implementato | Calcola celle raggiungibili, percorso e trappole attraversate. |
 | API celle raggiungibili | Implementata | Espone il risultato del movimento a dashboard/app. |
@@ -283,18 +286,22 @@ Gia realizzato:
 - algoritmo di movimento con Dijkstra semplificato;
 - API REST `POST /api/v1/movement/reachable-cells`;
 - API REST per creare sessioni e calcolare il movimento dalla griglia persistita;
+- pagina QR del tavolo, richieste di ingresso, approvazione DM e partecipanti;
+- ripristino browser dei flussi DM/giocatore e primo endpoint Bearer protetto;
 - test automatici;
 - documentazione tecnica iniziale;
 - specifica OpenAPI dell'endpoint implementato.
 
 Prossimi passi consigliati:
 
-1. integrare e verificare la dashboard web sviluppata sul ramo remoto;
-2. aggiornare la posizione persistita e produrre `MOVE_CONFIRMED`, `MOVE_REJECTED` e `TRAP_TRIGGERED`;
-3. realizzare un edge simulato con coda offline e reinvio idempotente;
-4. aggiungere modello logico per personaggio, pedina e associazione QR/NFC;
-5. misurare traffico, latenza e comportamento durante una disconnessione;
-6. preparare una demo completa dal tavolo simulato alla dashboard.
+1. aggiungere personaggi persistenti e limiti per partecipante;
+2. introdurre pezzi della sessione fisici/virtuali e posizione autorevole;
+3. aggiornare la posizione persistita e produrre `MOVE_CONFIRMED`,
+   `MOVE_REJECTED` e `TRAP_TRIGGERED`;
+4. realizzare un edge simulato con coda offline e reinvio idempotente;
+5. aggiungere inventario delle pedine e associazione QR/NFC;
+6. misurare traffico, latenza e comportamento durante una disconnessione;
+7. preparare una demo completa dal tavolo simulato alla dashboard.
 
 ## 13. Fattibilita nel contesto reale
 

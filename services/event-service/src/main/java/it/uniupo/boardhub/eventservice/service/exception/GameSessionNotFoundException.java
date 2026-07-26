@@ -1,4 +1,4 @@
-package it.uniupo.boardhub.eventservice.service;
+package it.uniupo.boardhub.eventservice.service.exception;
 
 public class GameSessionNotFoundException extends RuntimeException {
 

@@ -89,6 +89,8 @@ class SessionMovementServiceTest {
                     table_id VARCHAR(80) NOT NULL,
                     title VARCHAR(150) NOT NULL,
                     game_type VARCHAR(40) NOT NULL,
+                    public_summary VARCHAR(500) NOT NULL DEFAULT '',
+                    accepting_join_requests BOOLEAN NOT NULL DEFAULT TRUE,
                     status VARCHAR(40) NOT NULL,
                     grid_width INTEGER NOT NULL,
                     grid_height INTEGER NOT NULL,

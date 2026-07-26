@@ -3,6 +3,7 @@ package it.uniupo.boardhub.eventservice.controller;
 import it.uniupo.boardhub.eventservice.controller.dto.ReachableCellResponse;
 import it.uniupo.boardhub.eventservice.controller.dto.ReachableCellsRequest;
 import it.uniupo.boardhub.eventservice.controller.dto.ReachableCellsResponse;
+import it.uniupo.boardhub.eventservice.controller.mapper.ApiRequestMapper;
 import it.uniupo.boardhub.eventservice.model.grid.GameGrid;
 import it.uniupo.boardhub.eventservice.model.grid.GridPosition;
 import it.uniupo.boardhub.eventservice.model.grid.GridTrap;
@@ -36,7 +37,7 @@ public class MovementController {
             throw new IllegalArgumentException("La richiesta di movimento e obbligatoria.");
         }
 
-        GameGrid grid = gridFactory.create(request.grid());
+        GameGrid grid = gridFactory.create(ApiRequestMapper.toGridConfiguration(request.grid()));
         MovementRequest movementRequest = new MovementRequest(
                 request.characterId(),
                 GridPosition.fromCell(request.start()),

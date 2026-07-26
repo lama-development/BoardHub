@@ -1,9 +1,7 @@
 package it.uniupo.boardhub.eventservice.service;
 
-import it.uniupo.boardhub.eventservice.controller.dto.MovementGridRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementTrapRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementWallRequest;
 import it.uniupo.boardhub.eventservice.model.grid.GameGrid;
+import it.uniupo.boardhub.eventservice.model.grid.GridConfiguration;
 import it.uniupo.boardhub.eventservice.model.grid.GridCell;
 import it.uniupo.boardhub.eventservice.model.grid.GridDirection;
 import it.uniupo.boardhub.eventservice.model.grid.GridPosition;
@@ -25,7 +23,7 @@ public class MovementGridFactory {
     public static final int MAX_GRID_CELLS = 2_500;
 
     // Costruisce una griglia validata con una sola copia immutabile finale.
-    public GameGrid create(MovementGridRequest request) {
+    public GameGrid create(GridConfiguration request) {
         if (request == null) {
             throw new IllegalArgumentException("La griglia e obbligatoria.");
         }
@@ -58,7 +56,7 @@ public class MovementGridFactory {
     }
 
     // Limita le collezioni ricevute per evitare richieste sproporzionate rispetto alla griglia.
-    private void validateConfigurationSize(MovementGridRequest request, long cellCount) {
+    private void validateConfigurationSize(GridConfiguration request, long cellCount) {
         ensureMaxSize("difficultCells", request.difficultCells(), cellCount);
         ensureMaxSize("blockedCells", request.blockedCells(), cellCount);
         ensureMaxSize("obstacleCells", request.obstacleCells(), cellCount);
@@ -111,8 +109,13 @@ public class MovementGridFactory {
         }
     }
 
-    private void addWalls(Set<GridWall> walls, List<MovementWallRequest> requests, int width, int height) {
-        for (MovementWallRequest wall : safeList(requests)) {
+    private void addWalls(
+            Set<GridWall> walls,
+            List<GridConfiguration.WallConfiguration> requests,
+            int width,
+            int height
+    ) {
+        for (GridConfiguration.WallConfiguration wall : safeList(requests)) {
             if (wall == null || wall.direction() == null) {
                 throw new IllegalArgumentException("Ogni muro deve avere una direzione.");
             }
@@ -132,12 +135,12 @@ public class MovementGridFactory {
 
     private void addTraps(
             Map<GridPosition, GridTrap> traps,
-            List<MovementTrapRequest> requests,
+            List<GridConfiguration.TrapConfiguration> requests,
             int width,
             int height
     ) {
         Set<String> trapIds = new HashSet<>();
-        for (MovementTrapRequest trap : safeList(requests)) {
+        for (GridConfiguration.TrapConfiguration trap : safeList(requests)) {
             if (trap == null || trap.trapId() == null || trap.trapId().isBlank()) {
                 throw new IllegalArgumentException("Ogni trappola deve avere un trapId.");
             }

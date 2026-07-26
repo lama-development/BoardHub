@@ -1,22 +1,24 @@
 package it.uniupo.boardhub.eventservice.service;
 
-import it.uniupo.boardhub.eventservice.controller.dto.CreateGameSessionRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementGridRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementTrapRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementWallRequest;
+import it.uniupo.boardhub.eventservice.model.grid.GridConfiguration;
 import it.uniupo.boardhub.eventservice.model.grid.GridDirection;
 import it.uniupo.boardhub.eventservice.model.grid.TerrainType;
 import it.uniupo.boardhub.eventservice.model.grid.TrapVisibility;
 import it.uniupo.boardhub.eventservice.model.session.GameSession;
+import it.uniupo.boardhub.eventservice.model.session.CreatedGameSession;
 import it.uniupo.boardhub.eventservice.model.session.GameSessionStatus;
 import it.uniupo.boardhub.eventservice.model.session.GridCellState;
 import it.uniupo.boardhub.eventservice.model.session.GridTrapState;
 import it.uniupo.boardhub.eventservice.model.session.GridWallState;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
+import it.uniupo.boardhub.eventservice.service.command.CreateGameSessionCommand;
+import it.uniupo.boardhub.eventservice.service.exception.DuplicateGameSessionException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
@@ -33,35 +35,54 @@ public class GameSessionCreationService {
 
     private final GameSessionRepository repository;
     private final MovementGridFactory gridFactory;
+    private final TableSessionService tableSessionService;
+    private final Clock clock;
 
-    public GameSessionCreationService(GameSessionRepository repository, MovementGridFactory gridFactory) {
+    public GameSessionCreationService(
+            GameSessionRepository repository,
+            MovementGridFactory gridFactory,
+            TableSessionService tableSessionService,
+            Clock clock
+    ) {
         this.repository = repository;
         this.gridFactory = gridFactory;
+        this.tableSessionService = tableSessionService;
+        this.clock = clock;
     }
 
-    // Crea sessione e configurazione iniziale della griglia in un'unica operazione.
-    @Transactional
-    public GameSession createSession(CreateGameSessionRequest request) {
+    // Crea sessione, griglia e collegamento al tavolo in un'unica operazione atomica.
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public CreatedGameSession createSession(CreateGameSessionCommand request) {
         validate(request);
 
-        MovementGridRequest grid = request.grid();
+        GridConfiguration grid = request.grid();
         GameSession session = new GameSession(
                 sessionIdOrGenerated(request.sessionId()),
                 request.venueId(),
                 request.tableId(),
                 request.title(),
                 valueOrDefault(request.gameType(), DEFAULT_GAME_TYPE).toUpperCase(Locale.ROOT),
+                valueOrDefault(request.publicSummary(), "").trim(),
+                request.acceptingJoinRequests() == null || request.acceptingJoinRequests(),
                 GameSessionStatus.ACTIVE,
                 grid.width(),
                 grid.height(),
-                OffsetDateTime.now(ZoneOffset.UTC)
+                OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC)
         );
 
         saveSessionOrFail(session);
         saveCells(session.sessionId(), grid);
         saveWalls(session.sessionId(), grid.walls());
         saveTraps(session.sessionId(), grid.traps());
-        return session;
+        return new CreatedGameSession(
+                session,
+                tableSessionService.registerAndActivate(
+                        request.tableId(),
+                        request.tablePublicId(),
+                        request.tableDisplayName(),
+                        session.sessionId()
+                )
+        );
     }
 
     // Trasforma il vincolo di chiave duplicata del database in errore applicativo REST.
@@ -74,7 +95,7 @@ public class GameSessionCreationService {
     }
 
     // Verifica i campi minimi necessari per aprire una sessione giocabile.
-    private void validate(CreateGameSessionRequest request) {
+    private void validate(CreateGameSessionCommand request) {
         if (request == null) {
             throw new IllegalArgumentException("La richiesta di creazione sessione e obbligatoria.");
         }
@@ -87,6 +108,9 @@ public class GameSessionCreationService {
         if (isBlank(request.title())) {
             throw new IllegalArgumentException("title e obbligatorio.");
         }
+        if (request.publicSummary() != null && request.publicSummary().length() > 500) {
+            throw new IllegalArgumentException("publicSummary non puo superare 500 caratteri.");
+        }
         if (request.grid() == null) {
             throw new IllegalArgumentException("La griglia iniziale e obbligatoria.");
         }
@@ -97,7 +121,7 @@ public class GameSessionCreationService {
     }
 
     // Salva solo le celle non standard: terreno speciale o occupazione.
-    private void saveCells(String sessionId, MovementGridRequest grid) {
+    private void saveCells(String sessionId, GridConfiguration grid) {
         Map<String, GridCellState> cells = new LinkedHashMap<>();
         putTerrainCells(cells, sessionId, grid.difficultCells(), TerrainType.DIFFICULT);
         putTerrainCells(cells, sessionId, grid.blockedCells(), TerrainType.BLOCKED);
@@ -138,8 +162,8 @@ public class GameSessionCreationService {
     }
 
     // Salva i muri come bordi direzionati; la reciprocita viene gestita nel modello griglia.
-    private void saveWalls(String sessionId, List<MovementWallRequest> walls) {
-        for (MovementWallRequest wall : safeList(walls)) {
+    private void saveWalls(String sessionId, List<GridConfiguration.WallConfiguration> walls) {
+        for (GridConfiguration.WallConfiguration wall : safeList(walls)) {
             repository.saveWall(new GridWallState(
                     sessionId,
                     wall.cell(),
@@ -149,8 +173,8 @@ public class GameSessionCreationService {
     }
 
     // Salva trappole e visibilita decise dal Dungeon Master.
-    private void saveTraps(String sessionId, List<MovementTrapRequest> traps) {
-        for (MovementTrapRequest trap : safeList(traps)) {
+    private void saveTraps(String sessionId, List<GridConfiguration.TrapConfiguration> traps) {
+        for (GridConfiguration.TrapConfiguration trap : safeList(traps)) {
             repository.saveTrap(new GridTrapState(
                     sessionId,
                     trap.trapId(),

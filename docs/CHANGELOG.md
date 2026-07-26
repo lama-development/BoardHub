@@ -5,6 +5,219 @@
 
 ---
 
+## [0.18.2] - 2026-07-25
+
+Autore: Andrea Perini
+Ambito: Architettura backend e autenticazione del giocatore
+
+## Added
+
+- Aggiunti input applicativi indipendenti dai DTO HTTP per sessioni, richieste
+  di ingresso e configurazione della griglia.
+- Aggiunti verifica HMAC del token giocatore, controllo del partecipante e
+  revoca legata allo stato della sessione.
+- Aggiunto `GET /api/v1/player/sessions/{sessionId}/me` come primo endpoint
+  realmente protetto dalla credenziale Bearer del giocatore.
+- Aggiunti test positivi e negativi per token alterati, sessione errata,
+  credenziale mancante e sessione conclusa.
+
+## Changed
+
+- Separati controller, mapper, comandi applicativi, servizi ed eccezioni in
+  package coerenti con le rispettive responsabilita.
+- Rinominato il controller DM per rappresentare richieste, partecipanti e ciclo
+  di vita della sessione senza cambiare i path HTTP esistenti.
+- Aggiornati OpenAPI e contratti di comunicazione con il ciclo completo della
+  credenziale giocatore.
+
+## Fixed
+
+- Eliminata la dipendenza dei servizi dai DTO del layer HTTP.
+- Impedito l'uso di token giocatore contraffatti, associati a un'altra sessione
+  o appartenenti a partecipanti e sessioni non piu attivi.
+- Isolato `just check` dalle sessioni reali del locale mediante un tavolo
+  temporaneo univoco, evitando conflitti con tavoli gia occupati.
+
+---
+
+## [0.18.1] - 2026-07-24
+
+Autore: Andrea Perini
+Ambito: Continuita dell'accesso DM e giocatore
+
+## Added
+
+- Aggiunta la lettura autenticata dello stato di una richiesta di ingresso da parte del dispositivo che l'ha creata.
+- Aggiunto il polling automatico della decisione del Dungeon Master.
+
+## Changed
+
+- Il browser conserva richiesta e credenziale di possesso per ripristinare lo stato dopo un refresh.
+- Dopo l'accettazione il dispositivo del giocatore riceve la propria credenziale firmata di sessione.
+- Il dispositivo che avvia una sessione come Dungeon Master conserva localmente
+  l'accesso alla relativa dashboard.
+
+## Fixed
+
+- Impedito che il refresh riporti un giocatore in attesa al modulo iniziale.
+- Impedito che il refresh riporti il Dungeon Master alla pagina pubblica del
+  giocatore durante una sessione ancora attiva.
+- Gestiti esplicitamente nel sito gli stati accettato, rifiutato e scaduto.
+- Impedita la lettura dello stato tramite il solo identificativo pubblico della richiesta.
+- Resa compatibile la generazione degli identificativi del browser anche quando
+  il sito viene aperto da un telefono tramite HTTP sulla rete locale.
+
+---
+
+## [0.18.0] - 2026-07-23
+
+Autore: Andrea Perini
+Ambito: Pagina pubblica del tavolo e avvio tramite QR
+
+## Added
+
+- Aggiunta la pagina web pubblica aperta dal QR stabile di ogni tavolo.
+- Aggiunto lo stato pubblico `AVAILABLE` o `IN_SESSION` con informazioni minime della sessione.
+- Aggiunti avvio autorizzato della sessione per il DM e richiesta di ingresso del giocatore direttamente dal sito.
+- Aggiunti i comandi `just frontend`, `just qr` e `just table-status`.
+
+## Changed
+
+- Il QR apre la pagina del tavolo invece di mostrare direttamente una risposta JSON del backend.
+- La creazione di una sessione richiede la chiave DM anche tramite API.
+- Il limite dei tavoli attivi considera soltanto i tavoli che ospitano una sessione.
+
+## Fixed
+
+- Distinto un tavolo valido ma libero da un QR inesistente o fuori intervallo.
+- Aggiunto un errore esplicito per numeri di tavolo inferiori a 1 o superiori a 8.
+
+---
+
+## [0.17.0] - 2026-07-23
+
+Autore: Andrea Perini
+Ambito: Chiusura della sessione e consolidamento del flusso di ingresso
+
+## Added
+
+- Aggiunta la chiusura della sessione con liberazione del tavolo.
+- Aggiunti comandi rapidi per verificare QR, richieste, partecipanti e conclusione della sessione.
+- Aggiunta copertura automatica del flusso completo su schema database migrato.
+
+## Changed
+
+- La chiusura di una sessione disattiva i partecipanti, conclude le richieste ancora pendenti e rende nuovamente disponibile il tavolo.
+- Il controllo end-to-end chiude sempre la sessione temporanea anche quando una verifica intermedia fallisce.
+
+## Fixed
+
+- Evitato che una sessione conclusa lasci tavolo, richieste o partecipanti ancora attivi.
+- Resi fallibili i comandi REST quando il backend restituisce una risposta HTTP di errore.
+- Corretto il controllo end-to-end affinche si interrompa subito con un messaggio operativo quando il backend non e raggiungibile.
+- Corretto il controllo end-to-end affinche verifichi che l'evento MQTT sia stato realmente ricevuto e persistito.
+
+---
+
+## [0.16.3] - 2026-07-22
+
+Autore: Andrea Perini
+Ambito: Approvazione del Dungeon Master e partecipanti
+
+## Added
+
+- Aggiunte approvazione e rifiuto delle richieste tramite API riservate al Dungeon Master.
+- Aggiunti partecipanti persistiti con ruolo, stato e collegamento alla richiesta accettata.
+- Aggiunta una credenziale locale firmata per il partecipante dopo l'approvazione.
+- Aggiunta la lettura protetta delle richieste pendenti e dei partecipanti attivi.
+
+## Changed
+
+- Applicato un limite configurabile di otto giocatori attivi per sessione.
+- Centralizzato il controllo della credenziale del Dungeon Master.
+
+## Fixed
+
+- Impediti partecipanti duplicati e approvazioni concorrenti oltre la capienza.
+- Gestite con risposte HTTP specifiche credenziali DM mancanti o errate.
+
+---
+
+## [0.16.2] - 2026-07-21
+
+Autore: Andrea Perini
+Ambito: Risoluzione del QR e richieste di ingresso
+
+## Added
+
+- Aggiunta la risoluzione del QR pubblico del tavolo nella sessione attiva.
+- Aggiunte richieste di ingresso idempotenti con scadenza automatica.
+- Aggiunto un limite configurabile alle richieste ripetute dallo stesso giocatore.
+
+## Changed
+
+- Limitata la risposta pubblica a titolo, introduzione e dati non riservati della sessione.
+- Separato il riferimento del dispositivo del giocatore dall'identificativo del partecipante.
+
+## Fixed
+
+- Impedito il riuso della stessa chiave idempotente con dati differenti.
+- Impedita la creazione di più richieste pendenti equivalenti per lo stesso giocatore.
+
+---
+
+## [0.16.1] - 2026-07-20
+
+Autore: Andrea Perini
+Ambito: Tavoli riutilizzabili e informazioni pubbliche della sessione
+
+## Added
+
+- Aggiunti tavoli persistiti con identificatore QR pubblico stabile.
+- Aggiunto il collegamento univoco tra tavolo e sessione attiva.
+- Aggiunti introduzione pubblica e controllo dell'apertura delle richieste di ingresso.
+
+## Changed
+
+- Estesa la creazione della sessione con identificativo pubblico e nome del tavolo.
+- Applicato un limite configurabile di otto tavoli attivi contemporaneamente.
+
+## Fixed
+
+- Impedita la creazione concorrente di due sessioni attive sullo stesso tavolo.
+- Impedito l'uso dello stesso QR pubblico per tavoli differenti.
+
+---
+
+## [0.16.0] - 2026-07-19
+
+Autore: Andrea Perini
+Ambito: Migrazioni versionate del database
+
+## Added
+
+- Introdotto Flyway con una migrazione iniziale verificabile per lo schema dell'event-service.
+- Aggiunti test automatici per database vuoto e schema PostgreSQL preesistente.
+
+## Changed
+
+- Spostata la responsabilita di creare e aggiornare le tabelle da Docker all'avvio controllato dell'event-service.
+- Sostituita l'applicazione manuale di `init.sql` con migrazioni incrementali che conservano i dati esistenti.
+
+---
+
+## [0.15.1] - 2026-07-12
+
+Autore: Andrea Perini
+Ambito: Comando MQTT di prova
+
+## Fixed
+
+- Resa univoca ogni pubblicazione eseguita con `just publish-event`, evitando che eventi successivi vengano scartati come duplicati.
+- Corretta la gestione delle variabili shell usate dai comandi `publish-event` e `check`.
+
+---
+
 ## [0.15.0] - 2026-07-11
 
 Autore: Andrea Perini

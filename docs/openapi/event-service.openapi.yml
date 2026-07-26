@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: BoardHub Event Service API
-  version: 0.15.0
-  description: API REST dell'event-service BoardHub per leggere eventi di gioco e calcolare movimenti su griglia.
+  version: 0.18.2
+  description: API REST dell'event-service BoardHub per sessioni, ingresso dei giocatori, eventi e movimento su griglia.
 servers:
   - url: http://localhost:8082
     description: Ambiente locale di sviluppo
@@ -13,6 +13,10 @@ tags:
     description: Lettura eventi di gioco
   - name: Sessions
     description: Creazione e gestione sessioni di gioco
+  - name: Tables
+    description: Risoluzione pubblica dei QR associati ai tavoli
+  - name: Join
+    description: Richieste di ingresso e approvazione del Dungeon Master
   - name: Movement
     description: Calcolo movimento su griglia
 paths:
@@ -38,6 +42,8 @@ paths:
         - Sessions
       summary: Crea una sessione di gioco
       description: Crea una sessione D&D attiva con configurazione iniziale della griglia.
+      security:
+        - DmKey: []
       requestBody:
         required: true
         content:
@@ -50,8 +56,12 @@ paths:
                   sessionId: session-20260705-001
                   venueId: venue-01
                   tableId: table-04
+                  tablePublicId: qr-table-04
+                  tableDisplayName: Tavolo 4
                   title: Cripta del Re Caduto
                   gameType: DND
+                  publicSummary: Avventura per personaggi di livello 3.
+                  acceptingJoinRequests: true
                   grid:
                     width: 3
                     height: 3
@@ -83,8 +93,12 @@ paths:
                     sessionId: session-20260705-001
                     venueId: venue-01
                     tableId: table-04
+                    tablePublicId: qr-table-04
+                    tableDisplayName: Tavolo 4
                     title: Cripta del Re Caduto
                     gameType: DND
+                    publicSummary: Avventura per personaggi di livello 3.
+                    acceptingJoinRequests: true
                     status: ACTIVE
                     gridWidth: 3
                     gridHeight: 3
@@ -100,6 +114,12 @@ paths:
                   value:
                     code: BAD_REQUEST
                     message: La griglia iniziale e obbligatoria.
+        "401":
+          description: Chiave DM mancante o non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Sessione gia esistente
           content:
@@ -111,6 +131,283 @@ paths:
                   value:
                     code: DUPLICATE_SESSION
                     message: "Sessione gia esistente: session-20260705-001"
+  /api/v1/public/tables/{tablePublicId}:
+    get:
+      tags:
+        - Tables
+      summary: Restituisce lo stato pubblico del tavolo
+      description: Distingue un tavolo libero da uno con sessione attiva. Sono validi i QR dei tavoli configurati da 1 a 8.
+      parameters:
+        - name: tablePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: qr-table-04
+      responses:
+        "200":
+          description: Stato pubblico del tavolo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicTableStatusResponse"
+        "400":
+          description: QR malformato o numero fuori dall'intervallo configurato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/public/tables/{tablePublicId}/active-session:
+    get:
+      tags:
+        - Tables
+      summary: Risolve il QR del tavolo nella sessione attiva
+      parameters:
+        - name: tablePublicId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: qr-table-04
+      responses:
+        "200":
+          description: Informazioni pubbliche della sessione disponibile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicActiveSessionResponse"
+        "404":
+          description: Tavolo senza una sessione pubblica attiva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/public/sessions/{sessionId}/join-requests:
+    post:
+      tags:
+        - Join
+      summary: Richiede al DM di entrare nella sessione
+      description: La stessa chiave di idempotenza e lo stesso body restituiscono la richiesta gia creata.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: session-20260705-001
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: UUID nuovo generato dal client per questa operazione.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJoinRequestRequest"
+      responses:
+        "201":
+          description: Richiesta inserita nella coda del DM
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinRequestResponse"
+        "409":
+          description: Sessione chiusa, richiesta duplicata o chiave riusata con altri dati
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Troppe richieste dallo stesso giocatore
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/public/sessions/{sessionId}/join-requests/{requestId}:
+    get:
+      tags:
+        - Join
+      summary: Recupera lo stato della propria richiesta di ingresso
+      description: >
+        Il dispositivo conserva la chiave casuale usata per creare la richiesta e la presenta
+        come credenziale di possesso. Se la richiesta e stata accettata, la risposta include
+        il partecipante e la sua credenziale firmata di sessione.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/RequestId"
+        - name: X-BoardHub-Join-Claim
+          in: header
+          required: true
+          description: UUID segreto usato come Idempotency-Key durante la creazione.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Stato corrente della richiesta posseduta dal dispositivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerJoinStatusResponse"
+        "404":
+          description: Richiesta inesistente oppure chiave di possesso errata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/player/sessions/{sessionId}/me:
+    get:
+      tags:
+        - Join
+      summary: Restituisce l'identita attiva del giocatore autenticato
+      description: >
+        Verifica firma, versione e sessione della credenziale. La richiesta viene
+        rifiutata anche quando il partecipante ha lasciato la sessione o la sessione
+        e stata conclusa.
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Partecipante autenticato e attivo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantResponse"
+        "401":
+          description: Credenziale assente, alterata, fuori sessione o revocata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/dm/sessions/{sessionId}/join-requests:
+    get:
+      tags:
+        - Join
+      summary: Elenca le richieste di ingresso della sessione
+      security:
+        - DmKey: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, ACCEPTED, REJECTED, EXPIRED]
+            default: PENDING
+      responses:
+        "200":
+          description: Richieste ordinate per data di invio
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JoinRequestResponse"
+        "401":
+          description: Credenziale DM non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/accept:
+    post:
+      tags:
+        - Join
+      summary: Accetta una richiesta e crea il partecipante
+      security:
+        - DmKey: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Partecipante attivo e credenziale locale firmata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcceptJoinRequestResponse"
+        "401":
+          description: Credenziale DM non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Richiesta non piu pendente o sessione al completo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/reject:
+    post:
+      tags:
+        - Join
+      summary: Rifiuta una richiesta di ingresso
+      security:
+        - DmKey: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Richiesta rifiutata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinRequestResponse"
+        "401":
+          description: Credenziale DM non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/dm/sessions/{sessionId}/participants:
+    get:
+      tags:
+        - Join
+      summary: Elenca i partecipanti attivi della sessione
+      security:
+        - DmKey: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Partecipanti attivi
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ParticipantResponse"
+  /api/v1/dm/sessions/{sessionId}/close:
+    post:
+      tags:
+        - Sessions
+      summary: Conclude la sessione e libera il tavolo
+      security:
+        - DmKey: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Sessione conclusa
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloseSessionResponse"
+        "401":
+          description: Credenziale DM non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/sessions/{sessionId}/events:
     get:
       tags:
@@ -290,6 +587,32 @@ paths:
                     code: SESSION_NOT_FOUND
                     message: "Sessione non trovata: session-non-esistente"
 components:
+  securitySchemes:
+    DmKey:
+      type: apiKey
+      in: header
+      name: X-BoardHub-DM-Key
+      description: Chiave locale configurata dal gestore del tavolo.
+    PlayerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: bhp1
+      description: Credenziale HMAC associata a un partecipante e a una sola sessione attiva.
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: session-20260705-001
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   schemas:
     HealthResponse:
       type: object
@@ -358,12 +681,26 @@ components:
         tableId:
           type: string
           example: table-04
+        tablePublicId:
+          type: string
+          description: Identificativo stabile codificato nel QR del tavolo.
+          example: qr-table-04
+        tableDisplayName:
+          type: string
+          example: Tavolo 4
         title:
           type: string
           example: Cripta del Re Caduto
         gameType:
           type: string
           example: DND
+        publicSummary:
+          type: string
+          maxLength: 500
+          example: Avventura per personaggi di livello 3.
+        acceptingJoinRequests:
+          type: boolean
+          default: true
         grid:
           $ref: "#/components/schemas/MovementGrid"
       required:
@@ -383,12 +720,24 @@ components:
         tableId:
           type: string
           example: table-04
+        tablePublicId:
+          type: string
+          example: qr-table-04
+        tableDisplayName:
+          type: string
+          example: Tavolo 4
         title:
           type: string
           example: Cripta del Re Caduto
         gameType:
           type: string
           example: DND
+        publicSummary:
+          type: string
+          example: Avventura per personaggi di livello 3.
+        acceptingJoinRequests:
+          type: boolean
+          example: true
         status:
           type: string
           example: ACTIVE
@@ -406,12 +755,157 @@ components:
         - sessionId
         - venueId
         - tableId
+        - tablePublicId
+        - tableDisplayName
         - title
         - gameType
+        - publicSummary
+        - acceptingJoinRequests
         - status
         - gridWidth
         - gridHeight
         - createdAt
+    PublicActiveSessionResponse:
+      type: object
+      properties:
+        tablePublicId:
+          type: string
+          example: qr-table-04
+        tableDisplayName:
+          type: string
+          example: Tavolo 4
+        sessionId:
+          type: string
+          example: session-20260705-001
+        title:
+          type: string
+          example: Cripta del Re Caduto
+        gameType:
+          type: string
+          example: DND
+        publicSummary:
+          type: string
+          example: Avventura per personaggi di livello 3.
+      required: [tablePublicId, tableDisplayName, sessionId, title, gameType, publicSummary]
+    PublicTableStatusResponse:
+      type: object
+      properties:
+        tablePublicId:
+          type: string
+          example: qr-table-04
+        tableNumber:
+          type: integer
+          minimum: 1
+          maximum: 8
+          example: 4
+        tableDisplayName:
+          type: string
+          example: Tavolo 4
+        status:
+          type: string
+          enum: [AVAILABLE, IN_SESSION]
+        activeSession:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PublicActiveSessionResponse"
+      required: [tablePublicId, tableNumber, tableDisplayName, status]
+    CreateJoinRequestRequest:
+      type: object
+      properties:
+        playerReference:
+          type: string
+          description: Identificativo locale stabile dell'installazione del giocatore.
+          example: player-device-01
+        displayName:
+          type: string
+          maxLength: 80
+          example: Andrea
+      required: [playerReference, displayName]
+    JoinRequestResponse:
+      type: object
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+        playerReference:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, REJECTED, EXPIRED]
+        requestedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [requestId, sessionId, playerReference, displayName, status, requestedAt, expiresAt]
+    ParticipantResponse:
+      type: object
+      properties:
+        participantId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+        role:
+          type: string
+          enum: [DM, PLAYER]
+        displayName:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, LEFT]
+        joinedAt:
+          type: string
+          format: date-time
+      required: [participantId, sessionId, role, displayName, status, joinedAt]
+    AcceptJoinRequestResponse:
+      type: object
+      properties:
+        request:
+          $ref: "#/components/schemas/JoinRequestResponse"
+        participant:
+          $ref: "#/components/schemas/ParticipantResponse"
+        accessToken:
+          type: string
+          description: Credenziale locale firmata da conservare sul dispositivo del giocatore.
+          example: bhp1.550e8400-e29b-41d4-a716-446655440000.signature
+      required: [request, participant, accessToken]
+    PlayerJoinStatusResponse:
+      type: object
+      properties:
+        request:
+          $ref: "#/components/schemas/JoinRequestResponse"
+        participant:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ParticipantResponse"
+        accessToken:
+          type: string
+          nullable: true
+          description: Presente soltanto quando la richiesta e ACCEPTED.
+      required: [request]
+    CloseSessionResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          example: session-20260705-001
+        status:
+          type: string
+          enum: [ENDED]
+        endedAt:
+          type: string
+          format: date-time
+      required: [sessionId, status, endedAt]
     ReachableCellsRequest:
       type: object
       properties:

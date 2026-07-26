@@ -10,6 +10,7 @@ import it.uniupo.boardhub.eventservice.model.session.GridCellState;
 import it.uniupo.boardhub.eventservice.model.session.GridTrapState;
 import it.uniupo.boardhub.eventservice.model.session.GridWallState;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
+import it.uniupo.boardhub.eventservice.service.exception.GameSessionNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;

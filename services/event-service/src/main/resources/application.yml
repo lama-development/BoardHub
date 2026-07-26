@@ -6,6 +6,15 @@ spring:
     username: ${BOARDHUB_DB_USERNAME:boardhub_user}
     password: ${BOARDHUB_DB_PASSWORD:boardhub_password}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: game_schema
+    schemas: game_schema
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+    clean-disabled: true
 
 server:
   port: 8082
@@ -17,6 +26,13 @@ management:
         include: health,info
 
 boardhub:
+  join:
+    request-ttl: ${BOARDHUB_JOIN_REQUEST_TTL:10m}
+    max-players-per-session: ${BOARDHUB_MAX_PLAYERS_PER_SESSION:8}
+    max-active-tables: ${BOARDHUB_MAX_ACTIVE_TABLES:8}
+    max-requests-per-minute: ${BOARDHUB_MAX_JOIN_REQUESTS_PER_MINUTE:5}
+    dm-access-key: ${BOARDHUB_DM_ACCESS_KEY:boardhub-local-dm-key}
+    session-token-secret: ${BOARDHUB_SESSION_TOKEN_SECRET:boardhub-local-session-token-secret}
   mqtt:
     broker-uri: ${BOARDHUB_MQTT_BROKER_URI:tcp://localhost:1883}
     client-id: ${BOARDHUB_MQTT_CLIENT_ID:boardhub-event-service}

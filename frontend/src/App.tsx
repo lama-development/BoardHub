@@ -5,11 +5,21 @@ import { BackendStatus } from "./components/BackendStatus";
 import { Metric } from "./components/Metric";
 import { SessionInspector } from "./components/SessionInspector";
 import { SessionTabs } from "./components/SessionTabs";
+import { PublicTablePage } from "./components/PublicTablePage";
 import { DEFAULT_SESSION_ID } from "./config";
 import type { GameEvent, HealthStatus } from "./types";
 import { formatDateTime, getBoardTokens, getEventTypes, sortEvents } from "./utils/events";
 
 export function App() {
+  const tableRoute = window.location.pathname.match(/^\/t\/([^/]+)\/?$/);
+  if (tableRoute) {
+    return <PublicTablePage tablePublicId={decodeURIComponent(tableRoute[1])} />;
+  }
+
+  return <SessionMonitor />;
+}
+
+function SessionMonitor() {
   const [sessionId, setSessionId] = React.useState(DEFAULT_SESSION_ID);
   const [events, setEvents] = React.useState<GameEvent[]>([]);
   const [backendStatus, setBackendStatus] = React.useState<HealthStatus>("UNKNOWN");

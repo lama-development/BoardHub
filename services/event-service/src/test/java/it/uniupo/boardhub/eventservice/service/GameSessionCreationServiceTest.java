@@ -1,19 +1,23 @@
 package it.uniupo.boardhub.eventservice.service;
 
-import it.uniupo.boardhub.eventservice.controller.dto.CreateGameSessionRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementGridRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementTrapRequest;
-import it.uniupo.boardhub.eventservice.controller.dto.MovementWallRequest;
+import it.uniupo.boardhub.eventservice.config.JoinProperties;
+import it.uniupo.boardhub.eventservice.model.grid.GridConfiguration;
 import it.uniupo.boardhub.eventservice.model.grid.GridPosition;
 import it.uniupo.boardhub.eventservice.model.grid.MovementRequest;
 import it.uniupo.boardhub.eventservice.model.grid.TerrainType;
 import it.uniupo.boardhub.eventservice.model.grid.TrapVisibility;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
+import it.uniupo.boardhub.eventservice.repository.GameTableRepository;
+import it.uniupo.boardhub.eventservice.service.command.CreateGameSessionCommand;
+import it.uniupo.boardhub.eventservice.support.MigratedTestDatabase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,44 +29,50 @@ class GameSessionCreationServiceTest {
 
     @BeforeEach
     void setUp() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource();
-        dataSource.setDriverClassName("org.h2.Driver");
-        dataSource.setUrl("jdbc:h2:mem:boardhub_game_session_creation_service;DB_CLOSE_DELAY=-1");
-        dataSource.setUsername("sa");
-        dataSource.setPassword("");
-
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        createSchema(jdbcTemplate);
+        JdbcTemplate jdbcTemplate = MigratedTestDatabase.create();
+        Clock clock = Clock.fixed(Instant.parse("2026-07-23T10:00:00Z"), ZoneOffset.UTC);
+        JoinProperties properties = new JoinProperties(
+                Duration.ofMinutes(10), 8, 8, 5, "dm-test-key", "test-token-secret-32-characters"
+        );
 
         repository = new GameSessionRepository(jdbcTemplate);
-        creationService = new GameSessionCreationService(repository, new MovementGridFactory());
+        TableSessionService tableService = new TableSessionService(
+                new GameTableRepository(jdbcTemplate), properties, clock
+        );
+        creationService = new GameSessionCreationService(
+                repository, new MovementGridFactory(), tableService, clock
+        );
     }
 
     @Test
     void salvaSessioneEPermetteCalcoloMovimentoDaStatoPersistito() {
-        var session = creationService.createSession(new CreateGameSessionRequest(
+        var created = creationService.createSession(new CreateGameSessionCommand(
                 "session-20260705-001",
                 "venue-01",
                 "table-04",
                 "Cripta del Re Caduto",
                 "DND",
-                new MovementGridRequest(
+                new GridConfiguration(
                         3,
                         3,
                         List.of("C1"),
                         List.of("A2"),
                         List.of(),
                         List.of("A1"),
-                        List.of(new MovementWallRequest("B1", "SOUTH")),
-                        List.of(new MovementTrapRequest("trap-01", "B1", "HIDDEN", true))
+                        List.of(new GridConfiguration.WallConfiguration("B1", "SOUTH")),
+                        List.of(new GridConfiguration.TrapConfiguration(
+                                "trap-01", "B1", "HIDDEN", true
+                        ))
                 )
         ));
+        var session = created.session();
 
         var cells = repository.findCellsBySessionId(session.sessionId());
         var walls = repository.findWallsBySessionId(session.sessionId());
         var traps = repository.findTrapsBySessionId(session.sessionId());
 
         assertThat(repository.findSessionById(session.sessionId())).contains(session);
+        assertThat(created.table().tablePublicId()).isEqualTo("table-04");
         assertThat(cells).extracting("cell").containsExactly("A1", "A2", "C1");
         assertThat(cells).filteredOn(cell -> cell.cell().equals("A1"))
                 .first()
@@ -90,48 +100,4 @@ class GameSessionCreationServiceTest {
                 .doesNotContain("A2", "B2", "C1");
     }
 
-    private void createSchema(JdbcTemplate jdbcTemplate) {
-        jdbcTemplate.execute("DROP SCHEMA IF EXISTS game_schema CASCADE");
-        jdbcTemplate.execute("CREATE SCHEMA game_schema");
-        jdbcTemplate.execute("""
-                CREATE TABLE game_schema.game_sessions (
-                    session_id VARCHAR(100) PRIMARY KEY,
-                    venue_id VARCHAR(80) NOT NULL,
-                    table_id VARCHAR(80) NOT NULL,
-                    title VARCHAR(150) NOT NULL,
-                    game_type VARCHAR(40) NOT NULL,
-                    status VARCHAR(40) NOT NULL,
-                    grid_width INTEGER NOT NULL,
-                    grid_height INTEGER NOT NULL,
-                    created_at TIMESTAMP NOT NULL
-                )
-                """);
-        jdbcTemplate.execute("""
-                CREATE TABLE game_schema.game_grid_cells (
-                    session_id VARCHAR(100) NOT NULL,
-                    cell VARCHAR(10) NOT NULL,
-                    terrain_type VARCHAR(40) NOT NULL,
-                    occupied_by VARCHAR(100),
-                    PRIMARY KEY (session_id, cell)
-                )
-                """);
-        jdbcTemplate.execute("""
-                CREATE TABLE game_schema.game_grid_walls (
-                    session_id VARCHAR(100) NOT NULL,
-                    cell VARCHAR(10) NOT NULL,
-                    direction VARCHAR(40) NOT NULL,
-                    PRIMARY KEY (session_id, cell, direction)
-                )
-                """);
-        jdbcTemplate.execute("""
-                CREATE TABLE game_schema.game_grid_traps (
-                    session_id VARCHAR(100) NOT NULL,
-                    trap_id VARCHAR(100) NOT NULL,
-                    cell VARCHAR(10) NOT NULL,
-                    visibility VARCHAR(40) NOT NULL,
-                    armed BOOLEAN NOT NULL,
-                    PRIMARY KEY (session_id, trap_id)
-                )
-                """);
-    }
 }

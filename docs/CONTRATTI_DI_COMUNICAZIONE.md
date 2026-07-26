@@ -34,7 +34,7 @@ Il tavolo BoardHub rappresenta una sessione D&D fisica o simulata. Per l'MVP il 
 
 | Area | Regola | Effetto sui contratti |
 | :--- | :--- | :--- |
-| Accesso giocatore | Previsto per l'app mobile; non ancora implementato. | Futuri eventi di associazione pedina/personaggio. |
+| Accesso giocatore | Il QR del tavolo apre la sessione pubblica; il DM accetta o rifiuta la richiesta. | API REST pubbliche e API protette per il DM. |
 | Preparazione mappa | La configurazione iniziale della griglia e accettata dall'API di creazione sessione. | Celle, terreno, muri e trappole nel payload REST. |
 | Movimento | Il backend calcola le celle raggiungibili su griglia stateless o salvata. | Risposta REST con costo, percorso e trappole visibili. |
 | Dadi | Previsto per l'app mobile; non ancora implementato. | Futuro evento `DICE_ROLLED`. |
@@ -51,9 +51,11 @@ I contratti non automatizzano tutto il regolamento D&D. Descrivono solo le infor
 | Subscriber backend | Implementato | `event-service` riceve e interpreta gli eventi MQTT. |
 | Persistenza eventi | Implementata | `event-service` salva gli eventi in `game_schema.game_events`. |
 | Persistenza sessione/plancia | Base implementata | Sono presenti tabelle e repository per sessione, celle configurate, muri e trappole. |
+| Tavoli e richieste di ingresso | Implementati nel backend | QR stabile, coda richieste, approvazione DM e partecipanti sono persistiti. |
 | Ricostruzione griglia | Implementata come servizio interno | Lo stato persistito puo essere convertito in `GameGrid` per il calcolo del movimento. |
 | API REST eventi | Implementata | `event-service` espone gli eventi persistiti tramite `GET /api/v1/sessions/{sessionId}/events`. |
-| API REST sessioni | Implementata | `POST /api/v1/sessions` salva una sessione con la griglia iniziale. |
+| API REST sessioni | Implementata | `POST /api/v1/sessions` salva sessione e griglia e occupa il tavolo indicato. |
+| API REST ingresso | Implementata | Risoluzione QR, richiesta idempotente, decisione DM, partecipanti e chiusura sessione. |
 | API REST movimento | Implementata | Le due API `reachable-cells` calcolano il movimento su griglia stateless o persistita. |
 | Dashboard web | Base implementata | Consuma health check e storico eventi; l'integrazione con la griglia variabile deve essere completata. |
 
@@ -67,7 +69,9 @@ Per evitare ambiguita tra documentazione, codice, payload JSON e database, i con
 | :--- | :--- | :--- |
 | Nodo/installazione dimostrativa | `venueId` | `venue-01` |
 | Tavolo | `tableId` | `table-04` |
+| QR pubblico del tavolo | `tablePublicId` | `qr-table-04` |
 | Sessione di gioco | `sessionId` | `session-20260630-001` |
+| Installazione locale giocatore | `playerReference` | `player-device-01` |
 | Evento | `eventId` | `evt-000042` |
 | Giocatore | `playerId` | `player-01` |
 | Avventuriero / personaggio | `characterId` | `adv-01` |
@@ -89,7 +93,7 @@ Regole generali:
 
 ## 4. Contratto REST
 
-Le API REST attualmente implementate sono usate per creare sessioni, leggere eventi persistiti e calcolare il movimento.
+Le API REST attualmente implementate sono usate per creare e chiudere sessioni, gestire l'ingresso dei giocatori, leggere eventi persistiti e calcolare il movimento.
 
 Base path:
 
@@ -113,10 +117,20 @@ docs/openapi/event-service.openapi.yml
 
 | Metodo | Endpoint | Scopo |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/sessions` | Crea una nuova sessione di gioco dimostrativa. |
+| `POST` | `/api/v1/sessions` | Crea una nuova sessione; richiede la chiave DM. |
 | `GET` | `/api/v1/sessions/{sessionId}/events` | Restituisce lo storico eventi della sessione, ordinato per `sequenceNumber`. |
 | `POST` | `/api/v1/movement/reachable-cells` | Calcola le celle raggiungibili su una griglia fornita nella richiesta. |
 | `POST` | `/api/v1/sessions/{sessionId}/movement/reachable-cells` | Calcola le celle raggiungibili usando la griglia salvata della sessione. |
+| `GET` | `/api/v1/public/tables/{tablePublicId}` | Restituisce `AVAILABLE` o `IN_SESSION` per un tavolo configurato. |
+| `GET` | `/api/v1/public/tables/{tablePublicId}/active-session` | Restituisce la sessione pubblica associata al QR. |
+| `POST` | `/api/v1/public/sessions/{sessionId}/join-requests` | Inserisce una richiesta idempotente nella coda del DM. |
+| `GET` | `/api/v1/public/sessions/{sessionId}/join-requests/{requestId}` | Restituisce al dispositivo originario lo stato della propria richiesta. |
+| `GET` | `/api/v1/player/sessions/{sessionId}/me` | Verifica il token Bearer e restituisce il partecipante giocatore attivo. |
+| `GET` | `/api/v1/dm/sessions/{sessionId}/join-requests` | Elenca le richieste filtrate per stato. |
+| `POST` | `/api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/accept` | Accetta la richiesta e crea il partecipante. |
+| `POST` | `/api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/reject` | Rifiuta la richiesta. |
+| `GET` | `/api/v1/dm/sessions/{sessionId}/participants` | Elenca i partecipanti attivi. |
+| `POST` | `/api/v1/dm/sessions/{sessionId}/close` | Conclude la sessione e libera il tavolo. |
 
 L'endpoint stateless `reachable-cells` e implementato come operazione `POST` perche riceve una griglia completa: dimensioni, terreno, celle occupate, muri e trappole.
 
@@ -126,12 +140,99 @@ Per proteggere le informazioni riservate al Dungeon Master, il campo `trapsOnPat
 
 Le richieste con griglie oltre 2.500 celle, configurazioni sproporzionate o `movementPoints` fuori dall'intervallo `0..100` vengono rifiutate con `400 Bad Request`.
 
-### 4.3 Esempio creazione sessione con griglia iniziale
+### 4.3 Accesso tramite QR e approvazione del DM
+
+Il QR contiene l'URL pubblico stabile della pagina del tavolo, per esempio
+`http://host:5173/t/qr-table-04`. Non contiene credenziali, dati del giocatore o
+identificativi di una singola partita. La pagina estrae il riferimento del tavolo
+e ne recupera lo stato:
+
+```http
+GET /api/v1/public/tables/qr-table-04
+```
+
+Un tavolo configurato senza partita restituisce `AVAILABLE`: il sito spiega che
+non ci sono sessioni attive e permette a un DM autorizzato di crearne una. Un
+tavolo occupato restituisce `IN_SESSION` insieme alle sole informazioni pubbliche
+della partita e mostra al giocatore il modulo di richiesta di ingresso.
+
+I riferimenti standard vanno da `qr-table-01` a `qr-table-08`. Un numero fuori
+intervallo restituisce `400 Bad Request` con l'intervallo ammesso. L'endpoint
+storico seguente rimane disponibile per i client che vogliono esclusivamente una
+sessione attiva:
+
+```http
+GET /api/v1/public/tables/qr-table-04/active-session
+```
+
+Il giocatore invia quindi una richiesta con un UUID nuovo nell'header `Idempotency-Key`:
+
+```http
+POST /api/v1/public/sessions/session-20260705-001/join-requests
+Idempotency-Key: 5f31aa70-a48f-46ca-9db3-b7e53169afaf
+Content-Type: application/json
+```
+
+```json
+{
+  "playerReference": "player-device-01",
+  "displayName": "Andrea"
+}
+```
+
+Un retry con la stessa chiave e gli stessi dati restituisce la richiesta gia creata. Riutilizzare la chiave con dati differenti produce `409 Conflict`. Le richieste pendenti scadono dopo il tempo configurato e il numero di tentativi per giocatore viene limitato.
+
+Il client conserva localmente la chiave casuale e il `requestId`. In questo
+prototipo locale la chiave svolge anche il ruolo di segreto di possesso della
+richiesta e non deve essere inserita nel QR, nell'URL o nei log. Dopo un refresh
+il dispositivo recupera lo stato con:
+
+```http
+GET /api/v1/public/sessions/session-20260705-001/join-requests/{requestId}
+X-BoardHub-Join-Claim: 5f31aa70-a48f-46ca-9db3-b7e53169afaf
+```
+
+Una chiave diversa restituisce `404` senza rivelare se il `requestId` esiste.
+Finche lo stato e `PENDING` il browser ripete periodicamente questa lettura. In
+caso di `REJECTED` o `EXPIRED` permette una nuova richiesta; in caso di
+`ACCEPTED` riceve il partecipante e la credenziale firmata della sessione.
+
+Le operazioni del DM richiedono l'header locale `X-BoardHub-DM-Key`. Dopo
+l'accettazione il backend crea un solo partecipante. La risposta al DM e la
+successiva lettura autenticata del giocatore restituiscono la stessa credenziale
+firmata `accessToken`; i retry non duplicano il partecipante. Il limite
+predefinito e di otto giocatori attivi per sessione.
+
+La credenziale del giocatore usa il formato versionato
+`bhp1.<participantId>.<firma>`. La firma HMAC lega il partecipante alla singola
+sessione e viene confrontata in tempo costante. Il client la invia come Bearer:
+
+```http
+GET /api/v1/player/sessions/session-20260705-001/me
+Authorization: Bearer bhp1.550e8400-e29b-41d4-a716-446655440000.firma
+```
+
+Il backend restituisce `401 PLAYER_UNAUTHORIZED` se il token e assente,
+malformato, alterato o usato per una sessione diversa. Anche un token
+crittograficamente valido viene rifiutato quando il partecipante non e piu
+`ACTIVE` o la sessione non e piu `ACTIVE`. Nel prototipo locale la validita
+temporale coincide quindi con la durata della partecipazione alla sessione:
+la chiusura della partita revoca immediatamente l'accesso senza memorizzare la
+credenziale nel database.
+
+Anche `POST /api/v1/sessions` richiede `X-BoardHub-DM-Key`: la pagina pubblica
+non incorpora la chiave nel QR e la usa soltanto per la singola richiesta di
+creazione inserita dal DM.
+
+La chiusura della sessione imposta lo stato `ENDED`, fa scadere le richieste ancora pendenti, chiude le partecipazioni attive e libera il tavolo. Lo stesso QR puo quindi essere riutilizzato per una partita successiva.
+
+### 4.4 Esempio creazione sessione con griglia iniziale
 
 Richiesta:
 
 ```http
 POST /api/v1/sessions
+X-BoardHub-DM-Key: boardhub-local-dm-key
 Content-Type: application/json
 ```
 
@@ -140,8 +241,12 @@ Content-Type: application/json
   "sessionId": "session-20260705-001",
   "venueId": "venue-01",
   "tableId": "table-04",
+  "tablePublicId": "qr-table-04",
+  "tableDisplayName": "Tavolo 4",
   "title": "Cripta del Re Caduto",
   "gameType": "DND",
+  "publicSummary": "Avventura per personaggi di livello 3.",
+  "acceptingJoinRequests": true,
   "grid": {
     "width": 3,
     "height": 3,
@@ -171,8 +276,12 @@ Risposta:
   "sessionId": "session-20260705-001",
   "venueId": "venue-01",
   "tableId": "table-04",
+  "tablePublicId": "qr-table-04",
+  "tableDisplayName": "Tavolo 4",
   "title": "Cripta del Re Caduto",
   "gameType": "DND",
+  "publicSummary": "Avventura per personaggi di livello 3.",
+  "acceptingJoinRequests": true,
   "status": "ACTIVE",
   "gridWidth": 3,
   "gridHeight": 3,
@@ -180,7 +289,7 @@ Risposta:
 }
 ```
 
-### 4.4 Esempio calcolo celle raggiungibili
+### 4.5 Esempio calcolo celle raggiungibili
 
 Richiesta:
 
@@ -238,7 +347,7 @@ Risposta:
 }
 ```
 
-### 4.5 Esempio lettura eventi sessione
+### 4.6 Esempio lettura eventi sessione
 
 Richiesta:
 
@@ -496,6 +605,11 @@ Codici principali:
 | `BAD_REQUEST` | Il payload JSON o i parametri della richiesta non rispettano il contratto. |
 | `SESSION_NOT_FOUND` | La sessione richiesta non esiste. |
 | `DUPLICATE_SESSION` | Si prova a creare una sessione con un identificativo gia presente. |
+| `RESOURCE_NOT_FOUND` | QR o richiesta di ingresso non esistenti. |
+| `JOIN_CONFLICT` | La richiesta non e piu pendente, la sessione e chiusa o il tavolo e occupato. |
+| `CAPACITY_REACHED` | E stato raggiunto il limite di tavoli o giocatori. |
+| `RATE_LIMITED` | Lo stesso giocatore ha inviato troppe richieste in un minuto. |
+| `DM_UNAUTHORIZED` | La chiave locale del Dungeon Master e assente o non valida. |
 
 Per MQTT non e previsto un messaggio di errore sincrono. Gli errori di validazione devono essere registrati dal backend e, se necessario, pubblicati su un topic di diagnostica in una fase successiva del progetto.
 
@@ -517,9 +631,9 @@ Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazi
 
 | Campo | Valore |
 | :--- | :--- |
-| Versione | `0.2` |
-| Stato | Contratto allineato a subscriber, persistenza, sessioni e API REST movimento implementati |
-| Data | 2026-07-11 |
+| Versione | `0.4` |
+| Stato | Contratto allineato a sessioni, ingresso, token giocatore, eventi e movimento implementati |
+| Data | 2026-07-25 |
 | Ambito | MVP BoardHub |
 
 Prossimi passi:
@@ -527,5 +641,6 @@ Prossimi passi:
 - validare il contratto con il collaboratore;
 - mantenere sincronizzata la specifica OpenAPI con gli endpoint implementati;
 - aggiungere filtri o paginazione alla lettura eventi se il volume dati cresce;
-- completare la dashboard DM e implementare app mobile e componente edge;
+- aggiungere personaggi, pezzi autorevoli e relative proiezioni DM/giocatore;
+- implementare app mobile e componente edge;
 - introdurre progressivamente dadi, conferma movimento, buffer offline ed event replay.

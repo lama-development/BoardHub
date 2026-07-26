@@ -1,8 +1,16 @@
 package it.uniupo.boardhub.eventservice.controller;
 
 import it.uniupo.boardhub.eventservice.controller.dto.ErrorResponse;
-import it.uniupo.boardhub.eventservice.service.DuplicateGameSessionException;
-import it.uniupo.boardhub.eventservice.service.GameSessionNotFoundException;
+import it.uniupo.boardhub.eventservice.service.exception.DmAuthenticationException;
+import it.uniupo.boardhub.eventservice.service.exception.DuplicateGameSessionException;
+import it.uniupo.boardhub.eventservice.service.exception.GameSessionNotFoundException;
+import it.uniupo.boardhub.eventservice.service.exception.JoinRequestConflictException;
+import it.uniupo.boardhub.eventservice.service.exception.JoinRequestNotFoundException;
+import it.uniupo.boardhub.eventservice.service.exception.JoinRequestRateLimitException;
+import it.uniupo.boardhub.eventservice.service.exception.PlayerAuthenticationException;
+import it.uniupo.boardhub.eventservice.service.exception.SessionCapacityException;
+import it.uniupo.boardhub.eventservice.service.exception.TableConflictException;
+import it.uniupo.boardhub.eventservice.service.exception.TableSessionNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -38,5 +46,41 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleDuplicateSession(DuplicateGameSessionException ex) {
         return new ErrorResponse("DUPLICATE_SESSION", ex.getMessage());
+    }
+
+    @ExceptionHandler({TableSessionNotFoundException.class, JoinRequestNotFoundException.class})
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleJoinResourceNotFound(RuntimeException ex) {
+        return new ErrorResponse("RESOURCE_NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler({TableConflictException.class, JoinRequestConflictException.class})
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleJoinConflict(RuntimeException ex) {
+        return new ErrorResponse("JOIN_CONFLICT", ex.getMessage());
+    }
+
+    @ExceptionHandler(SessionCapacityException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleCapacity(SessionCapacityException ex) {
+        return new ErrorResponse("CAPACITY_REACHED", ex.getMessage());
+    }
+
+    @ExceptionHandler(JoinRequestRateLimitException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ErrorResponse handleRateLimit(JoinRequestRateLimitException ex) {
+        return new ErrorResponse("RATE_LIMITED", ex.getMessage());
+    }
+
+    @ExceptionHandler(DmAuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleDmAuthentication(DmAuthenticationException ex) {
+        return new ErrorResponse("DM_UNAUTHORIZED", ex.getMessage());
+    }
+
+    @ExceptionHandler(PlayerAuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handlePlayerAuthentication(PlayerAuthenticationException ex) {
+        return new ErrorResponse("PLAYER_UNAUTHORIZED", ex.getMessage());
     }
 }

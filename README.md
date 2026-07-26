@@ -31,6 +31,9 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | `event-service` | Implementato come microservizio Spring Boot che riceve eventi MQTT. |
 | Persistenza eventi | Implementata su PostgreSQL tramite repository JDBC. |
 | Persistenza sessione/plancia | Base dati iniziale implementata per sessioni, celle, muri e trappole. |
+| Tavoli e QR | Implementati con riferimento pubblico stabile e sessione attiva associata. |
+| Ingresso giocatori | Implementato con richiesta idempotente, approvazione DM e partecipante persistito. |
+| Accesso giocatore | Implementato per l'MVP locale con claim privato, token HMAC e endpoint Bearer `/me`. |
 | API REST eventi | Implementata con `GET /api/v1/sessions/{sessionId}/events`. |
 | API REST sessioni | Implementata con `POST /api/v1/sessions`. |
 | OpenAPI | Specifica iniziale disponibile in `docs/openapi/event-service.openapi.yml`. |
@@ -40,7 +43,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | API celle raggiungibili | Implementata con `POST /api/v1/movement/reachable-cells`. |
 | Ricostruzione griglia da sessione | Implementata come servizio interno da stato persistito. |
 | API movimento da sessione | Implementata con `POST /api/v1/sessions/{sessionId}/movement/reachable-cells`. |
-| Dashboard web | Implementata per monitorare stato del backend ed eventi di una sessione. |
+| Dashboard web | Base implementata per monitor, pagina QR, avvio DM, richieste e partecipanti. |
 | App mobile | Da implementare. |
 
 ## Struttura del repository
@@ -72,6 +75,7 @@ just create-session session-demo-001
 just move-session session-demo-001
 just publish-event session-demo-001
 just events session-demo-001
+just close-session session-demo-001
 just down
 ```
 
@@ -116,23 +120,34 @@ Leggere gli eventi salvati:
 curl http://localhost:8082/api/v1/sessions/session-20260630-001/events
 ```
 
-Avviare la dashboard in un terminale separato:
+Avviare il sito in un terminale separato:
 
 ```bash
-cd frontend
-npm ci
-npm run dev
+just frontend
 ```
 
-Aprire `http://localhost:5173` e indicare l'identificativo della sessione da monitorare. Durante lo sviluppo Vite inoltra al backend locale le richieste `/api` e `/actuator`.
+Aprire `http://localhost:5173` per il monitor delle sessioni. Il percorso
+`/t/qr-table-XX`, aperto dal QR fisico, mostra invece lo stato del tavolo:
+se e libero permette a un DM autorizzato di avviare una sessione; se e occupato
+permette al giocatore di chiedere l'ingresso. Durante lo sviluppo Vite inoltra
+al backend locale le richieste `/api` e `/actuator`.
 
 Creare una sessione con griglia iniziale:
 
 ```bash
 curl -X POST http://localhost:8082/api/v1/sessions \
   -H "Content-Type: application/json" \
-  -d '{"sessionId":"session-20260705-001","venueId":"venue-01","tableId":"table-04","title":"Cripta del Re Caduto","gameType":"DND","grid":{"width":3,"height":3,"difficultCells":["C1"],"blockedCells":["A2"],"obstacleCells":[],"occupiedCells":["A1"],"walls":[{"cell":"B1","direction":"SOUTH"}],"traps":[{"trapId":"trap-01","cell":"B1","visibility":"HIDDEN","armed":true}]}}'
+  -H "X-BoardHub-DM-Key: boardhub-local-dm-key" \
+  -d '{"sessionId":"session-20260705-001","venueId":"venue-01","tableId":"table-04","tablePublicId":"qr-table-04","tableDisplayName":"Tavolo 4","title":"Cripta del Re Caduto","gameType":"DND","publicSummary":"Avventura per personaggi di livello 3.","acceptingJoinRequests":true,"grid":{"width":3,"height":3,"difficultCells":["C1"],"blockedCells":["A2"],"obstacleCells":[],"occupiedCells":["A1"],"walls":[{"cell":"B1","direction":"SOUTH"}],"traps":[{"trapId":"trap-01","cell":"B1","visibility":"HIDDEN","armed":true}]}}'
 ```
+
+Il flusso di ingresso parte dal QR stabile del tavolo. Con frontend e backend
+attivi, `just qr 4` mostra nel terminale il QR del Tavolo 4 da scansionare con
+un telefono sulla stessa rete. `just table-status qr-table-04` controlla lo
+stato REST; i comandi `just request-join`, `just pending-joins`,
+`just accept-join`, `just participants` e `just close-session` permettono di
+provare il resto del flusso senza riscrivere le chiamate REST. `just help`
+mostra sintassi e significato.
 
 Calcolare le celle raggiungibili:
 
@@ -168,10 +183,15 @@ Nella risposta REST, `trapsOnPath` contiene solo le trappole gia rivelate ai gio
 
 ## Note operative
 
-Se il volume Docker di PostgreSQL esisteva gia prima di modifiche allo schema, lo script `docker/postgres/init.sql` potrebbe non essere rieseguito automaticamente. Per applicare gli aggiornamenti senza cancellare il volume:
+Lo schema PostgreSQL e gestito da Flyway. All'avvio dell'event-service vengono applicate, in ordine, le migrazioni presenti in `services/event-service/src/main/resources/db/migration`.
+
+Il primo avvio con un volume PostgreSQL gia esistente registra una baseline alla versione `0` e applica in ordine le migrazioni versionate. `V1` crea lo schema iniziale; `V2` aggiunge tavoli, richieste di ingresso e partecipanti. I dati esistenti non vengono cancellati e non e piu necessario eseguire manualmente `init.sql`.
+
+Per controllare le migrazioni applicate mentre PostgreSQL e attivo:
 
 ```bash
-docker exec -i boardhub_db psql -U boardhub_user -d boardhub_db < docker/postgres/init.sql
+docker exec boardhub_db psql -U boardhub_user -d boardhub_db \
+  -c "SELECT installed_rank, version, description, success FROM game_schema.flyway_schema_history ORDER BY installed_rank;"
 ```
 
-Il comando puo fallire se nel database esistono gia eventi con lo stesso `sequenceNumber` nella stessa sessione: questi duplicati vanno prima analizzati.
+Le nuove modifiche strutturali devono essere aggiunte con una nuova migrazione versionata. Una migrazione gia applicata non deve essere riscritta, perche Flyway ne verifica l'integrita tramite checksum.

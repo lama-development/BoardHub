@@ -1,6 +1,7 @@
 package it.uniupo.boardhub.eventservice.service;
 
 import it.uniupo.boardhub.eventservice.config.JoinProperties;
+import it.uniupo.boardhub.eventservice.config.VenueProperties;
 import it.uniupo.boardhub.eventservice.model.grid.GridConfiguration;
 import it.uniupo.boardhub.eventservice.model.join.JoinRequestStatus;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
@@ -54,7 +55,7 @@ class JoinRequestServiceTest {
 
     @Test
     void risolveQrCreaRichiestaEAggiungePartecipanteSoloDopoAccept() {
-        TableSessionService tableService = new TableSessionService(tableRepository, properties, fixedClock(INITIAL_TIME));
+        TableSessionService tableService = tableService(properties, fixedClock(INITIAL_TIME));
         assertThat(tableService.resolveActiveSession("qr-table-04").sessionId()).isEqualTo("session-join-001");
 
         UUID key = UUID.randomUUID();
@@ -169,9 +170,15 @@ class JoinRequestServiceTest {
     }
 
     private void createSession(Clock clock) {
-        TableSessionService tableService = new TableSessionService(tableRepository, properties, clock);
+        TableSessionService tableService = tableService(properties, clock);
+        tableService.enableTable("qr-table-04", null);
+        DmAccessService dmAccessService = new DmAccessService(
+                new SessionTokenService(properties),
+                participantRepository,
+                sessionRepository
+        );
         GameSessionCreationService creationService = new GameSessionCreationService(
-                sessionRepository, new MovementGridFactory(), tableService, clock
+                sessionRepository, new MovementGridFactory(), tableService, dmAccessService, clock
         );
         creationService.createSession(new CreateGameSessionCommand(
                 "session-join-001", "venue-01", "table-04", "qr-table-04", "Tavolo 4",
@@ -191,7 +198,16 @@ class JoinRequestServiceTest {
 
     private JoinProperties properties(int players, int rate, Duration ttl) {
         return new JoinProperties(
-                ttl, players, 8, rate, "dm-test-key", "test-token-secret-at-least-32-chars"
+                ttl, players, 8, rate, "test-token-secret-at-least-32-chars"
+        );
+    }
+
+    private TableSessionService tableService(JoinProperties joinProperties, Clock clock) {
+        return new TableSessionService(
+                tableRepository,
+                joinProperties,
+                new VenueProperties(Duration.ofMinutes(10), 60, "venue-test-key", true),
+                clock
         );
     }
 

@@ -9,6 +9,7 @@ public record GameTable(
         String displayName,
         GameTableStatus status,
         String activeSessionId,
+        OffsetDateTime claimExpiresAt,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {

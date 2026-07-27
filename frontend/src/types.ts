@@ -31,7 +31,8 @@ export type PublicTableStatus = {
   tablePublicId: string;
   tableNumber: number;
   tableDisplayName: string;
-  status: "AVAILABLE" | "IN_SESSION";
+  status: "DISABLED" | "CLAIMABLE" | "IN_SESSION";
+  claimExpiresAt: string | null;
   activeSession: PublicActiveSession | null;
 };
 
@@ -72,4 +73,11 @@ export type CreatedSession = {
   tableDisplayName: string;
   title: string;
   status: string;
+  dmAccessToken: string;
+};
+
+export type ClosedSession = {
+  sessionId: string;
+  status: "ENDED";
+  endedAt: string;
 };

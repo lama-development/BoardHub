@@ -15,15 +15,4 @@ public record CreateGameSessionCommand(
         Boolean acceptingJoinRequests,
         GridConfiguration grid
 ) {
-
-    public CreateGameSessionCommand(
-            String sessionId,
-            String venueId,
-            String tableId,
-            String title,
-            String gameType,
-            GridConfiguration grid
-    ) {
-        this(sessionId, venueId, tableId, null, null, title, gameType, null, null, grid);
-    }
 }

@@ -160,7 +160,7 @@ public class JoinRequestService {
                 .orElseThrow(() -> new IllegalStateException(
                         "Richiesta accettata senza partecipante associato."
                 ));
-        return new PlayerJoinStatus(request, participant, tokenService.issue(participant));
+        return new PlayerJoinStatus(request, participant, tokenService.issuePlayer(participant));
     }
 
     // Accetta una sola volta la richiesta e restituisce lo stesso token negli eventuali retry.
@@ -177,7 +177,7 @@ public class JoinRequestService {
                     .orElseThrow(() -> new IllegalStateException(
                             "Richiesta accettata senza partecipante associato."
                     ));
-            return new JoinAcceptance(request, existing, tokenService.issue(existing));
+            return new JoinAcceptance(request, existing, tokenService.issuePlayer(existing));
         }
         requirePending(request);
         if (participantRepository.countActivePlayers(normalizedSessionId) >= properties.maxPlayersPerSession()) {
@@ -198,7 +198,7 @@ public class JoinRequestService {
             throw new JoinRequestConflictException("La richiesta non e piu in attesa.");
         }
         SessionJoinRequest accepted = resolved(request, JoinRequestStatus.ACCEPTED, now);
-        return new JoinAcceptance(accepted, participant, tokenService.issue(participant));
+        return new JoinAcceptance(accepted, participant, tokenService.issuePlayer(participant));
     }
 
     // Rifiuta in modo idempotente una richiesta ancora in attesa.

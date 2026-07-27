@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Check,
   Clock3,
+  LoaderCircle,
   LogOut,
   RefreshCw,
   Shield,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import {
   acceptDmJoinRequest,
+  closeDmSession,
   fetchDmJoinRequests,
   fetchDmParticipants,
   rejectDmJoinRequest,
@@ -22,29 +24,32 @@ type DmSessionPanelProps = {
   sessionId: string;
   sessionTitle: string;
   tableDisplayName: string;
-  dmKey: string;
+  dmToken: string;
   onLeave: () => void;
+  onSessionClosed: () => void;
 };
 
 export function DmSessionPanel({
   sessionId,
   sessionTitle,
   tableDisplayName,
-  dmKey,
+  dmToken,
   onLeave,
+  onSessionClosed,
 }: DmSessionPanelProps) {
   const [requests, setRequests] = React.useState<JoinRequest[]>([]);
   const [participants, setParticipants] = React.useState<Participant[]>([]);
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [busyRequestId, setBusyRequestId] = React.useState<string | null>(null);
+  const [isClosing, setIsClosing] = React.useState(false);
 
   const refresh = React.useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     try {
       const [pendingRequests, activeParticipants] = await Promise.all([
-        fetchDmJoinRequests(sessionId, dmKey),
-        fetchDmParticipants(sessionId, dmKey),
+        fetchDmJoinRequests(sessionId, dmToken),
+        fetchDmParticipants(sessionId, dmToken),
       ]);
       setRequests(pendingRequests);
       setParticipants(activeParticipants);
@@ -58,7 +63,7 @@ export function DmSessionPanel({
     } finally {
       if (showLoading) setIsLoading(false);
     }
-  }, [dmKey, sessionId]);
+  }, [dmToken, sessionId]);
 
   React.useEffect(() => {
     void refresh();
@@ -71,9 +76,9 @@ export function DmSessionPanel({
     setError(null);
     try {
       if (accepted) {
-        await acceptDmJoinRequest(sessionId, requestId, dmKey);
+        await acceptDmJoinRequest(sessionId, requestId, dmToken);
       } else {
-        await rejectDmJoinRequest(sessionId, requestId, dmKey);
+        await rejectDmJoinRequest(sessionId, requestId, dmToken);
       }
       await refresh(false);
     } catch (resolveError) {
@@ -86,6 +91,25 @@ export function DmSessionPanel({
       setBusyRequestId(null);
     }
   }
+
+  async function closeSession() {
+    if (!window.confirm("Concludere la sessione e disattivare il tavolo?")) return;
+    setIsClosing(true);
+    setError(null);
+    try {
+      await closeDmSession(sessionId, dmToken);
+      onSessionClosed();
+    } catch (closeError) {
+      setError(
+        closeError instanceof Error
+          ? closeError.message
+          : "Impossibile concludere la sessione.",
+      );
+      setIsClosing(false);
+    }
+  }
+
+  const players = participants.filter((participant) => participant.role === "PLAYER");
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
@@ -118,6 +142,19 @@ export function DmSessionPanel({
             <LogOut size={17} aria-hidden="true" />
             Esci dal pannello
           </button>
+          <button
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-progress disabled:opacity-60"
+            type="button"
+            onClick={() => void closeSession()}
+            disabled={isClosing}
+          >
+            {isClosing ? (
+              <LoaderCircle className="animate-spin" size={17} aria-hidden="true" />
+            ) : (
+              <X size={17} aria-hidden="true" />
+            )}
+            Concludi sessione
+          </button>
         </div>
       </header>
 
@@ -133,7 +170,7 @@ export function DmSessionPanel({
         <div>
           <p className="text-xs font-medium uppercase text-slate-500">Giocatori attivi</p>
           <p className="mt-1 text-lg font-semibold text-slate-950">
-            {participants.length} / 8
+            {players.length} / 8
           </p>
         </div>
       </section>
@@ -194,13 +231,13 @@ export function DmSessionPanel({
             <Users size={19} aria-hidden="true" />
             <h2 className="text-lg font-semibold text-slate-950">Giocatori accettati</h2>
           </div>
-          {participants.length === 0 ? (
+          {players.length === 0 ? (
             <p className="mt-4 border-t border-slate-200 py-5 text-sm text-slate-500">
               Non ci sono ancora giocatori associati alla sessione.
             </p>
           ) : (
             <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
-              {participants.map((participant) => (
+              {players.map((participant) => (
                 <li className="flex items-center gap-3 py-4" key={participant.participantId}>
                   <UserRoundCheck className="text-emerald-700" size={20} aria-hidden="true" />
                   <div>

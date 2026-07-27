@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: BoardHub Event Service API
-  version: 0.18.2
-  description: API REST dell'event-service BoardHub per sessioni, ingresso dei giocatori, eventi e movimento su griglia.
+  version: 0.20.0
+  description: API REST dell'event-service BoardHub per controllo dei tavoli, sessioni, ingresso dei giocatori, personaggi, eventi e movimento su griglia.
 servers:
   - url: http://localhost:8082
     description: Ambiente locale di sviluppo
@@ -15,8 +15,12 @@ tags:
     description: Creazione e gestione sessioni di gioco
   - name: Tables
     description: Risoluzione pubblica dei QR associati ai tavoli
+  - name: Venue
+    description: Controllo privato dei tavoli da parte del personale del locale
   - name: Join
     description: Richieste di ingresso e approvazione del Dungeon Master
+  - name: Characters
+    description: Schede tattiche possedute dai partecipanti della sessione
   - name: Movement
     description: Calcolo movimento su griglia
 paths:
@@ -41,9 +45,7 @@ paths:
       tags:
         - Sessions
       summary: Crea una sessione di gioco
-      description: Crea una sessione D&D attiva con configurazione iniziale della griglia.
-      security:
-        - DmKey: []
+      description: Consuma l'abilitazione temporanea del tavolo, crea la sessione D&D e restituisce il token del DM.
       requestBody:
         required: true
         content:
@@ -103,6 +105,7 @@ paths:
                     gridWidth: 3
                     gridHeight: 3
                     createdAt: "2026-07-05T16:00:00Z"
+                    dmAccessToken: bhd1.550e8400-e29b-41d4-a716-446655440000.firma
         "400":
           description: Richiesta non valida
           content:
@@ -114,14 +117,8 @@ paths:
                   value:
                     code: BAD_REQUEST
                     message: La griglia iniziale e obbligatoria.
-        "401":
-          description: Chiave DM mancante o non valida
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Sessione gia esistente
+          description: Sessione gia esistente, tavolo non abilitato o claim gia consumato
           content:
             application/json:
               schema:
@@ -131,12 +128,101 @@ paths:
                   value:
                     code: DUPLICATE_SESSION
                     message: "Sessione gia esistente: session-20260705-001"
+  /api/v1/admin/tables:
+    get:
+      tags:
+        - Venue
+      summary: Elenca l'inventario dei tavoli del locale
+      description: Operazione privata e, per impostazione predefinita, accessibile soltanto dal computer del backend.
+      security:
+        - VenueKey: []
+      responses:
+        "200":
+          description: Stato corrente di tutti i tavoli configurati
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicTableStatusResponse"
+        "401":
+          description: Credenziale del locale assente, errata o richiesta non locale
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/admin/tables/{tablePublicId}/enable:
+    post:
+      tags:
+        - Venue
+      summary: Abilita temporaneamente l'avvio di una sessione
+      security:
+        - VenueKey: []
+      parameters:
+        - $ref: "#/components/parameters/TablePublicId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnableTableRequest"
+      responses:
+        "200":
+          description: Tavolo reclamabile fino alla scadenza indicata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicTableStatusResponse"
+        "401":
+          description: Credenziale del locale non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Il tavolo ospita gia una sessione
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/admin/tables/{tablePublicId}/disable:
+    post:
+      tags:
+        - Venue
+      summary: Revoca una finestra di avvio non ancora utilizzata
+      security:
+        - VenueKey: []
+      parameters:
+        - $ref: "#/components/parameters/TablePublicId"
+      responses:
+        "200":
+          description: Tavolo disabilitato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicTableStatusResponse"
+  /api/v1/admin/tables/{tablePublicId}/close-session:
+    post:
+      tags:
+        - Venue
+      summary: Conclude dal locale la sessione attiva del tavolo
+      security:
+        - VenueKey: []
+      parameters:
+        - $ref: "#/components/parameters/TablePublicId"
+      responses:
+        "200":
+          description: Sessione conclusa e tavolo disabilitato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicTableStatusResponse"
   /api/v1/public/tables/{tablePublicId}:
     get:
       tags:
         - Tables
       summary: Restituisce lo stato pubblico del tavolo
-      description: Distingue un tavolo libero da uno con sessione attiva. Sono validi i QR dei tavoli configurati da 1 a 8.
+      description: Distingue un tavolo disabilitato, temporaneamente reclamabile o con sessione attiva. Sono validi i QR dei tavoli configurati da 1 a 8.
       parameters:
         - name: tablePublicId
           in: path
@@ -285,13 +371,81 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/player/sessions/{sessionId}/characters:
+    post:
+      tags:
+        - Characters
+      summary: Crea un personaggio per il giocatore autenticato
+      description: >
+        Il proprietario viene ricavato dal token Bearer. Il backend applica
+        validazione, limite per partecipante e valore iniziale di hpCurrent
+        uguale a hpMax quando il campo non viene inviato.
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCharacterRequest"
+      responses:
+        "201":
+          description: Personaggio creato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharacterResponse"
+        "400":
+          description: Dati del personaggio non validi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Credenziale giocatore non valida o sessione non attiva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Limite di personaggi del partecipante raggiunto
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      tags:
+        - Characters
+      summary: Elenca i personaggi posseduti dal giocatore autenticato
+      description: Non espone i personaggi appartenenti agli altri partecipanti.
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Personaggi del proprietario ordinati per creazione
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CharacterResponse"
+        "401":
+          description: Credenziale giocatore non valida o sessione non attiva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/dm/sessions/{sessionId}/join-requests:
     get:
       tags:
         - Join
       summary: Elenca le richieste di ingresso della sessione
       security:
-        - DmKey: []
+        - DmSessionBearer: []
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - name: status
@@ -322,7 +476,7 @@ paths:
         - Join
       summary: Accetta una richiesta e crea il partecipante
       security:
-        - DmKey: []
+        - DmSessionBearer: []
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - $ref: "#/components/parameters/RequestId"
@@ -351,7 +505,7 @@ paths:
         - Join
       summary: Rifiuta una richiesta di ingresso
       security:
-        - DmKey: []
+        - DmSessionBearer: []
       parameters:
         - $ref: "#/components/parameters/SessionId"
         - $ref: "#/components/parameters/RequestId"
@@ -374,7 +528,7 @@ paths:
         - Join
       summary: Elenca i partecipanti attivi della sessione
       security:
-        - DmKey: []
+        - DmSessionBearer: []
       parameters:
         - $ref: "#/components/parameters/SessionId"
       responses:
@@ -386,13 +540,44 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ParticipantResponse"
+  /api/v1/dm/sessions/{sessionId}/characters:
+    get:
+      tags:
+        - Characters
+      summary: Elenca tutti i personaggi della sessione per il DM
+      description: Include anche personaggi OWNER_ONLY o DM_ONLY.
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Personaggi della sessione ordinati per creazione
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CharacterResponse"
+        "401":
+          description: Credenziale DM non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Sessione inesistente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/dm/sessions/{sessionId}/close:
     post:
       tags:
         - Sessions
-      summary: Conclude la sessione e libera il tavolo
+      summary: Conclude la sessione e disabilita il tavolo
       security:
-        - DmKey: []
+        - DmSessionBearer: []
       parameters:
         - $ref: "#/components/parameters/SessionId"
       responses:
@@ -588,11 +773,16 @@ paths:
                     message: "Sessione non trovata: session-non-esistente"
 components:
   securitySchemes:
-    DmKey:
+    VenueKey:
       type: apiKey
       in: header
-      name: X-BoardHub-DM-Key
-      description: Chiave locale configurata dal gestore del tavolo.
+      name: X-BoardHub-Venue-Key
+      description: Credenziale amministrativa del locale, non esposta ai QR o ai client pubblici.
+    DmSessionBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: bhd1
+      description: Credenziale del Dungeon Master, associata a una sola sessione attiva.
     PlayerBearer:
       type: http
       scheme: bearer
@@ -613,6 +803,14 @@ components:
       schema:
         type: string
         format: uuid
+    TablePublicId:
+      name: tablePublicId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^qr-table-[0-9]{2}$"
+      example: qr-table-04
   schemas:
     HealthResponse:
       type: object
@@ -751,6 +949,10 @@ components:
           type: string
           format: date-time
           example: "2026-07-05T16:00:00Z"
+        dmAccessToken:
+          type: string
+          description: Token Bearer del DM valido soltanto per la sessione appena creata.
+          example: bhd1.550e8400-e29b-41d4-a716-446655440000.firma
       required:
         - sessionId
         - venueId
@@ -765,6 +967,7 @@ components:
         - gridWidth
         - gridHeight
         - createdAt
+        - dmAccessToken
     PublicActiveSessionResponse:
       type: object
       properties:
@@ -803,12 +1006,25 @@ components:
           example: Tavolo 4
         status:
           type: string
-          enum: [AVAILABLE, IN_SESSION]
+          enum: [DISABLED, CLAIMABLE, IN_SESSION]
+        claimExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Scadenza della finestra di claim, presente soltanto nello stato CLAIMABLE.
         activeSession:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/PublicActiveSessionResponse"
       required: [tablePublicId, tableNumber, tableDisplayName, status]
+    EnableTableRequest:
+      type: object
+      properties:
+        durationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 60
+          description: Durata opzionale della finestra di avvio.
     CreateJoinRequestRequest:
       type: object
       properties:
@@ -867,6 +1083,122 @@ components:
           type: string
           format: date-time
       required: [participantId, sessionId, role, displayName, status, joinedAt]
+    CreateCharacterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Elaria
+        species:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Elfa
+        age:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: Età narrativa positiva; l'eventuale limite dipende dalla specie e dalla campagna.
+          example: 120
+        className:
+          type: string
+          minLength: 1
+          maxLength: 80
+          example: Maga
+        level:
+          type: integer
+          minimum: 1
+          maximum: 20
+          example: 3
+        speedCells:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Velocità effettiva sulla griglia in segmenti da 5 piedi; il massimo è una protezione tecnica BoardHub.
+          example: 6
+        hpCurrent:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Se assente assume il valore di hpMax; non puo superarlo.
+          example: 18
+        hpMax:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: HP massimi effettivi; il massimo è una protezione tecnica BoardHub, non una regola D&D.
+          example: 18
+        armorClass:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Classe Armatura effettiva; l'intervallo è una protezione tecnica BoardHub, non una regola D&D.
+          example: 12
+        partyVisibility:
+          type: string
+          enum: [OWNER_ONLY, PARTY, DM_ONLY]
+          default: OWNER_ONLY
+      required: [name, species, className, level, speedCells, hpMax, armorClass]
+    CharacterResponse:
+      type: object
+      properties:
+        characterId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+        participantId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        species:
+          type: string
+        age:
+          type: integer
+          nullable: true
+        className:
+          type: string
+        level:
+          type: integer
+        speedCells:
+          type: integer
+        hpCurrent:
+          type: integer
+        hpMax:
+          type: integer
+        armorClass:
+          type: integer
+        partyVisibility:
+          type: string
+          enum: [OWNER_ONLY, PARTY, DM_ONLY]
+        version:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - characterId
+        - sessionId
+        - participantId
+        - name
+        - species
+        - className
+        - level
+        - speedCells
+        - hpCurrent
+        - hpMax
+        - armorClass
+        - partyVisibility
+        - version
+        - createdAt
+        - updatedAt
     AcceptJoinRequestResponse:
       type: object
       properties:

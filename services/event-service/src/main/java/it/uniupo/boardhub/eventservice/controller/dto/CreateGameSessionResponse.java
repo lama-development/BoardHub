@@ -13,6 +13,7 @@ public record CreateGameSessionResponse(
         String status,
         int gridWidth,
         int gridHeight,
-        String createdAt
+        String createdAt,
+        String dmAccessToken
 ) {
 }

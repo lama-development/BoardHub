@@ -1,6 +1,7 @@
 package it.uniupo.boardhub.eventservice.service;
 
 import it.uniupo.boardhub.eventservice.config.JoinProperties;
+import it.uniupo.boardhub.eventservice.config.VenueProperties;
 import it.uniupo.boardhub.eventservice.model.join.GameTable;
 import it.uniupo.boardhub.eventservice.model.join.GameTableStatus;
 import it.uniupo.boardhub.eventservice.model.join.PublicSessionInfo;
@@ -15,9 +16,14 @@ import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.regex.Pattern;
+
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TableSessionService {
@@ -27,15 +33,22 @@ public class TableSessionService {
 
     private final GameTableRepository repository;
     private final JoinProperties properties;
+    private final VenueProperties venueProperties;
     private final Clock clock;
 
-    public TableSessionService(GameTableRepository repository, JoinProperties properties, Clock clock) {
+    public TableSessionService(
+            GameTableRepository repository,
+            JoinProperties properties,
+            VenueProperties venueProperties,
+            Clock clock
+    ) {
         this.repository = repository;
         this.properties = properties;
+        this.venueProperties = venueProperties;
         this.clock = clock;
     }
 
-    // Registra il tavolo e lo collega alla sessione creata nella stessa transazione.
+    // Consuma il claim temporaneo e collega il tavolo alla sessione nella stessa transazione.
     public GameTable registerAndActivate(
             String requestedTableId,
             String requestedPublicId,
@@ -48,23 +61,123 @@ public class TableSessionService {
         validateIdentifiers(tableId, publicId, displayName);
 
         OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
-        GameTable table = repository.findById(tableId).map(existing -> {
-            if (!existing.tablePublicId().equals(publicId)) {
-                throw new TableConflictException("Il tavolo esiste gia con un QR pubblico differente.");
-            }
-            if (existing.activeSessionId() != null && !existing.activeSessionId().equals(sessionId)) {
-                throw new TableConflictException("Il tavolo e gia occupato da un'altra sessione attiva.");
-            }
-            return new GameTable(
-                    existing.tableId(), existing.tablePublicId(), existing.displayName(),
-                    existing.status(), sessionId, existing.createdAt(), now
-            );
-        }).orElseGet(() -> createTable(tableId, publicId, displayName, sessionId, now));
-
-        if (!repository.activateSession(tableId, sessionId, Timestamp.from(now.toInstant()))) {
-            throw new TableConflictException("Il tavolo non e disponibile per la nuova sessione.");
+        GameTable table = repository.findByPublicId(publicId)
+                .orElseThrow(() -> new TableConflictException(
+                        "Il locale non ha abilitato questo tavolo."
+                ));
+        if (!table.tableId().equals(tableId)) {
+            throw new TableConflictException("Il QR pubblico appartiene a un altro tavolo.");
         }
-        return table;
+        if (table.status() != GameTableStatus.CLAIMABLE
+                || table.claimExpiresAt() == null
+                || !table.claimExpiresAt().isAfter(now)) {
+            repository.expireClaim(publicId, Timestamp.from(now.toInstant()));
+            throw new TableConflictException(
+                    "Il tavolo non e abilitato o la finestra di avvio e scaduta."
+            );
+        }
+        if (repository.countActiveTables() >= properties.maxActiveTables()) {
+            throw new SessionCapacityException("E stato raggiunto il limite di tavoli attivi.");
+        }
+        if (!repository.claimSession(tableId, sessionId, Timestamp.from(now.toInstant()))) {
+            throw new TableConflictException(
+                    "Il tavolo e stato reclamato da un'altra sessione o l'abilitazione e scaduta."
+            );
+        }
+        return new GameTable(
+                table.tableId(),
+                table.tablePublicId(),
+                table.displayName(),
+                GameTableStatus.IN_SESSION,
+                sessionId,
+                null,
+                table.createdAt(),
+                now
+        );
+    }
+
+    // Abilita per un tempo limitato un solo tavolo configurato del locale.
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public GameTable enableTable(String tablePublicId, Integer requestedMinutes) {
+        ConfiguredTable configured = requireConfiguredTable(tablePublicId);
+        Duration ttl = claimDuration(requestedMinutes);
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        OffsetDateTime expiresAt = now.plus(ttl);
+        GameTable existing = repository.findByPublicId(configured.publicId()).orElse(null);
+        if (existing != null && existing.status() == GameTableStatus.IN_SESSION) {
+            throw new TableConflictException("Il tavolo ospita gia una sessione attiva.");
+        }
+
+        if (existing == null) {
+            GameTable created = new GameTable(
+                    configured.tableId(),
+                    configured.publicId(),
+                    configured.displayName(),
+                    GameTableStatus.CLAIMABLE,
+                    null,
+                    expiresAt,
+                    now,
+                    now
+            );
+            try {
+                repository.save(created);
+                return created;
+            } catch (DuplicateKeyException ex) {
+                throw new TableConflictException("Il tavolo e stato modificato da un'altra operazione.");
+            }
+        }
+
+        if (!repository.enableClaim(
+                configured.publicId(),
+                Timestamp.from(expiresAt.toInstant()),
+                Timestamp.from(now.toInstant())
+        )) {
+            throw new TableConflictException("Il tavolo non puo essere abilitato nello stato corrente.");
+        }
+        return new GameTable(
+                existing.tableId(),
+                existing.tablePublicId(),
+                existing.displayName(),
+                GameTableStatus.CLAIMABLE,
+                null,
+                expiresAt,
+                existing.createdAt(),
+                now
+        );
+    }
+
+    // Revoca una finestra di avvio; una sessione attiva deve essere conclusa esplicitamente.
+    @Transactional
+    public GameTable disableTable(String tablePublicId) {
+        ConfiguredTable configured = requireConfiguredTable(tablePublicId);
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        GameTable existing = repository.findByPublicId(configured.publicId()).orElse(null);
+        if (existing == null) {
+            return disabledTable(configured, now);
+        }
+        if (existing.status() == GameTableStatus.IN_SESSION) {
+            throw new TableConflictException(
+                    "Il tavolo ospita una sessione attiva: concludila prima di disabilitarlo."
+            );
+        }
+        repository.disableClaim(configured.publicId(), Timestamp.from(now.toInstant()));
+        return new GameTable(
+                existing.tableId(),
+                existing.tablePublicId(),
+                existing.displayName(),
+                GameTableStatus.DISABLED,
+                null,
+                null,
+                existing.createdAt(),
+                now
+        );
+    }
+
+    // Elenca sempre l'intero inventario configurato, inclusi i tavoli mai usati.
+    public List<PublicTableOverview> listConfiguredTables() {
+        return java.util.stream.IntStream.rangeClosed(1, properties.maxActiveTables())
+                .mapToObj(number -> resolvePublicTable("qr-table-%02d".formatted(number)))
+                .toList();
     }
 
     // Restituisce solo le informazioni che possono essere mostrate dopo la scansione del QR.
@@ -74,48 +187,63 @@ public class TableSessionService {
                 .orElseThrow(() -> new TableSessionNotFoundException(normalized));
     }
 
-    // Distingue un tavolo libero da uno occupato e rifiuta QR fuori dall'inventario configurato.
+    // Distingue un tavolo disabilitato, reclamabile o occupato e rifiuta QR fuori inventario.
     public PublicTableOverview resolvePublicTable(String tablePublicId) {
         ConfiguredTable configured = requireConfiguredTable(tablePublicId);
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        GameTable table = repository.findByPublicId(configured.publicId()).orElse(null);
+        if (table != null
+                && table.status() == GameTableStatus.CLAIMABLE
+                && (table.claimExpiresAt() == null || !table.claimExpiresAt().isAfter(now))) {
+            repository.expireClaim(configured.publicId(), Timestamp.from(now.toInstant()));
+            table = new GameTable(
+                    table.tableId(), table.tablePublicId(), table.displayName(),
+                    GameTableStatus.DISABLED, null, null, table.createdAt(), now
+            );
+        }
         PublicSessionInfo activeSession = repository.findActivePublicSession(configured.publicId())
                 .orElse(null);
-        String displayName = activeSession != null
-                ? activeSession.tableDisplayName()
-                : repository.findByPublicId(configured.publicId())
-                        .map(GameTable::displayName)
-                        .orElse("Tavolo " + configured.number());
+        String displayName = table == null ? configured.displayName() : table.displayName();
+        PublicTableAvailability availability = activeSession != null
+                ? PublicTableAvailability.IN_SESSION
+                : table != null && table.status() == GameTableStatus.CLAIMABLE
+                        ? PublicTableAvailability.CLAIMABLE
+                        : PublicTableAvailability.DISABLED;
 
         return new PublicTableOverview(
                 configured.publicId(),
                 configured.number(),
                 displayName,
-                activeSession == null
-                        ? PublicTableAvailability.AVAILABLE
-                        : PublicTableAvailability.IN_SESSION,
+                availability,
+                availability == PublicTableAvailability.CLAIMABLE ? table.claimExpiresAt() : null,
                 activeSession
         );
     }
 
-    private GameTable createTable(
-            String tableId,
-            String publicId,
-            String displayName,
-            String sessionId,
-            OffsetDateTime now
-    ) {
-        if (repository.countActiveTables() >= properties.maxActiveTables()) {
-            throw new SessionCapacityException("E stato raggiunto il limite di tavoli attivi.");
+    private Duration claimDuration(Integer requestedMinutes) {
+        if (requestedMinutes == null) {
+            return venueProperties.tableClaimTtl();
         }
-        GameTable table = new GameTable(
-                tableId, publicId, displayName, GameTableStatus.ACTIVE,
-                sessionId, now, now
+        if (requestedMinutes < 1 || requestedMinutes > venueProperties.maxClaimMinutes()) {
+            throw new IllegalArgumentException(
+                    "La durata deve essere compresa tra 1 e "
+                            + venueProperties.maxClaimMinutes() + " minuti."
+            );
+        }
+        return Duration.ofMinutes(requestedMinutes);
+    }
+
+    private GameTable disabledTable(ConfiguredTable configured, OffsetDateTime now) {
+        return new GameTable(
+                configured.tableId(),
+                configured.publicId(),
+                configured.displayName(),
+                GameTableStatus.DISABLED,
+                null,
+                null,
+                now,
+                now
         );
-        try {
-            repository.save(table);
-        } catch (DuplicateKeyException ex) {
-            throw new TableConflictException("Il QR pubblico e gia associato a un altro tavolo.");
-        }
-        return table;
     }
 
     private void validateIdentifiers(String tableId, String publicId, String displayName) {
@@ -156,7 +284,12 @@ public class TableSessionService {
         if (number < 1 || number > maxTables) {
             throw invalidTable(maxTables);
         }
-        return new ConfiguredTable(number, "qr-table-%02d".formatted(number));
+        return new ConfiguredTable(
+                number,
+                "table-%02d".formatted(number),
+                "qr-table-%02d".formatted(number),
+                "Tavolo " + number
+        );
     }
 
     private IllegalArgumentException invalidTable(int maxTables) {
@@ -170,6 +303,11 @@ public class TableSessionService {
         return value == null || value.isBlank() ? defaultValue : value;
     }
 
-    private record ConfiguredTable(int number, String publicId) {
+    private record ConfiguredTable(
+            int number,
+            String tableId,
+            String publicId,
+            String displayName
+    ) {
     }
 }

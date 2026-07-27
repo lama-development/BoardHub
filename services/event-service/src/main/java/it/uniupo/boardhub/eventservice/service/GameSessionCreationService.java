@@ -36,17 +36,20 @@ public class GameSessionCreationService {
     private final GameSessionRepository repository;
     private final MovementGridFactory gridFactory;
     private final TableSessionService tableSessionService;
+    private final DmAccessService dmAccessService;
     private final Clock clock;
 
     public GameSessionCreationService(
             GameSessionRepository repository,
             MovementGridFactory gridFactory,
             TableSessionService tableSessionService,
+            DmAccessService dmAccessService,
             Clock clock
     ) {
         this.repository = repository;
         this.gridFactory = gridFactory;
         this.tableSessionService = tableSessionService;
+        this.dmAccessService = dmAccessService;
         this.clock = clock;
     }
 
@@ -74,15 +77,14 @@ public class GameSessionCreationService {
         saveCells(session.sessionId(), grid);
         saveWalls(session.sessionId(), grid.walls());
         saveTraps(session.sessionId(), grid.traps());
-        return new CreatedGameSession(
-                session,
-                tableSessionService.registerAndActivate(
-                        request.tableId(),
-                        request.tablePublicId(),
-                        request.tableDisplayName(),
-                        session.sessionId()
-                )
+        var table = tableSessionService.registerAndActivate(
+                request.tableId(),
+                request.tablePublicId(),
+                request.tableDisplayName(),
+                session.sessionId()
         );
+        var dmAccess = dmAccessService.issue(session.sessionId(), session.createdAt());
+        return new CreatedGameSession(session, table, dmAccess.accessToken());
     }
 
     // Trasforma il vincolo di chiave duplicata del database in errore applicativo REST.

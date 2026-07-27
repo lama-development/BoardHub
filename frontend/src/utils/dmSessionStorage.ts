@@ -1,9 +1,9 @@
 import type { CreatedSession } from "../types";
 
-type StoredDmAccess = {
-  version: 1;
-  dmKey: string;
-  session: CreatedSession;
+export type StoredDmAccess = {
+  version: 2;
+  dmToken: string;
+  session: Omit<CreatedSession, "dmAccessToken">;
 };
 
 function storageKey(tablePublicId: string) {
@@ -29,9 +29,9 @@ export function readDmAccess(tablePublicId: string): StoredDmAccess | null {
 
     const value = JSON.parse(rawValue) as Partial<StoredDmAccess>;
     if (
-      value.version !== 1 ||
-      typeof value.dmKey !== "string" ||
-      value.dmKey.length === 0 ||
+      value.version !== 2 ||
+      typeof value.dmToken !== "string" ||
+      !value.dmToken.startsWith("bhd1.") ||
       !isCreatedSession(value.session) ||
       value.session.tablePublicId !== tablePublicId
     ) {
@@ -49,12 +49,12 @@ export function readDmAccess(tablePublicId: string): StoredDmAccess | null {
 export function saveDmAccess(
   tablePublicId: string,
   session: CreatedSession,
-  dmKey: string,
 ) {
+  const { dmAccessToken, ...storedSession } = session;
   const value: StoredDmAccess = {
-    version: 1,
-    dmKey: dmKey.trim(),
-    session,
+    version: 2,
+    dmToken: dmAccessToken.trim(),
+    session: storedSession,
   };
   window.localStorage.setItem(storageKey(tablePublicId), JSON.stringify(value));
 }

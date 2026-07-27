@@ -1,6 +1,7 @@
 package it.uniupo.boardhub.eventservice.controller;
 
 import it.uniupo.boardhub.eventservice.controller.dto.ErrorResponse;
+import it.uniupo.boardhub.eventservice.service.exception.CharacterCapacityException;
 import it.uniupo.boardhub.eventservice.service.exception.DmAuthenticationException;
 import it.uniupo.boardhub.eventservice.service.exception.DuplicateGameSessionException;
 import it.uniupo.boardhub.eventservice.service.exception.GameSessionNotFoundException;
@@ -11,6 +12,7 @@ import it.uniupo.boardhub.eventservice.service.exception.PlayerAuthenticationExc
 import it.uniupo.boardhub.eventservice.service.exception.SessionCapacityException;
 import it.uniupo.boardhub.eventservice.service.exception.TableConflictException;
 import it.uniupo.boardhub.eventservice.service.exception.TableSessionNotFoundException;
+import it.uniupo.boardhub.eventservice.service.exception.VenueAuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -66,6 +68,12 @@ public class ApiExceptionHandler {
         return new ErrorResponse("CAPACITY_REACHED", ex.getMessage());
     }
 
+    @ExceptionHandler(CharacterCapacityException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleCharacterCapacity(CharacterCapacityException ex) {
+        return new ErrorResponse("CHARACTER_CAPACITY_REACHED", ex.getMessage());
+    }
+
     @ExceptionHandler(JoinRequestRateLimitException.class)
     @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
     public ErrorResponse handleRateLimit(JoinRequestRateLimitException ex) {
@@ -82,5 +90,11 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handlePlayerAuthentication(PlayerAuthenticationException ex) {
         return new ErrorResponse("PLAYER_UNAUTHORIZED", ex.getMessage());
+    }
+
+    @ExceptionHandler(VenueAuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleVenueAuthentication(VenueAuthenticationException ex) {
+        return new ErrorResponse("VENUE_UNAUTHORIZED", ex.getMessage());
     }
 }

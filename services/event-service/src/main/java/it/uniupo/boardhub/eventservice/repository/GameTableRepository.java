@@ -28,14 +28,15 @@ public class GameTableRepository {
         jdbcTemplate.update("""
                         INSERT INTO game_schema.game_tables (
                             table_id, table_public_id, display_name, status,
-                            active_session_id, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                            active_session_id, claim_expires_at, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                 table.tableId(),
                 table.tablePublicId(),
                 table.displayName(),
                 table.status().name(),
                 table.activeSessionId(),
+                toTimestamp(table.claimExpiresAt()),
                 Timestamp.from(table.createdAt().toInstant()),
                 Timestamp.from(table.updatedAt().toInstant())
         );
@@ -45,7 +46,7 @@ public class GameTableRepository {
     public Optional<GameTable> findById(String tableId) {
         List<GameTable> tables = jdbcTemplate.query("""
                 SELECT table_id, table_public_id, display_name, status,
-                       active_session_id, created_at, updated_at
+                       active_session_id, claim_expires_at, created_at, updated_at
                 FROM game_schema.game_tables
                 WHERE table_id = ?
                 """, new GameTableRowMapper(), tableId);
@@ -56,7 +57,7 @@ public class GameTableRepository {
     public Optional<GameTable> findByPublicId(String tablePublicId) {
         List<GameTable> tables = jdbcTemplate.query("""
                 SELECT table_id, table_public_id, display_name, status,
-                       active_session_id, created_at, updated_at
+                       active_session_id, claim_expires_at, created_at, updated_at
                 FROM game_schema.game_tables
                 WHERE table_public_id = ?
                 """, new GameTableRowMapper(), tablePublicId);
@@ -69,22 +70,59 @@ public class GameTableRepository {
                 """
                 SELECT COUNT(*)
                 FROM game_schema.game_tables
-                WHERE status = 'ACTIVE' AND active_session_id IS NOT NULL
+                WHERE status = 'IN_SESSION' AND active_session_id IS NOT NULL
                 """,
                 Integer.class
         );
         return count == null ? 0 : count;
     }
 
-    // Collega il tavolo alla sessione solo se non e gia occupato da un'altra partita.
-    public boolean activateSession(String tableId, String sessionId, Timestamp updatedAt) {
+    // Rende reclamabile un tavolo gia registrato e non occupato.
+    public boolean enableClaim(String tablePublicId, Timestamp expiresAt, Timestamp updatedAt) {
         return jdbcTemplate.update("""
                 UPDATE game_schema.game_tables
-                SET active_session_id = ?, updated_at = ?
+                SET status = 'CLAIMABLE', claim_expires_at = ?, updated_at = ?
+                WHERE table_public_id = ?
+                  AND status IN ('DISABLED', 'CLAIMABLE')
+                  AND active_session_id IS NULL
+                """, expiresAt, updatedAt, tablePublicId) == 1;
+    }
+
+    // Disabilita una finestra di claim senza interrompere una sessione attiva.
+    public boolean disableClaim(String tablePublicId, Timestamp updatedAt) {
+        return jdbcTemplate.update("""
+                UPDATE game_schema.game_tables
+                SET status = 'DISABLED', claim_expires_at = NULL, updated_at = ?
+                WHERE table_public_id = ?
+                  AND status IN ('DISABLED', 'CLAIMABLE')
+                  AND active_session_id IS NULL
+                """, updatedAt, tablePublicId) == 1;
+    }
+
+    // Scade il claim soltanto se la finestra temporale e realmente terminata.
+    public boolean expireClaim(String tablePublicId, Timestamp now) {
+        return jdbcTemplate.update("""
+                UPDATE game_schema.game_tables
+                SET status = 'DISABLED', claim_expires_at = NULL, updated_at = ?
+                WHERE table_public_id = ?
+                  AND status = 'CLAIMABLE'
+                  AND claim_expires_at <= ?
+                """, now, tablePublicId, now) == 1;
+    }
+
+    // Collega atomicamente la sessione soltanto a un claim ancora valido.
+    public boolean claimSession(String tableId, String sessionId, Timestamp now) {
+        return jdbcTemplate.update("""
+                UPDATE game_schema.game_tables
+                SET status = 'IN_SESSION',
+                    active_session_id = ?,
+                    claim_expires_at = NULL,
+                    updated_at = ?
                 WHERE table_id = ?
-                  AND status = 'ACTIVE'
-                  AND (active_session_id IS NULL OR active_session_id = ?)
-                """, sessionId, updatedAt, tableId, sessionId) == 1;
+                  AND status = 'CLAIMABLE'
+                  AND active_session_id IS NULL
+                  AND claim_expires_at > ?
+                """, sessionId, now, tableId, now) == 1;
     }
 
     // Risolve il QR in una proiezione pubblica priva di mappa, partecipanti e segreti.
@@ -100,9 +138,8 @@ public class GameTableRepository {
                 JOIN game_schema.game_sessions s
                   ON s.session_id = t.active_session_id
                 WHERE t.table_public_id = ?
-                  AND t.status = 'ACTIVE'
+                  AND t.status = 'IN_SESSION'
                   AND s.status = 'ACTIVE'
-                  AND s.accepting_join_requests = TRUE
                 """, (rs, rowNum) -> new PublicSessionInfo(
                 rs.getString("table_public_id"),
                 rs.getString("table_display_name"),
@@ -119,16 +156,19 @@ public class GameTableRepository {
         Integer count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM game_schema.game_tables
-                WHERE active_session_id = ? AND status = 'ACTIVE'
+                WHERE active_session_id = ? AND status = 'IN_SESSION'
                 """, Integer.class, sessionId);
         return count != null && count == 1;
     }
 
-    // Libera il tavolo soltanto dalla sessione indicata, senza disattivare il QR.
+    // Conclusa la sessione, il QR resta valido ma il locale deve riabilitare il tavolo.
     public boolean releaseSession(String sessionId, Timestamp updatedAt) {
         return jdbcTemplate.update("""
                 UPDATE game_schema.game_tables
-                SET active_session_id = NULL, updated_at = ?
+                SET status = 'DISABLED',
+                    active_session_id = NULL,
+                    claim_expires_at = NULL,
+                    updated_at = ?
                 WHERE active_session_id = ?
                 """, updatedAt, sessionId) == 1;
     }
@@ -143,9 +183,18 @@ public class GameTableRepository {
                     rs.getString("display_name"),
                     GameTableStatus.valueOf(rs.getString("status")),
                     rs.getString("active_session_id"),
+                    optionalDateTime(rs.getTimestamp("claim_expires_at")),
                     rs.getTimestamp("created_at").toInstant().atOffset(ZoneOffset.UTC),
                     rs.getTimestamp("updated_at").toInstant().atOffset(ZoneOffset.UTC)
             );
         }
+    }
+
+    private static Timestamp toTimestamp(java.time.OffsetDateTime value) {
+        return value == null ? null : Timestamp.from(value.toInstant());
+    }
+
+    private static java.time.OffsetDateTime optionalDateTime(Timestamp value) {
+        return value == null ? null : value.toInstant().atOffset(ZoneOffset.UTC);
     }
 }

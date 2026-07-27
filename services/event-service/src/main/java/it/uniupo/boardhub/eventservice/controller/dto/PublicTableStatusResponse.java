@@ -6,6 +6,7 @@ public record PublicTableStatusResponse(
         int tableNumber,
         String tableDisplayName,
         String status,
+        String claimExpiresAt,
         PublicActiveSessionResponse activeSession
 ) {
 }

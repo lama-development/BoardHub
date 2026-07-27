@@ -63,6 +63,17 @@ public class SessionParticipantRepository {
                 """, new ParticipantRowMapper(), participantId));
     }
 
+    // Blocca il partecipante mentre si verificano limiti o operazioni concorrenti di sua proprieta.
+    public Optional<SessionParticipant> findByIdForUpdate(UUID participantId) {
+        return first(jdbcTemplate.query("""
+                SELECT participant_id, join_request_id, session_id, player_reference,
+                       role, display_name, status, joined_at, left_at
+                FROM game_schema.session_participants
+                WHERE participant_id = ?
+                FOR UPDATE
+                """, new ParticipantRowMapper(), participantId));
+    }
+
     public Optional<SessionParticipant> findBySessionAndPlayerReference(
             String sessionId,
             String playerReference

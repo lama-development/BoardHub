@@ -1,6 +1,7 @@
 package it.uniupo.boardhub.eventservice.service;
 
 import it.uniupo.boardhub.eventservice.model.join.ParticipantStatus;
+import it.uniupo.boardhub.eventservice.model.join.ParticipantRole;
 import it.uniupo.boardhub.eventservice.model.join.SessionParticipant;
 import it.uniupo.boardhub.eventservice.model.session.GameSession;
 import it.uniupo.boardhub.eventservice.model.session.GameSessionStatus;
@@ -36,18 +37,43 @@ public class ParticipantAccessService {
             String authorizationHeader
     ) {
         String token = extractBearerToken(authorizationHeader);
-        UUID participantId = tokenService.verify(token, sessionId);
-        SessionParticipant participant = participantRepository.findById(participantId)
-                .orElseThrow(PlayerAuthenticationException::new);
+        UUID participantId = tokenService.verifyPlayer(token, sessionId);
         GameSession session = sessionRepository.findSessionById(sessionId)
                 .orElseThrow(PlayerAuthenticationException::new);
+        SessionParticipant participant = participantRepository.findById(participantId)
+                .orElseThrow(PlayerAuthenticationException::new);
 
+        validateActive(sessionId, participant, session);
+        return participant;
+    }
+
+    // Blocca sessione e partecipante nell'ordine condiviso dalle operazioni transazionali.
+    public SessionParticipant requireActiveParticipantForUpdate(
+            String sessionId,
+            String authorizationHeader
+    ) {
+        String token = extractBearerToken(authorizationHeader);
+        UUID participantId = tokenService.verifyPlayer(token, sessionId);
+        GameSession session = sessionRepository.findSessionByIdForUpdate(sessionId)
+                .orElseThrow(PlayerAuthenticationException::new);
+        SessionParticipant participant = participantRepository.findByIdForUpdate(participantId)
+                .orElseThrow(PlayerAuthenticationException::new);
+
+        validateActive(sessionId, participant, session);
+        return participant;
+    }
+
+    private void validateActive(
+            String sessionId,
+            SessionParticipant participant,
+            GameSession session
+    ) {
         if (!participant.sessionId().equals(sessionId)
+                || participant.role() != ParticipantRole.PLAYER
                 || participant.status() != ParticipantStatus.ACTIVE
                 || session.status() != GameSessionStatus.ACTIVE) {
             throw new PlayerAuthenticationException();
         }
-        return participant;
     }
 
     private String extractBearerToken(String authorizationHeader) {

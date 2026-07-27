@@ -40,7 +40,7 @@ public class SessionLifecycleService {
         this.clock = clock;
     }
 
-    // Conclude in modo atomico sessione, ingressi e partecipazioni, poi libera il tavolo.
+    // Conclude in modo atomico sessione, ingressi e partecipazioni, poi disabilita il tavolo.
     @Transactional
     public OffsetDateTime close(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {

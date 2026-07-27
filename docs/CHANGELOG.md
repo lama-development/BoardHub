@@ -5,6 +5,126 @@
 
 ---
 
+## [0.20.2] - 2026-07-27
+
+Autore: Andrea Perini
+Ambito: Leggibilita dei comandi operativi
+
+## Added
+
+- Aggiunto un formatter condiviso per presentare in terminale tavoli,
+  sessioni, richieste, partecipanti, personaggi, movimenti ed eventi.
+- Aggiunta la modalita `BOARDHUB_OUTPUT=json` per consultare, quando serve, la
+  risposta JSON completa e colorata.
+
+## Changed
+
+- Sostituiti gli header HTTP e i JSON compatti dei comandi `just` con
+  riepiloghi, tabelle, conteggi e indicazioni operative coerenti.
+
+## Fixed
+
+- Rese comprensibili le liste vuote e le risposte di errore senza perdere il
+  codice e il messaggio restituiti dall'API.
+
+---
+
+## [0.20.1] - 2026-07-27
+
+Autore: Andrea Perini
+Ambito: Instradamento MQTT multi-tavolo
+
+## Changed
+
+- Estesa la sottoscrizione MQTT predefinita a tutti i tavoli del locale tramite
+  una wildcard limitata al segmento `tableId`.
+- Reso dinamico il topic usato da `just publish-event` in base al tavolo della
+  sessione.
+
+## Fixed
+
+- Corretto `just check` sui tavoli diversi dal Tavolo 4: l'evento viene ora
+  pubblicato sul topic corretto e ricevuto dall'`event-service`.
+- Rifiutati gli eventi nei quali `venueId` o `tableId` del payload non
+  corrispondono al topic MQTT, evitando attribuzioni incoerenti.
+
+---
+
+## [0.20.0] - 2026-07-26
+
+Autore: Andrea Perini
+Ambito: Controllo tavoli del locale e credenziale DM per sessione
+
+## Added
+
+- Aggiunta una console REST privata per elencare, abilitare, disabilitare e
+  chiudere i tavoli del locale.
+- Aggiunta una finestra temporanea di claim che consente a un solo dispositivo
+  di creare la sessione dopo l'autorizzazione del personale.
+- Aggiunto il token Bearer `bhd1` associato al partecipante DM e a una sola
+  sessione.
+- Aggiunti comandi `just` per le operazioni del locale e per la prova
+  end-to-end sul reale inventario degli otto tavoli.
+
+## Changed
+
+- Sostituito lo stato pubblico `AVAILABLE` con gli stati `DISABLED`,
+  `CLAIMABLE` e `IN_SESSION`.
+- Rimossa la password DM globale dal QR e dal sito pubblico; il browser che
+  crea la sessione conserva soltanto il token della relativa sessione.
+- Aggiornati frontend, OpenAPI, contratti e guida operativa al nuovo ciclo di
+  vita controllato dal locale.
+
+## Fixed
+
+- Impedito a un visitatore del QR di avviare una partita senza
+  un'abilitazione temporanea del personale.
+- Impedito a due dispositivi concorrenti di reclamare lo stesso tavolo.
+- Revocati i token DM e giocatore alla chiusura e riportato il tavolo allo
+  stato disabilitato.
+- Corretto `just check`, che ora usa un tavolo configurato e rifiuta di
+  sovrascrivere una sessione gia attiva.
+- Validata all'avvio la configurazione della finestra di claim e della chiave
+  amministrativa, evitando durate impossibili o credenziali troppo deboli.
+
+---
+
+## [0.19.0] - 2026-07-26
+
+Autore: Andrea Perini
+Ambito: Personaggi posseduti dai partecipanti
+
+## Added
+
+- Aggiunta la migrazione Flyway `V3` con personaggi collegati in modo vincolato
+  al partecipante e alla sessione.
+- Aggiunte creazione e lettura dei personaggi tramite token Bearer del
+  giocatore, oltre alla vista completa riservata al Dungeon Master.
+- Aggiunti campi tattici minimi, visibilita, versione, limite configurabile e
+  comandi `just` per la prova manuale.
+- Aggiunti test di migrazione, proprieta, isolamento, autenticazione,
+  validazione, capienza e revoca alla chiusura della sessione.
+
+## Changed
+
+- Esteso il contratto protetto del giocatore oltre `/me`, senza permettere al
+  client di scegliere proprietario o sessione del personaggio.
+- Aggiornati OpenAPI, contratti, scope e guida operativa allo stato realmente
+  implementato.
+
+## Fixed
+
+- Serializzato il controllo del numero di personaggi per evitare che richieste
+  concorrenti superino il limite del partecipante.
+- Impedita la lettura dei personaggi di altri giocatori dalla proiezione
+  autenticata del proprietario.
+- Rimosso il limite universale inventato sull'eta: resta positiva, mentre
+  l'eventuale massimo dipende dalla specie e dalla campagna.
+- Distinte nei contratti le regole ufficiali D&D dai limiti tecnici BoardHub
+  applicati a caselle, HP e Classe Armatura.
+
+---
+
 ## [0.18.2] - 2026-07-25
 
 Autore: Andrea Perini

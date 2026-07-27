@@ -28,7 +28,8 @@ class DatabaseMigrationTest {
         assertThat(countRows(jdbcTemplate, "game_schema.game_tables")).isZero();
         assertThat(countRows(jdbcTemplate, "game_schema.session_join_requests")).isZero();
         assertThat(countRows(jdbcTemplate, "game_schema.session_participants")).isZero();
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
+        assertThat(countRows(jdbcTemplate, "game_schema.characters")).isZero();
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("4");
     }
 
     @Test
@@ -44,7 +45,8 @@ class DatabaseMigrationTest {
 
         assertThat(countRows(jdbcTemplate, "game_schema.existing_data")).isEqualTo(1);
         assertThat(countRows(jdbcTemplate, "game_schema.game_sessions")).isZero();
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
+        assertThat(countRows(jdbcTemplate, "game_schema.characters")).isZero();
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("4");
     }
 
     private DataSource createDataSource() {

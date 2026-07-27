@@ -18,7 +18,7 @@ class SessionTokenServiceTest {
 
     private final SessionTokenService tokenService = new SessionTokenService(
             new JoinProperties(
-                    Duration.ofMinutes(10), 8, 8, 5, "dm-test-key",
+                    Duration.ofMinutes(10), 8, 8, 5,
                     "test-token-secret-at-least-32-chars"
             )
     );
@@ -26,30 +26,30 @@ class SessionTokenServiceTest {
     @Test
     void verificaTokenFirmatoPerLaSessioneCorretta() {
         SessionParticipant participant = participant();
-        String token = tokenService.issue(participant);
+        String token = tokenService.issuePlayer(participant);
 
         assertEquals(
                 participant.participantId(),
-                tokenService.verify(token, participant.sessionId())
+                tokenService.verifyPlayer(token, participant.sessionId())
         );
     }
 
     @Test
     void rifiutaTokenAlteratoSessioneDiversaEFormatoNonValido() {
         SessionParticipant participant = participant();
-        String token = tokenService.issue(participant);
+        String token = tokenService.issuePlayer(participant);
 
         assertThrows(
                 PlayerAuthenticationException.class,
-                () -> tokenService.verify(token + "alterato", participant.sessionId())
+                () -> tokenService.verifyPlayer(token + "alterato", participant.sessionId())
         );
         assertThrows(
                 PlayerAuthenticationException.class,
-                () -> tokenService.verify(token, "sessione-diversa")
+                () -> tokenService.verifyPlayer(token, "sessione-diversa")
         );
         assertThrows(
                 PlayerAuthenticationException.class,
-                () -> tokenService.verify("token-non-valido", participant.sessionId())
+                () -> tokenService.verifyPlayer("token-non-valido", participant.sessionId())
         );
     }
 

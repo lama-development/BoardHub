@@ -72,6 +72,7 @@ public class MqttEventSubscriber implements ApplicationRunner, MqttCallback {
 
         try {
             GameEvent event = parser.parse(payload);
+            requireMatchingTopic(topic, event);
             boolean inserted = repository.save(event);
             log.info(
                     "Evento MQTT ricevuto tipo={} seq={} sessione={} sorgente={} topic={} salvato={}",
@@ -84,6 +85,17 @@ public class MqttEventSubscriber implements ApplicationRunner, MqttCallback {
             );
         } catch (Exception ex) {
             log.warn("Evento MQTT non valido sul topic {}: {}", topic, ex.getMessage());
+        }
+    }
+
+    // Impedisce che un payload attribuisca l'evento a un tavolo diverso dal topic fisico.
+    static void requireMatchingTopic(String topic, GameEvent event) {
+        String expectedTopic = "boardhub/v1/venues/%s/tables/%s/events"
+                .formatted(event.venueId(), event.tableId());
+        if (!expectedTopic.equals(topic)) {
+            throw new IllegalArgumentException(
+                    "topic MQTT incoerente con venueId e tableId del payload."
+            );
         }
     }
 

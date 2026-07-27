@@ -53,18 +53,7 @@ public class PublicTableController {
     @GetMapping("/tables/{tablePublicId}")
     public PublicTableStatusResponse getTableStatus(@PathVariable String tablePublicId) {
         PublicTableOverview table = tableSessionService.resolvePublicTable(tablePublicId);
-        PublicSessionInfo session = table.activeSession();
-        PublicActiveSessionResponse activeSession = session == null ? null : new PublicActiveSessionResponse(
-                session.tablePublicId(), session.tableDisplayName(), session.sessionId(),
-                session.title(), session.gameType(), session.publicSummary()
-        );
-        return new PublicTableStatusResponse(
-                table.tablePublicId(),
-                table.tableNumber(),
-                table.tableDisplayName(),
-                table.availability().name(),
-                activeSession
-        );
+        return VenueTableAdminController.toResponse(table);
     }
 
     // Inserisce il giocatore nella coda del DM senza autorizzarlo automaticamente.

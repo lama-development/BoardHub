@@ -26,15 +26,21 @@ management:
         include: health,info
 
 boardhub:
+  characters:
+    max-per-participant: ${BOARDHUB_MAX_CHARACTERS_PER_PARTICIPANT:8}
+  venue:
+    table-claim-ttl: ${BOARDHUB_TABLE_CLAIM_TTL:10m}
+    max-claim-minutes: ${BOARDHUB_MAX_CLAIM_MINUTES:60}
+    admin-access-key: ${BOARDHUB_VENUE_ADMIN_KEY:boardhub-local-venue-admin-key}
+    admin-local-only: ${BOARDHUB_VENUE_ADMIN_LOCAL_ONLY:true}
   join:
     request-ttl: ${BOARDHUB_JOIN_REQUEST_TTL:10m}
     max-players-per-session: ${BOARDHUB_MAX_PLAYERS_PER_SESSION:8}
     max-active-tables: ${BOARDHUB_MAX_ACTIVE_TABLES:8}
     max-requests-per-minute: ${BOARDHUB_MAX_JOIN_REQUESTS_PER_MINUTE:5}
-    dm-access-key: ${BOARDHUB_DM_ACCESS_KEY:boardhub-local-dm-key}
     session-token-secret: ${BOARDHUB_SESSION_TOKEN_SECRET:boardhub-local-session-token-secret}
   mqtt:
     broker-uri: ${BOARDHUB_MQTT_BROKER_URI:tcp://localhost:1883}
     client-id: ${BOARDHUB_MQTT_CLIENT_ID:boardhub-event-service}
-    topic: ${BOARDHUB_MQTT_TOPIC:boardhub/v1/venues/venue-01/tables/table-04/events}
+    topic: ${BOARDHUB_MQTT_TOPIC:boardhub/v1/venues/venue-01/tables/+/events}
     qos: ${BOARDHUB_MQTT_QOS:1}

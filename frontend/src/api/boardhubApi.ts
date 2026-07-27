@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "../config";
 import type {
   AcceptJoinRequestResult,
+  ClosedSession,
   CreatedSession,
   GameEvent,
   HealthStatus,
@@ -95,14 +96,12 @@ export async function fetchPlayerJoinStatus(
 export async function createTableSession(
   table: PublicTableStatus,
   title: string,
-  dmKey: string,
 ): Promise<CreatedSession> {
   const tableSuffix = String(table.tableNumber).padStart(2, "0");
   const response = await fetch(`${API_BASE_URL}/api/v1/sessions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-BoardHub-DM-Key": dmKey.trim(),
     },
     body: JSON.stringify({
       sessionId: `session-table-${tableSuffix}-${Date.now()}`,
@@ -129,30 +128,30 @@ export async function createTableSession(
   return readJson<CreatedSession>(response);
 }
 
-function dmHeaders(dmKey: string) {
+function dmHeaders(dmToken: string) {
   return {
-    "X-BoardHub-DM-Key": dmKey.trim(),
+    Authorization: `Bearer ${dmToken.trim()}`,
   };
 }
 
 export async function fetchDmJoinRequests(
   sessionId: string,
-  dmKey: string,
+  dmToken: string,
 ): Promise<JoinRequest[]> {
   const response = await fetch(
     `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/join-requests?status=PENDING`,
-    { headers: dmHeaders(dmKey) },
+    { headers: dmHeaders(dmToken) },
   );
   return readJson<JoinRequest[]>(response);
 }
 
 export async function fetchDmParticipants(
   sessionId: string,
-  dmKey: string,
+  dmToken: string,
 ): Promise<Participant[]> {
   const response = await fetch(
     `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/participants`,
-    { headers: dmHeaders(dmKey) },
+    { headers: dmHeaders(dmToken) },
   );
   return readJson<Participant[]>(response);
 }
@@ -160,13 +159,13 @@ export async function fetchDmParticipants(
 export async function acceptDmJoinRequest(
   sessionId: string,
   requestId: string,
-  dmKey: string,
+  dmToken: string,
 ): Promise<AcceptJoinRequestResult> {
   const response = await fetch(
     `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/join-requests/${encodeURIComponent(requestId)}/accept`,
     {
       method: "POST",
-      headers: dmHeaders(dmKey),
+      headers: dmHeaders(dmToken),
     },
   );
   return readJson<AcceptJoinRequestResult>(response);
@@ -175,14 +174,28 @@ export async function acceptDmJoinRequest(
 export async function rejectDmJoinRequest(
   sessionId: string,
   requestId: string,
-  dmKey: string,
+  dmToken: string,
 ): Promise<JoinRequest> {
   const response = await fetch(
     `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/join-requests/${encodeURIComponent(requestId)}/reject`,
     {
       method: "POST",
-      headers: dmHeaders(dmKey),
+      headers: dmHeaders(dmToken),
     },
   );
   return readJson<JoinRequest>(response);
+}
+
+export async function closeDmSession(
+  sessionId: string,
+  dmToken: string,
+): Promise<ClosedSession> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/close`,
+    {
+      method: "POST",
+      headers: dmHeaders(dmToken),
+    },
+  );
+  return readJson<ClosedSession>(response);
 }

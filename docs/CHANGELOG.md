@@ -5,6 +5,41 @@
 
 ---
 
+## [0.21.0] - 2026-07-27
+
+Autore: Andrea Perini
+Ambito: Pedine virtuali autorevoli della sessione
+
+## Added
+
+- Aggiunta la migrazione Flyway `V5` con associazione vincolata tra sessione,
+  partecipante, personaggio, pedina virtuale e cella corrente.
+- Aggiunte API protette per creare e leggere le pedine del giocatore e una
+  proiezione completa riservata al DM.
+- Aggiunti comandi `just` e rendering leggibile per posizionare e ispezionare
+  le pedine senza comporre manualmente le richieste REST.
+
+## Changed
+
+- La ricostruzione della griglia considera occupate anche le celle contenenti
+  pedine persistite, rendendo il loro stato effettivo per il calcolo del
+  movimento.
+- Il posizionamento riusa lo stato occupato della griglia senza una seconda
+  query sulla stessa cella; il vincolo univoco del database continua a gestire
+  eventuali richieste concorrenti.
+- Aggiornati OpenAPI, contratti e guide operative al nuovo flusso
+  personaggio-pedina-cella.
+
+## Fixed
+
+- Impediti l'uso di personaggi appartenenti ad altri giocatori, la doppia
+  associazione dello stesso personaggio e il posizionamento simultaneo di due
+  pedine sulla stessa cella.
+- Rifiutati posizionamenti fuori griglia, su terreno non attraversabile o con
+  modalita hardware non ancora implementate.
+
+---
+
 ## [0.20.2] - 2026-07-27
 
 Autore: Andrea Perini

@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: BoardHub Event Service API
-  version: 0.20.0
-  description: API REST dell'event-service BoardHub per controllo dei tavoli, sessioni, ingresso dei giocatori, personaggi, eventi e movimento su griglia.
+  version: 0.21.0
+  description: API REST dell'event-service BoardHub per controllo dei tavoli, sessioni, ingresso dei giocatori, personaggi, pedine virtuali, eventi e movimento su griglia.
 servers:
   - url: http://localhost:8082
     description: Ambiente locale di sviluppo
@@ -21,6 +21,8 @@ tags:
     description: Richieste di ingresso e approvazione del Dungeon Master
   - name: Characters
     description: Schede tattiche possedute dai partecipanti della sessione
+  - name: Pieces
+    description: Associazione e posizione delle pedine virtuali sulla plancia
   - name: Movement
     description: Calcolo movimento su griglia
 paths:
@@ -439,6 +441,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/player/sessions/{sessionId}/pieces:
+    post:
+      tags:
+        - Pieces
+      summary: Associa e posiziona la pedina virtuale di un personaggio
+      description: >
+        Il personaggio deve appartenere al giocatore autenticato. Ogni personaggio
+        puo avere una sola pedina e ogni cella puo contenere una sola pedina.
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionPieceRequest"
+      responses:
+        "201":
+          description: Pedina virtuale associata e posizionata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionPieceResponse"
+        "400":
+          description: Modalita, identificativo o coordinata non validi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Credenziale giocatore non valida o sessione non attiva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Personaggio inesistente o non posseduto dal giocatore
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Personaggio gia associato oppure cella non disponibile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      tags:
+        - Pieces
+      summary: Elenca le pedine possedute dal giocatore
+      description: Non espone le pedine appartenenti agli altri partecipanti.
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Pedine del proprietario ordinate per creazione
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionPieceResponse"
+        "401":
+          description: Credenziale giocatore non valida o sessione non attiva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/dm/sessions/{sessionId}/join-requests:
     get:
       tags:
@@ -559,6 +634,36 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CharacterResponse"
+        "401":
+          description: Credenziale DM non valida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Sessione inesistente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/dm/sessions/{sessionId}/pieces:
+    get:
+      tags:
+        - Pieces
+      summary: Elenca tutte le pedine virtuali della sessione per il DM
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Pedine della sessione ordinate per creazione
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionPieceResponse"
         "401":
           description: Credenziale DM non valida
           content:
@@ -1196,6 +1301,62 @@ components:
         - hpMax
         - armorClass
         - partyVisibility
+        - version
+        - createdAt
+        - updatedAt
+    CreateSessionPieceRequest:
+      type: object
+      properties:
+        characterId:
+          type: string
+          format: uuid
+          description: Personaggio posseduto dal partecipante autenticato.
+        representationMode:
+          type: string
+          enum: [VIRTUAL]
+          default: VIRTUAL
+          description: L'MVP supporta soltanto pedine virtuali; il collegamento hardware verra aggiunto con un contratto dedicato.
+        startCell:
+          type: string
+          pattern: "^[A-Za-z]+[1-9][0-9]*$"
+          example: B2
+      required: [characterId, startCell]
+    SessionPieceResponse:
+      type: object
+      properties:
+        sessionPieceId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+        characterId:
+          type: string
+          format: uuid
+        participantId:
+          type: string
+          format: uuid
+        representationMode:
+          type: string
+          enum: [VIRTUAL]
+        currentCell:
+          type: string
+          example: B2
+        version:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - sessionPieceId
+        - sessionId
+        - characterId
+        - participantId
+        - representationMode
+        - currentCell
         - version
         - createdAt
         - updatedAt

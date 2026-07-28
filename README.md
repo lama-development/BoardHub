@@ -37,6 +37,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | Accesso DM | Implementato con token HMAC limitato alla sessione e ripristino dopo il refresh. |
 | Controllo locale | Implementato con API private locali per elencare, abilitare, disabilitare e chiudere i tavoli. |
 | Personaggi | Implementati con proprietario autenticato, limiti, validazione e vista completa riservata al DM. |
+| Pedine virtuali | Implementate con proprietario, personaggio, cella univoca e vista completa riservata al DM. |
 | API REST eventi | Implementata con `GET /api/v1/sessions/{sessionId}/events`. |
 | API REST sessioni | Implementata con `POST /api/v1/sessions`. |
 | OpenAPI | Specifica iniziale disponibile in `docs/openapi/event-service.openapi.yml`. |
@@ -46,7 +47,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | API celle raggiungibili | Implementata con `POST /api/v1/movement/reachable-cells`. |
 | Ricostruzione griglia da sessione | Implementata come servizio interno da stato persistito. |
 | API movimento da sessione | Implementata con `POST /api/v1/sessions/{sessionId}/movement/reachable-cells`. |
-| Dashboard web | Base implementata per monitor, pagina QR, avvio DM, richieste e partecipanti; i personaggi non sono ancora mostrati. |
+| Dashboard web | Base implementata per monitor, pagina QR, avvio DM, richieste e partecipanti; personaggi e pedine persistite devono ancora essere collegati all'interfaccia. |
 | App mobile | Da implementare. |
 
 ## Struttura del repository
@@ -59,6 +60,148 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | `services/event-service/` | Microservizio Java/Spring Boot per ricezione, salvataggio e lettura degli eventi. |
 | `frontend/` | Dashboard React per monitorare eventi e stato minimo di una sessione. |
 | `simulator/` | Script Python per pubblicare e leggere eventi MQTT dimostrativi. |
+
+## Handoff frontend
+
+Questa sezione riassume il contratto operativo che il frontend deve seguire.
+La specifica completa dei payload resta in
+[`docs/openapi/event-service.openapi.yml`](docs/openapi/event-service.openapi.yml).
+
+### Avvio dell'ambiente
+
+Dalla radice del repository servono tre terminali:
+
+```bash
+# Terminale 1: infrastruttura
+just up
+
+# Terminale 2: backend, da lasciare in esecuzione
+just backend
+
+# Terminale 3: frontend, da lasciare in esecuzione
+just frontend
+```
+
+In un quarto terminale si possono controllare i tavoli e generare il QR:
+
+```bash
+just venue-tables
+just enable-table 1 10
+just qr 1
+```
+
+`just qr 1` mostra l'URL stabile `/t/qr-table-01` e non abilita il tavolo.
+`just enable-table 1 10` apre invece per dieci minuti la finestra nella quale
+il primo dispositivo puo creare la sessione e diventare DM. I dieci minuti non
+sono la durata della partita: una sessione avviata resta attiva finche il DM o
+il personale del locale non la conclude.
+
+### Percorso aperto dal QR
+
+La pagina pubblica e sempre `/t/qr-table-XX`. Al caricamento deve chiamare:
+
+```http
+GET /api/v1/public/tables/{tablePublicId}
+```
+
+Il comportamento dipende dallo stato restituito:
+
+| Stato | Comportamento dell'interfaccia |
+| :--- | :--- |
+| `DISABLED` | Mostrare che il tavolo non e stato abilitato dal locale. Non permettere di creare una sessione. |
+| `CLAIMABLE` | Permettere al primo dispositivo di creare la sessione. La risposta contiene il token DM della nuova sessione. |
+| `IN_SESSION` | Mostrare titolo e riepilogo pubblico della partita e permettere a un giocatore di inviare la richiesta di ingresso. |
+
+La creazione della sessione usa `POST /api/v1/sessions`. Il backend consuma
+atomicamente l'abilitazione: due dispositivi non possono diventare DM dello
+stesso tavolo. Il browser vincitore deve conservare il `dmAccessToken` associato
+alla sessione e ripristinare la console DM dopo un refresh.
+
+### Percorso del giocatore
+
+1. Il giocatore apre il QR di un tavolo `IN_SESSION`.
+2. Inserisce il nome e invia `POST /api/v1/public/sessions/{sessionId}/join-requests`.
+3. Il browser conserva almeno `requestId`, `sessionId` e riferimento del
+   dispositivo, in modo da ripristinare lo stato `PENDING` dopo un refresh.
+4. Lo stato della richiesta si legge con
+   `GET /api/v1/public/sessions/{sessionId}/join-requests/{requestId}`.
+5. Dopo l'accettazione, il browser conserva il token `bhp1...` restituito dal
+   backend e verifica l'identita con
+   `GET /api/v1/player/sessions/{sessionId}/me`.
+6. Il giocatore puo creare e consultare i propri personaggi tramite
+   `/api/v1/player/sessions/{sessionId}/characters`.
+7. Puo associare un proprio personaggio a una pedina virtuale e consultarla
+   tramite `/api/v1/player/sessions/{sessionId}/pieces`.
+
+Le chiamate del giocatore dal punto 5 in avanti richiedono:
+
+```http
+Authorization: Bearer bhp1...
+```
+
+### Percorso del Dungeon Master
+
+La console DM usa il token `bhd1...` come Bearer e deve permettere di:
+
+- elencare, accettare o rifiutare le richieste con
+  `/api/v1/dm/sessions/{sessionId}/join-requests`;
+- vedere i partecipanti con
+  `/api/v1/dm/sessions/{sessionId}/participants`;
+- vedere tutti i personaggi con
+  `/api/v1/dm/sessions/{sessionId}/characters`;
+- vedere tutte le pedine persistite e la loro cella con
+  `/api/v1/dm/sessions/{sessionId}/pieces`;
+- concludere la sessione con
+  `POST /api/v1/dm/sessions/{sessionId}/close`.
+
+Se il dispositivo DM non e piu disponibile, il personale puo chiudere la
+sessione dalla macchina del locale:
+
+```bash
+just venue-close-table 1
+```
+
+### Limite del frontend attuale
+
+Il monitor generico `http://localhost:5173` legge soltanto
+`GET /api/v1/sessions/{sessionId}/events` e ricostruisce graficamente le pedine
+dagli eventi `MOVE`. Non e quindi la fonte autorevole delle nuove pedine
+persistite: una pedina creata con `POST .../pieces` puo esistere correttamente
+nel database senza comparire in quel monitor.
+
+Il frontend deve usare `GET /api/v1/dm/sessions/{sessionId}/pieces` per il
+conteggio e la posizione corrente delle pedine, e
+`GET /api/v1/dm/sessions/{sessionId}/characters` per le schede visibili al DM.
+Gli eventi restano lo storico delle azioni, non lo stato corrente della
+plancia.
+
+### Verifica equivalente da terminale
+
+Questo flusso permette di provare il backend anche prima del completamento
+dell'interfaccia:
+
+```bash
+just enable-table 2 10
+just create-session session-piece-demo-001 table-02 qr-table-02 "Tavolo 2"
+export BOARDHUB_DM_TOKEN='bhd1...'
+
+just request-join session-piece-demo-001 player-device-01 Andrea
+just pending-joins session-piece-demo-001
+just accept-join session-piece-demo-001 REQUEST_ID
+export BOARDHUB_PLAYER_TOKEN='bhp1...'
+
+just create-character session-piece-demo-001
+just create-piece session-piece-demo-001 CHARACTER_ID B2
+just my-characters session-piece-demo-001
+just my-pieces session-piece-demo-001
+just dm-characters session-piece-demo-001
+just dm-pieces session-piece-demo-001
+```
+
+`REQUEST_ID`, `CHARACTER_ID`, `bhd1...` e `bhp1...` devono essere sostituiti
+con i valori mostrati dalle risposte. I token sono credenziali temporanee:
+non devono essere inseriti nel repository, negli screenshot pubblici o nei log
+del frontend.
 
 ## Avvio rapido
 
@@ -184,11 +327,16 @@ export BOARDHUB_PLAYER_TOKEN='bhp1...'
 just create-character session-demo-001
 just my-characters session-demo-001
 just dm-characters session-demo-001
+just create-piece session-demo-001 CHARACTER_ID B2
+just my-pieces session-demo-001
+just dm-pieces session-demo-001
 ```
 
-Il primo comando crea la scheda demo `Elaria`; il secondo mostra soltanto i
-personaggi del giocatore autenticato; il terzo usa il token della sessione DM e
-mostra tutti i personaggi della sessione.
+I primi tre comandi creano e ispezionano le schede dei personaggi. I tre
+successivi associano un personaggio alla sua pedina virtuale, la posizionano
+in `B2` e mostrano rispettivamente la proiezione del proprietario e quella
+completa del DM. `CHARACTER_ID` e l'identificativo mostrato da
+`just create-character`.
 
 Il personaggio persistito e una scheda tattica minima, non la riproduzione
 completa della scheda D&D. Livello, HP, CA e velocita seguono la semantica
@@ -238,8 +386,9 @@ alla versione `0` e applica in ordine le migrazioni versionate. `V1` crea lo
 schema iniziale; `V2` aggiunge tavoli, richieste di ingresso e partecipanti;
 `V3` aggiunge i personaggi posseduti dai partecipanti; `V4` introduce il
 controllo del locale sullo stato dei tavoli e sulle finestre temporanee di
-avvio. I dati esistenti non vengono cancellati e non e piu necessario eseguire
-manualmente `init.sql`.
+avvio; `V5` collega ogni pedina virtuale al proprietario, al personaggio e a
+una cella univoca della sessione. I dati esistenti non vengono cancellati e
+non e piu necessario eseguire manualmente `init.sql`.
 
 Per controllare le migrazioni applicate mentre PostgreSQL e attivo:
 

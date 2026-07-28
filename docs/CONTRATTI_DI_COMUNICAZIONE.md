@@ -53,7 +53,8 @@ I contratti non automatizzano tutto il regolamento D&D. Descrivono solo le infor
 | Persistenza sessione/plancia | Base implementata | Sono presenti tabelle e repository per sessione, celle configurate, muri e trappole. |
 | Tavoli e richieste di ingresso | Implementati nel backend | QR stabile, abilitazione del locale, claim temporaneo, coda richieste, approvazione DM e partecipanti sono persistiti. |
 | Personaggi | Implementati nel backend | Il giocatore crea e legge i propri personaggi; il DM legge tutti quelli della sessione. |
-| Ricostruzione griglia | Implementata come servizio interno | Lo stato persistito puo essere convertito in `GameGrid` per il calcolo del movimento. |
+| Pedine virtuali | Implementate nel backend | Ogni pedina collega proprietario, personaggio e cella univoca; il DM vede l'intera sessione. |
+| Ricostruzione griglia | Implementata come servizio interno | Lo stato persistito, comprese le pedine, viene convertito in `GameGrid` per il calcolo del movimento. |
 | API REST eventi | Implementata | `event-service` espone gli eventi persistiti tramite `GET /api/v1/sessions/{sessionId}/events`. |
 | API REST sessioni | Implementata | `POST /api/v1/sessions` salva sessione e griglia e occupa il tavolo indicato. |
 | API REST ingresso | Implementata | Risoluzione QR, richiesta idempotente, decisione DM, partecipanti e chiusura sessione. |
@@ -129,11 +130,14 @@ docs/openapi/event-service.openapi.yml
 | `GET` | `/api/v1/player/sessions/{sessionId}/me` | Verifica il token Bearer e restituisce il partecipante giocatore attivo. |
 | `POST` | `/api/v1/player/sessions/{sessionId}/characters` | Crea un personaggio posseduto dal giocatore autenticato. |
 | `GET` | `/api/v1/player/sessions/{sessionId}/characters` | Elenca soltanto i personaggi posseduti dal giocatore autenticato. |
+| `POST` | `/api/v1/player/sessions/{sessionId}/pieces` | Associa un personaggio posseduto a una pedina virtuale e a una cella iniziale. |
+| `GET` | `/api/v1/player/sessions/{sessionId}/pieces` | Elenca soltanto le pedine possedute dal giocatore autenticato. |
 | `GET` | `/api/v1/dm/sessions/{sessionId}/join-requests` | Elenca le richieste filtrate per stato. |
 | `POST` | `/api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/accept` | Accetta la richiesta e crea il partecipante. |
 | `POST` | `/api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/reject` | Rifiuta la richiesta. |
 | `GET` | `/api/v1/dm/sessions/{sessionId}/participants` | Elenca i partecipanti attivi. |
 | `GET` | `/api/v1/dm/sessions/{sessionId}/characters` | Elenca tutti i personaggi della sessione, comprese le schede riservate. |
+| `GET` | `/api/v1/dm/sessions/{sessionId}/pieces` | Elenca tutte le pedine virtuali e le loro celle per il DM. |
 | `POST` | `/api/v1/dm/sessions/{sessionId}/close` | Conclude la sessione e disabilita il tavolo, che dovrà essere riabilitato dal locale. |
 | `GET` | `/api/v1/admin/tables` | Elenca tutti i tavoli dalla console privata del locale. |
 | `POST` | `/api/v1/admin/tables/{tablePublicId}/enable` | Apre una finestra temporanea di avvio. |
@@ -312,7 +316,44 @@ derivano dalla credenziale e dal path. Questa regola impedisce a un giocatore
 di creare o leggere personaggi per conto di un altro partecipante. La chiusura
 della sessione revoca anche queste API.
 
-### 4.5 Esempio creazione sessione con griglia iniziale
+### 4.5 Pedine virtuali della sessione
+
+Dopo aver creato un personaggio, il proprietario puo registrare la sua pedina
+virtuale e scegliere una cella iniziale:
+
+```http
+POST /api/v1/player/sessions/session-20260705-001/pieces
+Authorization: Bearer bhp1.550e8400-e29b-41d4-a716-446655440000.firma
+Content-Type: application/json
+```
+
+```json
+{
+  "characterId": "8f65ff63-0c9d-42bd-bdc6-c9400edce91b",
+  "representationMode": "VIRTUAL",
+  "startCell": "B2"
+}
+```
+
+Il backend ricava `participantId` dal token, verifica che il personaggio
+appartenga a quel partecipante e normalizza la coordinata. Un personaggio puo
+avere una sola pedina e una cella puo contenere una sola pedina nella stessa
+sessione. Celle fuori griglia, bloccate, ostacolo o gia occupate vengono
+rifiutate. Questi vincoli sono applicati sia dal servizio sia dal database.
+
+`GET /api/v1/player/sessions/{sessionId}/pieces` espone soltanto le pedine del
+proprietario autenticato. `GET /api/v1/dm/sessions/{sessionId}/pieces` richiede
+il token DM e restituisce tutte le pedine della sessione. Non esiste ancora una
+proiezione pubblica della plancia: verra introdotta insieme alla credenziale
+del nodo edge, evitando di esporre dati tattici tramite il QR pubblico.
+
+La modalita supportata in questo incremento e soltanto `VIRTUAL`. NFC, sensori
+e associazione con una pedina fisica richiedono un identificativo hardware e
+un contratto di attendibilita dedicato; non vengono simulati dichiarandoli gia
+disponibili. Le celle occupate dalle pedine persistite sono gia considerate
+non attraversabili dalla ricostruzione `GameGrid`.
+
+### 4.6 Esempio creazione sessione con griglia iniziale
 
 Richiesta:
 
@@ -379,7 +420,7 @@ Risposta:
 client DM deve conservarlo in modo locale e inviarlo come Bearer nelle
 operazioni della sessione.
 
-### 4.6 Esempio calcolo celle raggiungibili
+### 4.7 Esempio calcolo celle raggiungibili
 
 Richiesta:
 
@@ -437,7 +478,7 @@ Risposta:
 }
 ```
 
-### 4.7 Esempio lettura eventi sessione
+### 4.8 Esempio lettura eventi sessione
 
 Richiesta:
 
@@ -727,8 +768,8 @@ Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazi
 
 | Campo | Valore |
 | :--- | :--- |
-| Versione | `0.5` |
-| Stato | Contratto allineato a controllo tavoli, token DM/giocatore, personaggi, eventi e movimento implementati |
+| Versione | `0.6` |
+| Stato | Contratto allineato a controllo tavoli, token DM/giocatore, personaggi, pedine virtuali, eventi e movimento implementati |
 | Data | 2026-07-27 |
 | Ambito | MVP BoardHub |
 
@@ -737,7 +778,7 @@ Prossimi passi:
 - validare il contratto con il collaboratore;
 - mantenere sincronizzata la specifica OpenAPI con gli endpoint implementati;
 - aggiungere filtri o paginazione alla lettura eventi se il volume dati cresce;
-- aggiungere pezzi autorevoli fisici/virtuali e relative proiezioni
-  DM/giocatore/plancia;
+- aggiungere aggiornamento autorevole della posizione e proiezione protetta
+  per il nodo edge/plancia;
 - implementare app mobile e componente edge;
 - introdurre progressivamente dadi, conferma movimento, buffer offline ed event replay.

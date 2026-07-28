@@ -60,6 +60,10 @@ help:
     @printf '  just create-character ID        ◇ Crea Elaria per il giocatore autenticato\n'
     @printf '  just my-characters ID           ◇ Elenca i personaggi del giocatore autenticato\n'
     @printf '  just dm-characters ID           ◇ Elenca al DM tutti i personaggi della sessione\n'
+    @printf '  just create-piece ID CHAR [CELLA]\n'
+    @printf '                                  ◇ Posiziona la pedina virtuale del personaggio\n'
+    @printf '  just my-pieces ID               ◇ Elenca le pedine del giocatore autenticato\n'
+    @printf '  just dm-pieces ID               ◇ Elenca al DM tutte le pedine della sessione\n'
     @printf '  just close-session ID           ◇ Conclude la sessione e disabilita il tavolo\n\n'
     @printf '\033[38;5;208m◈ MQTT\033[0m\n'
     @printf '  just publish-event ID [EVENTO]  ◈ Pubblica un evento MOVE sul broker MQTT\n\n'
@@ -85,6 +89,9 @@ help:
     @printf '  just create-character session-demo-001\n'
     @printf '  just my-characters session-demo-001\n'
     @printf '  just dm-characters session-demo-001\n'
+    @printf '  just create-piece session-demo-001 CHARACTER_ID B2\n'
+    @printf '  just my-pieces session-demo-001\n'
+    @printf '  just dm-pieces session-demo-001\n'
     @printf '  just participants session-demo-001\n'
 
 up:
@@ -316,7 +323,42 @@ dm-characters session_id:
       printf '\033[38;5;141m[◇ API]\033[0m Personaggi visibili al DM nella sessione %s...\n' "{{ session_id }}"; \
       set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/characters \
         -H "Authorization: Bearer $TOKEN" \
-        | python3 {{ formatter }} characters
+      | python3 {{ formatter }} characters
+
+create-piece session_id character_id start_cell="B2":
+    @set -euo pipefail; \
+      TOKEN="{{ player_token }}"; \
+      if [ -z "$TOKEN" ]; then \
+        printf '\033[1;31m[ERRORE]\033[0m Token giocatore assente.\n'; \
+        printf 'Esporta il token restituito da accept con: \033[1mexport BOARDHUB_PLAYER_TOKEN='\''bhp1...'\''\033[0m\n'; \
+        exit 1; \
+      fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Posizionamento pedina virtuale in %s...\n' "{{ start_cell }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error -X POST {{ base_url }}/api/v1/player/sessions/{{ session_id }}/pieces \
+        -H "Authorization: Bearer $TOKEN" \
+        -H 'Content-Type: application/json' \
+        -d '{"characterId":"{{ character_id }}","representationMode":"VIRTUAL","startCell":"{{ start_cell }}"}' \
+        | python3 {{ formatter }} piece
+
+my-pieces session_id:
+    @set -euo pipefail; \
+      TOKEN="{{ player_token }}"; \
+      if [ -z "$TOKEN" ]; then \
+        printf '\033[1;31m[ERRORE]\033[0m Token giocatore assente.\n'; \
+        printf 'Esporta il token restituito da accept con: \033[1mexport BOARDHUB_PLAYER_TOKEN='\''bhp1...'\''\033[0m\n'; \
+        exit 1; \
+      fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Pedine possedute nella sessione %s...\n' "{{ session_id }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/api/v1/player/sessions/{{ session_id }}/pieces \
+        -H "Authorization: Bearer $TOKEN" \
+        | python3 {{ formatter }} pieces
+
+dm-pieces session_id:
+    @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Pedine visibili al DM nella sessione %s...\n' "{{ session_id }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/pieces \
+        -H "Authorization: Bearer $TOKEN" \
+        | python3 {{ formatter }} pieces
 
 close-session session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \

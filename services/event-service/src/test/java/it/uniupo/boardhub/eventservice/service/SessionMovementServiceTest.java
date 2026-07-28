@@ -11,6 +11,7 @@ import it.uniupo.boardhub.eventservice.model.session.GridCellState;
 import it.uniupo.boardhub.eventservice.model.session.GridTrapState;
 import it.uniupo.boardhub.eventservice.model.session.GridWallState;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
+import it.uniupo.boardhub.eventservice.repository.SessionPieceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,7 +37,7 @@ class SessionMovementServiceTest {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         repository = new GameSessionRepository(jdbcTemplate);
         service = new SessionMovementService(
-                new SessionGridService(repository),
+                new SessionGridService(repository, new SessionPieceRepository(jdbcTemplate)),
                 new MovementService()
         );
 
@@ -122,6 +123,19 @@ class SessionMovementServiceTest {
                     visibility VARCHAR(40) NOT NULL,
                     armed BOOLEAN NOT NULL,
                     PRIMARY KEY (session_id, trap_id)
+                )
+                """);
+        jdbcTemplate.execute("""
+                CREATE TABLE game_schema.session_pieces (
+                    session_piece_id UUID PRIMARY KEY,
+                    session_id VARCHAR(100) NOT NULL,
+                    character_id UUID NOT NULL,
+                    participant_id UUID NOT NULL,
+                    representation_mode VARCHAR(20) NOT NULL,
+                    current_cell VARCHAR(10) NOT NULL,
+                    version BIGINT NOT NULL,
+                    created_at TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMP NOT NULL
                 )
                 """);
     }

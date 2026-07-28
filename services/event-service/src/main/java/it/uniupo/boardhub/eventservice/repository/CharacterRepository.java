@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -86,6 +87,17 @@ public class CharacterRepository {
                 new CharacterRowMapper(),
                 sessionId
         );
+    }
+
+    public Optional<PlayerCharacter> findByIdAndSession(UUID characterId, String sessionId) {
+        return jdbcTemplate.query(
+                SELECT_FIELDS + """
+                        WHERE character_id = ? AND session_id = ?
+                        """,
+                new CharacterRowMapper(),
+                characterId,
+                sessionId
+        ).stream().findFirst();
     }
 
     private static class CharacterRowMapper implements RowMapper<PlayerCharacter> {

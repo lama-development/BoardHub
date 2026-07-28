@@ -2,6 +2,7 @@ package it.uniupo.boardhub.eventservice.controller;
 
 import it.uniupo.boardhub.eventservice.controller.dto.ErrorResponse;
 import it.uniupo.boardhub.eventservice.service.exception.CharacterCapacityException;
+import it.uniupo.boardhub.eventservice.service.exception.CharacterNotFoundException;
 import it.uniupo.boardhub.eventservice.service.exception.DmAuthenticationException;
 import it.uniupo.boardhub.eventservice.service.exception.DuplicateGameSessionException;
 import it.uniupo.boardhub.eventservice.service.exception.GameSessionNotFoundException;
@@ -10,6 +11,7 @@ import it.uniupo.boardhub.eventservice.service.exception.JoinRequestNotFoundExce
 import it.uniupo.boardhub.eventservice.service.exception.JoinRequestRateLimitException;
 import it.uniupo.boardhub.eventservice.service.exception.PlayerAuthenticationException;
 import it.uniupo.boardhub.eventservice.service.exception.SessionCapacityException;
+import it.uniupo.boardhub.eventservice.service.exception.SessionPieceConflictException;
 import it.uniupo.boardhub.eventservice.service.exception.TableConflictException;
 import it.uniupo.boardhub.eventservice.service.exception.TableSessionNotFoundException;
 import it.uniupo.boardhub.eventservice.service.exception.VenueAuthenticationException;
@@ -72,6 +74,18 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleCharacterCapacity(CharacterCapacityException ex) {
         return new ErrorResponse("CHARACTER_CAPACITY_REACHED", ex.getMessage());
+    }
+
+    @ExceptionHandler(CharacterNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleCharacterNotFound(CharacterNotFoundException ex) {
+        return new ErrorResponse("CHARACTER_NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(SessionPieceConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleSessionPieceConflict(SessionPieceConflictException ex) {
+        return new ErrorResponse("PIECE_CONFLICT", ex.getMessage());
     }
 
     @ExceptionHandler(JoinRequestRateLimitException.class)

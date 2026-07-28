@@ -9,6 +9,7 @@ import it.uniupo.boardhub.eventservice.model.session.GridCellState;
 import it.uniupo.boardhub.eventservice.model.session.GridTrapState;
 import it.uniupo.boardhub.eventservice.model.session.GridWallState;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
+import it.uniupo.boardhub.eventservice.repository.SessionPieceRepository;
 import it.uniupo.boardhub.eventservice.service.MovementService;
 import it.uniupo.boardhub.eventservice.service.SessionGridService;
 import it.uniupo.boardhub.eventservice.service.SessionMovementService;
@@ -43,7 +44,10 @@ class SessionMovementControllerTest {
         repository = new GameSessionRepository(jdbcTemplate);
         createSchema(jdbcTemplate);
 
-        SessionGridService sessionGridService = new SessionGridService(repository);
+        SessionGridService sessionGridService = new SessionGridService(
+                repository,
+                new SessionPieceRepository(jdbcTemplate)
+        );
         SessionMovementService sessionMovementService = new SessionMovementService(
                 sessionGridService,
                 new MovementService()
@@ -155,6 +159,19 @@ class SessionMovementControllerTest {
                     visibility VARCHAR(40) NOT NULL,
                     armed BOOLEAN NOT NULL,
                     PRIMARY KEY (session_id, trap_id)
+                )
+                """);
+        jdbcTemplate.execute("""
+                CREATE TABLE game_schema.session_pieces (
+                    session_piece_id UUID PRIMARY KEY,
+                    session_id VARCHAR(100) NOT NULL,
+                    character_id UUID NOT NULL,
+                    participant_id UUID NOT NULL,
+                    representation_mode VARCHAR(20) NOT NULL,
+                    current_cell VARCHAR(10) NOT NULL,
+                    version BIGINT NOT NULL,
+                    created_at TIMESTAMP NOT NULL,
+                    updated_at TIMESTAMP NOT NULL
                 )
                 """);
     }

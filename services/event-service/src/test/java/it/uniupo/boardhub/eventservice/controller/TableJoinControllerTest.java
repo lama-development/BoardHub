@@ -11,12 +11,15 @@ import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
 import it.uniupo.boardhub.eventservice.repository.GameTableRepository;
 import it.uniupo.boardhub.eventservice.repository.JoinRequestRepository;
 import it.uniupo.boardhub.eventservice.repository.SessionParticipantRepository;
+import it.uniupo.boardhub.eventservice.repository.SessionPieceRepository;
 import it.uniupo.boardhub.eventservice.service.DmAccessService;
 import it.uniupo.boardhub.eventservice.service.CharacterService;
 import it.uniupo.boardhub.eventservice.service.GameSessionCreationService;
 import it.uniupo.boardhub.eventservice.service.JoinRequestService;
 import it.uniupo.boardhub.eventservice.service.MovementGridFactory;
 import it.uniupo.boardhub.eventservice.service.ParticipantAccessService;
+import it.uniupo.boardhub.eventservice.service.SessionGridService;
+import it.uniupo.boardhub.eventservice.service.SessionPieceService;
 import it.uniupo.boardhub.eventservice.service.SessionTokenService;
 import it.uniupo.boardhub.eventservice.service.SessionLifecycleService;
 import it.uniupo.boardhub.eventservice.service.TableSessionService;
@@ -64,11 +67,21 @@ class TableJoinControllerTest {
         ParticipantAccessService participantAccessService = new ParticipantAccessService(
                 tokenService, participantRepository, sessionRepository
         );
+        CharacterRepository characterRepository = new CharacterRepository(jdbcTemplate);
         CharacterService characterService = new CharacterService(
                 participantAccessService,
-                new CharacterRepository(jdbcTemplate),
+                characterRepository,
                 sessionRepository,
                 new CharacterProperties(8),
+                clock
+        );
+        SessionPieceRepository pieceRepository = new SessionPieceRepository(jdbcTemplate);
+        SessionPieceService pieceService = new SessionPieceService(
+                participantAccessService,
+                characterRepository,
+                pieceRepository,
+                sessionRepository,
+                new SessionGridService(sessionRepository, pieceRepository),
                 clock
         );
         VenueProperties venueProperties =
@@ -121,7 +134,9 @@ class TableJoinControllerTest {
                                 dmAccessService,
                                 lifecycleService,
                                 characterService
-                        )
+                        ),
+                        new PlayerSessionPieceController(pieceService),
+                        new DmSessionPieceController(dmAccessService, pieceService)
                 )
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
@@ -221,7 +236,8 @@ class TableJoinControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("PLAYER_UNAUTHORIZED"));
 
-        mockMvc.perform(post("/api/v1/player/sessions/session-api-001/characters")
+        MvcResult createdCharacter = mockMvc.perform(
+                        post("/api/v1/player/sessions/session-api-001/characters")
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -239,7 +255,11 @@ class TableJoinControllerTest {
                 .andExpect(jsonPath("$.name").value("Elaria"))
                 .andExpect(jsonPath("$.age").doesNotExist())
                 .andExpect(jsonPath("$.hpCurrent").value(18))
-                .andExpect(jsonPath("$.partyVisibility").value("OWNER_ONLY"));
+                .andExpect(jsonPath("$.partyVisibility").value("OWNER_ONLY"))
+                .andReturn();
+        String characterId = objectMapper.readTree(
+                createdCharacter.getResponse().getContentAsString()
+        ).get("characterId").asText();
         mockMvc.perform(get("/api/v1/player/sessions/session-api-001/characters")
                         .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk())
@@ -253,6 +273,38 @@ class TableJoinControllerTest {
                 .andExpect(jsonPath("$[0].name").value("Elaria"))
                 .andExpect(jsonPath("$[0].partyVisibility").value("OWNER_ONLY"));
         mockMvc.perform(get("/api/v1/dm/sessions/session-api-001/characters"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("DM_UNAUTHORIZED"));
+
+        mockMvc.perform(post("/api/v1/player/sessions/session-api-001/pieces")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "characterId": "%s",
+                                  "representationMode": "VIRTUAL",
+                                  "startCell": "B2"
+                                }
+                                """.formatted(characterId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.characterId").value(characterId))
+                .andExpect(jsonPath("$.currentCell").value("B2"))
+                .andExpect(jsonPath("$.representationMode").value("VIRTUAL"))
+                .andExpect(jsonPath("$.version").value(0));
+        mockMvc.perform(get("/api/v1/player/sessions/session-api-001/pieces")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].characterId").value(characterId))
+                .andExpect(jsonPath("$[0].currentCell").value("B2"));
+        mockMvc.perform(get("/api/v1/player/sessions/session-api-001/pieces"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("PLAYER_UNAUTHORIZED"));
+        mockMvc.perform(get("/api/v1/dm/sessions/session-api-001/pieces")
+                        .header("Authorization", dmAuthorization))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].characterId").value(characterId))
+                .andExpect(jsonPath("$[0].currentCell").value("B2"));
+        mockMvc.perform(get("/api/v1/dm/sessions/session-api-001/pieces"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("DM_UNAUTHORIZED"));
 

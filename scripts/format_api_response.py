@@ -272,6 +272,34 @@ def render_characters(data: list[dict[str, Any]]) -> None:
     print(style(f"\n  Totale personaggi: {len(data)}", DIM))
 
 
+def piece_row(item: dict[str, Any]) -> list[Any]:
+    return [
+        item.get("currentCell"),
+        item.get("representationMode"),
+        item.get("characterId"),
+        item.get("sessionPieceId"),
+        item.get("version"),
+    ]
+
+
+def render_piece(data: dict[str, Any]) -> None:
+    print(style("● Pedina virtuale posizionata", GREEN))
+    table(
+        ["CELLA", "MODALITA", "CHARACTER ID", "PIECE ID", "VER."],
+        [piece_row(data)],
+        [8, 10, 38, 38, 5],
+    )
+
+
+def render_pieces(data: list[dict[str, Any]]) -> None:
+    table(
+        ["CELLA", "MODALITA", "CHARACTER ID", "PIECE ID", "VER."],
+        [piece_row(item) for item in data],
+        [8, 10, 38, 38, 5],
+    )
+    print(style(f"\n  Totale pedine: {len(data)}", DIM))
+
+
 def render_closed_session(data: dict[str, Any]) -> None:
     print(style("● Sessione conclusa", GREEN))
     field("Sessione", data.get("sessionId"))
@@ -346,6 +374,8 @@ def render(profile: str, data: Any) -> None:
         "participants": render_participants,
         "character": render_character,
         "characters": render_characters,
+        "piece": render_piece,
+        "pieces": render_pieces,
         "closed-session": render_closed_session,
         "movement": render_movement,
         "events": render_events,

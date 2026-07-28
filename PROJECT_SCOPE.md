@@ -43,7 +43,7 @@ Il progetto assume che il tavolo BoardHub fornisca un kit minimo per la sessione
 | Materiale | Descrizione | Uso nel sistema |
 | :--- | :--- | :--- |
 | Plancia a griglia | Campo fisico della sessione D&D. | Produce o simula eventi di posizione. |
-| Pedine/miniature | Rappresentano personaggi e creature. | Vengono associate a `tokenId` e `characterId`. |
+| Pedine/miniature | Rappresentano personaggi e creature. | La pedina virtuale usa `sessionPieceId` e `characterId`; il futuro oggetto fisico aggiungera `physicalTokenId`. |
 | QR code o NFC | Identificatore fisico della pedina o del tavolo. | Collega dispositivo, giocatore, personaggio e tavolo. |
 | App mobile | Applicazione da installare sul dispositivo del giocatore. | Entra in sessione, configura personaggio, mostra azioni e log. |
 | Vista DM | App o dashboard del Dungeon Master. | Configura mappa, terreno, creature, turni e round. |
@@ -249,6 +249,7 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | Autenticazione di sessione | Implementata | Usa token HMAC distinti e limitati alla sessione per DM e giocatori; la chiusura li revoca. |
 | Accesso giocatore | Implementato per l'MVP locale | Verifica token HMAC Bearer e stato attivo del partecipante/sessione. |
 | Personaggi | Implementati | Persiste scheda tattica minima, proprietario, visibilita e limiti per partecipante. |
+| Pedine virtuali | Implementate | Collegano in modo univoco sessione, proprietario, personaggio e cella corrente. |
 | Modello griglia | Implementato | Rappresenta posizioni, celle, terreno e richieste di movimento. |
 | Algoritmo movimento | Implementato | Calcola celle raggiungibili, percorso e trappole attraversate. |
 | API celle raggiungibili | Implementata | Espone il risultato del movimento a dashboard/app. |
@@ -299,19 +300,20 @@ Gia realizzato:
 - ripristino browser dei flussi DM/giocatore e primo endpoint Bearer protetto;
 - creazione e lettura protetta dei personaggi del giocatore, con vista completa
   riservata al DM;
+- associazione e posizionamento iniziale delle pedine virtuali, con
+  occupazione usata dalla griglia di movimento;
 - test automatici;
 - documentazione tecnica iniziale;
 - specifica OpenAPI dell'endpoint implementato.
 
 Prossimi passi consigliati:
 
-1. introdurre pezzi della sessione fisici/virtuali e posizione autorevole;
-2. aggiornare la posizione persistita e produrre `MOVE_CONFIRMED`,
+1. aggiornare la posizione persistita e produrre `MOVE_CONFIRMED`,
    `MOVE_REJECTED` e `TRAP_TRIGGERED`;
-3. realizzare un edge simulato con coda offline e reinvio idempotente;
-4. aggiungere inventario delle pedine e associazione QR/NFC;
-5. misurare traffico, latenza e comportamento durante una disconnessione;
-6. preparare una demo completa dal tavolo simulato alla dashboard.
+2. realizzare un edge simulato con coda offline e reinvio idempotente;
+3. aggiungere inventario delle pedine fisiche e associazione QR/NFC;
+4. misurare traffico, latenza e comportamento durante una disconnessione;
+5. preparare una demo completa dal tavolo simulato alla dashboard.
 
 ## 13. Fattibilita nel contesto reale
 

@@ -10,6 +10,7 @@ import it.uniupo.boardhub.eventservice.model.grid.TrapVisibility;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
 import it.uniupo.boardhub.eventservice.repository.GameTableRepository;
 import it.uniupo.boardhub.eventservice.repository.SessionParticipantRepository;
+import it.uniupo.boardhub.eventservice.repository.SessionPieceRepository;
 import it.uniupo.boardhub.eventservice.service.command.CreateGameSessionCommand;
 import it.uniupo.boardhub.eventservice.support.MigratedTestDatabase;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GameSessionCreationServiceTest {
 
     private GameSessionRepository repository;
+    private SessionPieceRepository pieceRepository;
     private GameSessionCreationService creationService;
 
     @BeforeEach
@@ -38,6 +40,7 @@ class GameSessionCreationServiceTest {
         );
 
         repository = new GameSessionRepository(jdbcTemplate);
+        pieceRepository = new SessionPieceRepository(jdbcTemplate);
         GameTableRepository tableRepository = new GameTableRepository(jdbcTemplate);
         TableSessionService tableService = new TableSessionService(
                 tableRepository,
@@ -104,7 +107,7 @@ class GameSessionCreationServiceTest {
         });
 
         SessionMovementService movementService = new SessionMovementService(
-                new SessionGridService(repository),
+                new SessionGridService(repository, pieceRepository),
                 new MovementService()
         );
         var reachableCells = movementService.calculateReachableCells(

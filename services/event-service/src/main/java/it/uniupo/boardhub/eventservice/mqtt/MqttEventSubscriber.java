@@ -73,6 +73,7 @@ public class MqttEventSubscriber implements ApplicationRunner, MqttCallback {
         try {
             GameEvent event = parser.parse(payload);
             requireMatchingTopic(topic, event);
+            requireExternalSource(event);
             boolean inserted = repository.save(event);
             log.info(
                     "Evento MQTT ricevuto tipo={} seq={} sessione={} sorgente={} topic={} salvato={}",
@@ -95,6 +96,15 @@ public class MqttEventSubscriber implements ApplicationRunner, MqttCallback {
         if (!expectedTopic.equals(topic)) {
             throw new IllegalArgumentException(
                     "topic MQTT incoerente con venueId e tableId del payload."
+            );
+        }
+    }
+
+    // BACKEND identifica esclusivamente eventi creati nella transazione applicativa.
+    static void requireExternalSource(GameEvent event) {
+        if ("BACKEND".equalsIgnoreCase(event.source())) {
+            throw new IllegalArgumentException(
+                    "La sorgente BACKEND e riservata all'event-service."
             );
         }
     }

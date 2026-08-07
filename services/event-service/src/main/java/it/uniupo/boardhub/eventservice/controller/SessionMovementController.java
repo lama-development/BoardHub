@@ -1,12 +1,11 @@
 package it.uniupo.boardhub.eventservice.controller;
 
+import it.uniupo.boardhub.eventservice.controller.mapper.MovementDtoMapper;
 import it.uniupo.boardhub.eventservice.controller.dto.ReachableCellResponse;
 import it.uniupo.boardhub.eventservice.controller.dto.ReachableCellsResponse;
 import it.uniupo.boardhub.eventservice.controller.dto.SessionReachableCellsRequest;
 import it.uniupo.boardhub.eventservice.model.grid.GridPosition;
-import it.uniupo.boardhub.eventservice.model.grid.GridTrap;
 import it.uniupo.boardhub.eventservice.model.grid.MovementRequest;
-import it.uniupo.boardhub.eventservice.model.grid.ReachableCell;
 import it.uniupo.boardhub.eventservice.service.SessionMovementService;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,22 +40,9 @@ public class SessionMovementController {
         List<ReachableCellResponse> reachableCells = sessionMovementService
                 .calculateReachableCells(sessionId, movementRequest)
                 .stream()
-                .map(this::toResponse)
+                .map(MovementDtoMapper::toResponse)
                 .toList();
 
         return new ReachableCellsResponse(request.characterId(), reachableCells);
-    }
-
-    // Converte una cella raggiungibile interna nel formato JSON di risposta.
-    private ReachableCellResponse toResponse(ReachableCell reachableCell) {
-        return new ReachableCellResponse(
-                reachableCell.position().toCell(),
-                reachableCell.cost(),
-                reachableCell.path().stream().map(GridPosition::toCell).toList(),
-                reachableCell.trapsOnPath().stream()
-                        .filter(GridTrap::isVisibleToPlayers)
-                        .map(GridTrap::trapId)
-                        .toList()
-        );
     }
 }

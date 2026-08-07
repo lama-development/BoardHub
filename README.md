@@ -47,6 +47,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | API celle raggiungibili | Implementata con `POST /api/v1/movement/reachable-cells`. |
 | Ricostruzione griglia da sessione | Implementata come servizio interno da stato persistito. |
 | API movimento da sessione | Implementata con `POST /api/v1/sessions/{sessionId}/movement/reachable-cells`. |
+| Movimento autorevole pedina | Implementato con posizione e velocita persistite, controllo versione, idempotenza ed evento `MOVE_CONFIRMED`. |
 | Dashboard web | Base implementata per monitor, pagina QR, avvio DM, richieste e partecipanti; personaggi e pedine persistite devono ancora essere collegati all'interfaccia. |
 | App mobile | Da implementare. |
 
@@ -330,13 +331,24 @@ just dm-characters session-demo-001
 just create-piece session-demo-001 CHARACTER_ID B2
 just my-pieces session-demo-001
 just dm-pieces session-demo-001
+just piece-reachable session-demo-001 PIECE_ID
+just move-piece session-demo-001 PIECE_ID C2 0
 ```
 
 I primi tre comandi creano e ispezionano le schede dei personaggi. I tre
 successivi associano un personaggio alla sua pedina virtuale, la posizionano
 in `B2` e mostrano rispettivamente la proiezione del proprietario e quella
 completa del DM. `CHARACTER_ID` e l'identificativo mostrato da
-`just create-character`.
+`just create-character`; `PIECE_ID` e quello restituito da
+`just create-piece`. Gli ultimi due comandi calcolano le destinazioni usando
+posizione e velocita salvate e confermano uno spostamento reale. Il quarto
+argomento di `move-piece` e la versione corrente della pedina: dopo ogni
+movimento usare la nuova versione mostrata nella risposta.
+
+`just move-piece` genera automaticamente un `commandId`. Per riprovare in modo
+idempotente lo stesso comando, passare esplicitamente come quinto argomento lo
+stesso UUID: il backend restituira il risultato gia salvato senza applicare
+un secondo spostamento.
 
 Il personaggio persistito e una scheda tattica minima, non la riproduzione
 completa della scheda D&D. Livello, HP, CA e velocita seguono la semantica
@@ -387,7 +399,9 @@ schema iniziale; `V2` aggiunge tavoli, richieste di ingresso e partecipanti;
 `V3` aggiunge i personaggi posseduti dai partecipanti; `V4` introduce il
 controllo del locale sullo stato dei tavoli e sulle finestre temporanee di
 avvio; `V5` collega ogni pedina virtuale al proprietario, al personaggio e a
-una cella univoca della sessione. I dati esistenti non vengono cancellati e
+una cella univoca della sessione; `V6` aggiunge il contatore degli eventi
+generati dal backend e separa la progressione degli eventi per sorgente. I dati
+esistenti non vengono cancellati e
 non e piu necessario eseguire manualmente `init.sql`.
 
 Per controllare le migrazioni applicate mentre PostgreSQL e attivo:

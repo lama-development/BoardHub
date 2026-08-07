@@ -95,7 +95,9 @@ Regole generali:
 
 ## 4. Contratto REST
 
-Le API REST attualmente implementate sono usate per creare e chiudere sessioni, gestire l'ingresso dei giocatori, leggere eventi persistiti e calcolare il movimento.
+Le API REST attualmente implementate sono usate per creare e chiudere sessioni,
+gestire l'ingresso dei giocatori, leggere eventi persistiti, calcolare le
+destinazioni e confermare il movimento autorevole delle pedine.
 
 Base path:
 
@@ -120,7 +122,7 @@ docs/openapi/event-service.openapi.yml
 | Metodo | Endpoint | Scopo |
 | :--- | :--- | :--- |
 | `POST` | `/api/v1/sessions` | Consuma il claim del tavolo, crea la sessione e restituisce il token DM. |
-| `GET` | `/api/v1/sessions/{sessionId}/events` | Restituisce lo storico eventi della sessione, ordinato per `sequenceNumber`. |
+| `GET` | `/api/v1/sessions/{sessionId}/events` | Restituisce lo storico in ordine cronologico deterministico. |
 | `POST` | `/api/v1/movement/reachable-cells` | Calcola le celle raggiungibili su una griglia fornita nella richiesta. |
 | `POST` | `/api/v1/sessions/{sessionId}/movement/reachable-cells` | Calcola le celle raggiungibili usando la griglia salvata della sessione. |
 | `GET` | `/api/v1/public/tables/{tablePublicId}` | Restituisce `DISABLED`, `CLAIMABLE` o `IN_SESSION`. |
@@ -132,6 +134,8 @@ docs/openapi/event-service.openapi.yml
 | `GET` | `/api/v1/player/sessions/{sessionId}/characters` | Elenca soltanto i personaggi posseduti dal giocatore autenticato. |
 | `POST` | `/api/v1/player/sessions/{sessionId}/pieces` | Associa un personaggio posseduto a una pedina virtuale e a una cella iniziale. |
 | `GET` | `/api/v1/player/sessions/{sessionId}/pieces` | Elenca soltanto le pedine possedute dal giocatore autenticato. |
+| `GET` | `/api/v1/player/sessions/{sessionId}/pieces/{sessionPieceId}/reachable-cells` | Calcola le destinazioni usando posizione e velocita persistite della pedina. |
+| `POST` | `/api/v1/player/sessions/{sessionId}/pieces/{sessionPieceId}/moves` | Conferma atomicamente lo spostamento e registra `MOVE_CONFIRMED`. |
 | `GET` | `/api/v1/dm/sessions/{sessionId}/join-requests` | Elenca le richieste filtrate per stato. |
 | `POST` | `/api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/accept` | Accetta la richiesta e crea il partecipante. |
 | `POST` | `/api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/reject` | Rifiuta la richiesta. |
@@ -146,7 +150,12 @@ docs/openapi/event-service.openapi.yml
 
 L'endpoint stateless `reachable-cells` e implementato come operazione `POST` perche riceve una griglia completa: dimensioni, terreno, celle occupate, muri e trappole.
 
-L'endpoint legato a `sessionId` rappresenta il flusso piu vicino all'uso reale: app o dashboard inviano solo personaggio, posizione iniziale e punti movimento; il backend ricostruisce la griglia persistita e applica il calcolo del movimento.
+L'endpoint storico legato direttamente a `sessionId` ricostruisce la griglia
+persistita, ma riceve ancora personaggio, posizione e punti movimento dal
+chiamante ed e mantenuto per demo e compatibilita. Il flusso operativo usa
+invece la pedina autenticata: il client invia soltanto destinazione, versione
+attesa e identificativo idempotente del comando; posizione, velocita,
+proprietario e occupazione vengono ricavati dal backend.
 
 Per proteggere le informazioni riservate al Dungeon Master, il campo `trapsOnPath` delle risposte REST contiene solo trappole con visibilita `REVEALED`. Le trappole `HIDDEN` e `ALWAYS_HIDDEN` possono essere rilevate internamente dal backend, ma non vengono comunicate al client giocatore.
 
@@ -478,7 +487,78 @@ Risposta:
 }
 ```
 
-### 4.8 Esempio lettura eventi sessione
+### 4.8 Movimento autorevole della pedina
+
+Il client giocatore legge prima le destinazioni consentite:
+
+```http
+GET /api/v1/player/sessions/session-demo-001/pieces/7d1da3ea-e98c-41e7-8747-702c9c89f35d/reachable-cells
+Authorization: Bearer bhp1...
+```
+
+```json
+{
+  "sessionPieceId": "7d1da3ea-e98c-41e7-8747-702c9c89f35d",
+  "currentCell": "A1",
+  "movementPoints": 6,
+  "version": 0,
+  "reachableCells": [
+    {
+      "cell": "B2",
+      "cost": 2,
+      "path": ["A1", "B1", "B2"],
+      "trapsOnPath": []
+    }
+  ]
+}
+```
+
+Per confermare la destinazione usa la versione appena letta e genera un UUID
+stabile per l'operazione:
+
+```http
+POST /api/v1/player/sessions/session-demo-001/pieces/7d1da3ea-e98c-41e7-8747-702c9c89f35d/moves
+Authorization: Bearer bhp1...
+Content-Type: application/json
+```
+
+```json
+{
+  "destination": "B2",
+  "expectedVersion": 0,
+  "commandId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+```json
+{
+  "status": "CONFIRMED",
+  "commandId": "550e8400-e29b-41d4-a716-446655440000",
+  "eventId": "move-550e8400-e29b-41d4-a716-446655440000",
+  "sessionPieceId": "7d1da3ea-e98c-41e7-8747-702c9c89f35d",
+  "characterId": "2a0c0ce6-a753-41f0-86a3-6a40bbb80fc1",
+  "from": "A1",
+  "to": "B2",
+  "path": ["A1", "B1", "B2"],
+  "cost": 2,
+  "version": 1,
+  "visibleTrapsOnPath": []
+}
+```
+
+La posizione e l'evento vengono scritti nella stessa transazione. In caso di
+errore nessuno dei due cambia. Ripetere la richiesta con lo stesso `commandId`
+restituisce il risultato gia registrato; lo stesso UUID non puo descrivere un
+movimento diverso. `expectedVersion` impedisce che due comandi concorrenti
+aggiornino entrambi una pedina letta alla stessa versione.
+
+Una destinazione non raggiungibile produce `422 MOVE_REJECTED` senza aggiungere
+eventi allo storico. Una versione superata produce
+`409 STALE_PIECE_STATE`; il client deve rileggere la pedina. Le trappole
+`HIDDEN` e `ALWAYS_HIDDEN` non compaiono in `trapsOnPath` o
+`visibleTrapsOnPath`.
+
+### 4.9 Esempio lettura eventi sessione
 
 Richiesta:
 
@@ -536,6 +616,7 @@ tutti i tavoli del locale. Prima del salvataggio il backend verifica che
 | :--- | :--- |
 | `SESSION_START` | Avvio di una nuova sessione. |
 | `MOVE` | Movimento di un personaggio o mostro sulla griglia. |
+| `MOVE_CONFIRMED` | Movimento di una pedina validato e persistito dal backend. |
 | `SPAWN_MONSTER` | Creazione di un mostro sulla mappa. |
 | `ATTACK` | Attacco tra due entita. |
 | `DAMAGE` | Applicazione di danno a un bersaglio. |
@@ -548,7 +629,8 @@ Il parser Java accetta anche altri valori testuali per `eventType`, ma gli event
 Per l'MVP BoardHub si assume una griglia D&D semplificata:
 
 - una casella e l'unita logica della plancia, circa 1,5 metri;
-- nella demo il chiamante fornisce i punti movimento disponibili;
+- negli endpoint dimostrativi il chiamante fornisce i punti movimento; nel
+  flusso autorevole vengono letti dal personaggio persistito;
 - una casella normale costa 1 punto movimento;
 - una casella di terreno difficile costa 2 punti movimento;
 - il movimento puo essere ortogonale o diagonale;
@@ -559,7 +641,9 @@ Per l'MVP BoardHub si assume una griglia D&D semplificata:
 - ostacoli, celle inaccessibili e caselle occupate bloccano l'ingresso nella casella;
 - le trappole non bloccano necessariamente il movimento e possono restare nascoste ai giocatori;
 - una trappola nascosta puo essere rivelata con una prova o rilevata internamente quando il percorso la attraversa;
-- la conferma o il rifiuto definitivo dello spostamento sono sviluppi successivi: l'API attuale calcola le celle raggiungibili.
+- la conferma aggiorna la pedina e registra `MOVE_CONFIRMED` atomicamente;
+- un rifiuto non modifica lo stato e viene restituito come errore API, senza
+  creare un evento nello storico.
 
 Il calcolo interno delle celle raggiungibili usa Dijkstra semplificato sulla griglia. Questo permette alla plancia o all'app di mostrare al giocatore solo le caselle valide anche quando sono presenti terreni con costi diversi.
 
@@ -598,27 +682,9 @@ Esempio futuro di evento di tiro dado:
 }
 ```
 
-Esempio futuro di evento di movimento rifiutato:
-
-```json
-{
-  "eventId": "evt-000055",
-  "eventType": "MOVE_REJECTED",
-  "venueId": "venue-01",
-  "tableId": "table-04",
-  "sessionId": "session-20260630-001",
-  "source": "EDGE",
-  "occurredAt": "2026-06-30T17:49:00Z",
-  "sequenceNumber": 55,
-  "payload": {
-    "characterId": "adv-01",
-    "from": "A3",
-    "to": "A10",
-    "reason": "OUT_OF_RANGE",
-    "maxCells": 6
-  }
-}
-```
+Un movimento rifiutato usa il formato uniforme degli errori REST e non viene
+salvato nello stream degli eventi, perche non ha prodotto una transizione di
+stato.
 
 ## 6. Formato standard degli eventi
 
@@ -651,9 +717,9 @@ Tutti gli eventi MQTT pubblicati sul topic `events` devono rispettare questa str
 | `venueId` | string | Si | Identificativo tecnico dell'installazione o sorgente logica. |
 | `tableId` | string | Si | Identificativo del tavolo o ambiente di gioco. |
 | `sessionId` | string | Si | Sessione di gioco associata. |
-| `source` | string | Si | Origine tecnica dell'evento, ad esempio `SIMULATOR`, `EDGE` o `MOBILE_APP`. Il backend richiede solo un valore non vuoto. |
+| `source` | string | Si | Origine tecnica dell'evento, ad esempio `SIMULATOR`, `EDGE` o `MOBILE_APP`. `BACKEND` e riservato agli eventi creati internamente dall'event-service e viene rifiutato sugli ingressi MQTT. |
 | `occurredAt` | string | Si | Timestamp ISO 8601 dell'evento. |
-| `sequenceNumber` | number | Si | Numero progressivo dell'evento nella sessione. |
+| `sequenceNumber` | number | Si | Numero progressivo per coppia `(sessionId, source)`; sorgenti indipendenti possono usare la stessa sequenza. |
 | `payload` | object | Si | Dati specifici del tipo evento. |
 
 ### 6.2 Esempio evento di attacco
@@ -747,6 +813,10 @@ Codici principali:
 | `DM_UNAUTHORIZED` | Il token Bearer della sessione DM e assente, non valido, revocato o riferito a un'altra sessione. |
 | `PLAYER_UNAUTHORIZED` | Il token Bearer del giocatore e assente, non valido, revocato o riferito a un'altra sessione. |
 | `VENUE_UNAUTHORIZED` | La credenziale amministrativa del locale e assente, non valida o usata da un'origine non consentita. |
+| `PIECE_NOT_FOUND` | La pedina non esiste nella sessione o non appartiene al giocatore autenticato. |
+| `STALE_PIECE_STATE` | La versione inviata non coincide con lo stato corrente della pedina. |
+| `MOVE_COMMAND_CONFLICT` | Un `commandId` gia registrato e stato riutilizzato per un movimento diverso. |
+| `MOVE_REJECTED` | La destinazione non e raggiungibile nello stato corrente della griglia. |
 
 Per MQTT non e previsto un messaggio di errore sincrono. Gli errori di validazione devono essere registrati dal backend e, se necessario, pubblicati su un topic di diagnostica in una fase successiva del progetto.
 
@@ -757,9 +827,12 @@ Il sistema deve gestire anche scenari in cui il componente edge perde temporanea
 Regole minime:
 
 - ogni evento deve avere un `eventId` univoco;
-- `sequenceNumber` cresce in modo progressivo e non duplicato per ogni sessione;
+- `sequenceNumber` cresce senza duplicati per ogni coppia `(sessionId, source)`;
 - il backend ignora eventi duplicati secondo i vincoli di unicita del database;
-- gli eventi letti per sessione vengono ordinati per `sequenceNumber` e `occurredAt`;
+- gli eventi letti per sessione vengono ordinati per `occurredAt`, `source`,
+  `sequenceNumber` ed `eventId`;
+- i comandi REST di movimento usano `commandId` come chiave idempotente e
+  `expectedVersion` per il controllo concorrente;
 - buffer offline, topic `sync` e replay completo dello stato sono sviluppi futuri e non fanno parte dell'implementazione attuale.
 
 Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazione asincrona, tolleranza a disconnessioni temporanee, idempotenza e consistenza dello stato applicativo.
@@ -768,9 +841,9 @@ Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazi
 
 | Campo | Valore |
 | :--- | :--- |
-| Versione | `0.6` |
-| Stato | Contratto allineato a controllo tavoli, token DM/giocatore, personaggi, pedine virtuali, eventi e movimento implementati |
-| Data | 2026-07-27 |
+| Versione | `0.7` |
+| Stato | Contratto allineato a controllo tavoli, accessi, personaggi, pedine ed esecuzione autorevole del movimento |
+| Data | 2026-07-29 |
 | Ambito | MVP BoardHub |
 
 Prossimi passi:
@@ -778,7 +851,5 @@ Prossimi passi:
 - validare il contratto con il collaboratore;
 - mantenere sincronizzata la specifica OpenAPI con gli endpoint implementati;
 - aggiungere filtri o paginazione alla lettura eventi se il volume dati cresce;
-- aggiungere aggiornamento autorevole della posizione e proiezione protetta
-  per il nodo edge/plancia;
 - implementare app mobile e componente edge;
-- introdurre progressivamente dadi, conferma movimento, buffer offline ed event replay.
+- introdurre progressivamente attivazione trappole, dadi, buffer offline ed event replay.

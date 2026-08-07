@@ -33,6 +33,18 @@ class MqttEventSubscriberTest {
                 .hasMessageContaining("topic MQTT incoerente");
     }
 
+    @Test
+    void rifiutaLaSorgenteBackendRiservata() throws Exception {
+        GameEvent event = parser.parse(eventPayload("table-01").replace(
+                "\"source\": \"SIMULATOR\"",
+                "\"source\": \"BACKEND\""
+        ));
+
+        assertThatThrownBy(() -> MqttEventSubscriber.requireExternalSource(event))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("riservata");
+    }
+
     private String eventPayload(String tableId) {
         return """
                 {

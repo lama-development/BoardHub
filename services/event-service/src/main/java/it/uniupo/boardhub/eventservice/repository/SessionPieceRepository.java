@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -76,6 +77,43 @@ public class SessionPieceRepository {
                 new SessionPieceRowMapper(),
                 sessionId
         );
+    }
+
+    public Optional<SessionPiece> findByIdAndSessionForUpdate(
+            UUID sessionPieceId,
+            String sessionId
+    ) {
+        return jdbcTemplate.query(
+                SELECT_FIELDS + """
+                        WHERE session_piece_id = ? AND session_id = ?
+                        FOR UPDATE
+                        """,
+                new SessionPieceRowMapper(),
+                sessionPieceId,
+                sessionId
+        ).stream().findFirst();
+    }
+
+    public boolean move(
+            UUID sessionPieceId,
+            String sessionId,
+            String destination,
+            long expectedVersion,
+            java.time.OffsetDateTime updatedAt
+    ) {
+        return jdbcTemplate.update("""
+                        UPDATE game_schema.session_pieces
+                        SET current_cell = ?, version = version + 1, updated_at = ?
+                        WHERE session_piece_id = ?
+                          AND session_id = ?
+                          AND version = ?
+                        """,
+                destination,
+                Timestamp.from(updatedAt.toInstant()),
+                sessionPieceId,
+                sessionId,
+                expectedVersion
+        ) == 1;
     }
 
     private int count(String sql, Object... parameters) {

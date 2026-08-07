@@ -141,7 +141,7 @@ dove `V` e il numero di caselle e `E` il numero di collegamenti tra caselle. Su 
 
 | Algoritmo | Stato | Dove viene usato | Perche viene usato |
 | :--- | :--- | :--- | :--- |
-| Ordinamento eventi per `sequenceNumber` | Implementato | `event-service`, lettura eventi sessione. | Ricostruisce l'ordine logico degli eventi salvati. |
+| Ordinamento cronologico deterministico | Implementato | `event-service`, lettura eventi sessione. | Ordina per istante, sorgente, sequenza e identificativo senza confondere contatori indipendenti. |
 | Dijkstra semplificato | Implementato | Movimento su griglia. | Gestisce costi del terreno, celle non attraversabili e muri tra celle adiacenti. |
 | Parser dadi | Da implementare | Tiri digitali dall'app mobile. | Interpreta formule come `1d20+3` e registra risultati verificabili. |
 | Verifica trappole sul percorso | Implementata internamente; trappole nascoste mascherate nelle API client | Movimento su griglia. | Permette al backend di rilevare il percorso interessato senza rivelare informazioni riservate al giocatore. |
@@ -152,31 +152,25 @@ dove `V` e il numero di caselle e `E` il numero di collegamenti tra caselle. Su 
 
 La BFS e corretta solo se ogni passaggio tra caselle ha lo stesso costo. BoardHub deve invece considerare anche il terreno difficile, che consuma piu movimento. Per questo Dijkstra e piu adatto come algoritmo principale del movimento.
 
-## 7. Conferma del movimento prevista
+## 7. Conferma autorevole del movimento
 
-Il backend attuale calcola l'insieme delle caselle raggiungibili, ma non aggiorna ancora la posizione persistita. Il passo applicativo successivo confrontera la destinazione scelta con questo insieme e produrra uno dei seguenti eventi.
+Il backend calcola le caselle raggiungibili partendo dalla posizione e dalla
+velocita persistite della pedina. La conferma verifica proprietario, versione,
+occupazione e percorso, quindi aggiorna la posizione e registra
+`MOVE_CONFIRMED` nella stessa transazione. Un `commandId` UUID rende sicuri i
+retry: lo stesso comando restituisce lo stesso risultato senza un secondo
+spostamento.
 
-| Caso | Evento | Effetto |
+| Caso | Esito | Effetto |
 | :--- | :--- | :--- |
 | Movimento valido | `MOVE_CONFIRMED` | La posizione viene aggiornata. |
-| Movimento troppo lungo | `MOVE_REJECTED` | Il sistema segnala che la casella non e raggiungibile. |
-| Movimento bloccato da muro | `MOVE_REJECTED` | Il sistema segnala che il bordo tra due celle e chiuso. |
-| Movimento su casella occupata | `MOVE_REJECTED` | Il sistema impedisce la sovrapposizione. |
+| Movimento troppo lungo | `422 MOVE_REJECTED` | La posizione e lo storico non cambiano. |
+| Movimento bloccato da muro | `422 MOVE_REJECTED` | La posizione e lo storico non cambiano. |
+| Movimento su casella occupata | `422 MOVE_REJECTED` | La posizione e lo storico non cambiano. |
+| Versione superata | `409 STALE_PIECE_STATE` | Il client deve rileggere la pedina prima di riprovare. |
 
-Esempio:
-
-```json
-{
-  "eventType": "MOVE_REJECTED",
-  "payload": {
-    "characterId": "adv-01",
-    "from": "A3",
-    "to": "A10",
-    "reason": "OUT_OF_RANGE",
-    "maxCells": 6
-  }
-}
-```
+I rifiuti sono risposte API strutturate e non eventi: una richiesta che non ha
+modificato il dominio non inquina lo storico della partita.
 
 ## 8. Eventi
 
@@ -193,7 +187,7 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | `TURN_STARTED` | Inizia il turno di un personaggio. |
 | `REACHABLE_CELLS_CALCULATED` | Il sistema calcola le celle raggiungibili. |
 | `MOVE_CONFIRMED` | Movimento accettato. |
-| `MOVE_REJECTED` | Movimento rifiutato. |
+| `MOVE_REJECTED` | Codice applicativo restituito quando il movimento non puo essere applicato; non viene persistito come evento. |
 | `DICE_ROLLED` | Tiro di dado digitale registrato dall'app. |
 | `ATTACK` | Attacco dichiarato. |
 | `DAMAGE` | Danno applicato. |
@@ -302,18 +296,20 @@ Gia realizzato:
   riservata al DM;
 - associazione e posizionamento iniziale delle pedine virtuali, con
   occupazione usata dalla griglia di movimento;
+- calcolo e conferma autorevole del movimento della pedina con controllo
+  concorrente, retry idempotente ed evento `MOVE_CONFIRMED`;
 - test automatici;
 - documentazione tecnica iniziale;
 - specifica OpenAPI dell'endpoint implementato.
 
 Prossimi passi consigliati:
 
-1. aggiornare la posizione persistita e produrre `MOVE_CONFIRMED`,
-   `MOVE_REJECTED` e `TRAP_TRIGGERED`;
+1. definire e implementare l'attivazione autorevole delle trappole, inclusi
+   arresto del percorso e decisione del DM;
 2. realizzare un edge simulato con coda offline e reinvio idempotente;
 3. aggiungere inventario delle pedine fisiche e associazione QR/NFC;
 4. misurare traffico, latenza e comportamento durante una disconnessione;
-5. preparare una demo completa dal tavolo simulato alla dashboard.
+5. collegare i contratti stabili all'app Android e alla dashboard del collaboratore.
 
 ## 13. Fattibilita nel contesto reale
 

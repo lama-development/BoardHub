@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class GameEventRepository {
@@ -45,7 +46,7 @@ public class GameEventRepository {
                 payload_json
             FROM game_schema.game_events
             WHERE session_id = ?
-            ORDER BY sequence_number ASC, occurred_at ASC
+            ORDER BY occurred_at ASC, source ASC, sequence_number ASC, event_id ASC
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -80,6 +81,26 @@ public class GameEventRepository {
     // Legge gli eventi di una sessione gia ordinati per ricostruire la partita.
     public List<GameEvent> findBySessionId(String sessionId) {
         return jdbcTemplate.query(FIND_BY_SESSION_SQL, new GameEventRowMapper(), sessionId);
+    }
+
+    public Optional<GameEvent> findByEventId(String eventId) {
+        return jdbcTemplate.query("""
+                        SELECT
+                            event_id,
+                            event_type,
+                            venue_id,
+                            table_id,
+                            session_id,
+                            source,
+                            occurred_at,
+                            sequence_number,
+                            payload_json
+                        FROM game_schema.game_events
+                        WHERE event_id = ?
+                        """,
+                new GameEventRowMapper(),
+                eventId
+        ).stream().findFirst();
     }
 
     private class GameEventRowMapper implements RowMapper<GameEvent> {

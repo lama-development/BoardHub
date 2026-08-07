@@ -42,7 +42,10 @@ class GameEventRepositoryTest {
                     received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
                 """);
-        jdbcTemplate.execute("CREATE UNIQUE INDEX uq_game_events_session_sequence ON game_schema.game_events (session_id, sequence_number)");
+        jdbcTemplate.execute("""
+                CREATE UNIQUE INDEX uq_game_events_session_source_sequence
+                ON game_schema.game_events (session_id, source, sequence_number)
+                """);
     }
 
     @Test
@@ -142,5 +145,26 @@ class GameEventRepositoryTest {
 
         assertThat(repository.save(firstEvent)).isTrue();
         assertThat(repository.save(duplicateSequence)).isFalse();
+    }
+
+    @Test
+    void accettaLaStessaSequenzaDaProduttoriDiversi() throws Exception {
+        GameEvent simulator = new GameEvent(
+                "evt-simulator", "MOVE", "venue-01", "table-04", "session-20260702-001",
+                "SIMULATOR", "2026-07-02T10:00:00Z", 1, objectMapper.readTree("{}")
+        );
+        GameEvent backend = new GameEvent(
+                "evt-backend", "MOVE_CONFIRMED", "venue-01", "table-04",
+                "session-20260702-001", "BACKEND", "2026-07-02T10:00:01Z", 1,
+                objectMapper.readTree("{}")
+        );
+
+        assertThat(repository.save(simulator)).isTrue();
+        assertThat(repository.save(backend)).isTrue();
+        assertThat(repository.findByEventId("evt-backend"))
+                .isPresent()
+                .get()
+                .extracting(GameEvent::source)
+                .isEqualTo("BACKEND");
     }
 }

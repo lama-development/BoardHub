@@ -30,7 +30,12 @@ class DatabaseMigrationTest {
         assertThat(countRows(jdbcTemplate, "game_schema.session_participants")).isZero();
         assertThat(countRows(jdbcTemplate, "game_schema.characters")).isZero();
         assertThat(countRows(jdbcTemplate, "game_schema.session_pieces")).isZero();
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("5");
+        assertThat(columnExists(
+                jdbcTemplate,
+                "game_sessions",
+                "server_event_sequence"
+        )).isTrue();
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("6");
     }
 
     @Test
@@ -48,7 +53,12 @@ class DatabaseMigrationTest {
         assertThat(countRows(jdbcTemplate, "game_schema.game_sessions")).isZero();
         assertThat(countRows(jdbcTemplate, "game_schema.characters")).isZero();
         assertThat(countRows(jdbcTemplate, "game_schema.session_pieces")).isZero();
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("5");
+        assertThat(columnExists(
+                jdbcTemplate,
+                "game_sessions",
+                "server_event_sequence"
+        )).isTrue();
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("6");
     }
 
     private DataSource createDataSource() {
@@ -76,5 +86,20 @@ class DatabaseMigrationTest {
 
     private int countRows(JdbcTemplate jdbcTemplate, String table) {
         return jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
+    }
+
+    private boolean columnExists(
+            JdbcTemplate jdbcTemplate,
+            String table,
+            String column
+    ) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = 'game_schema'
+                  AND table_name = ?
+                  AND column_name = ?
+                """, Integer.class, table, column);
+        return count != null && count == 1;
     }
 }

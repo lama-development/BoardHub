@@ -10,8 +10,12 @@ import it.uniupo.boardhub.eventservice.service.exception.JoinRequestConflictExce
 import it.uniupo.boardhub.eventservice.service.exception.JoinRequestNotFoundException;
 import it.uniupo.boardhub.eventservice.service.exception.JoinRequestRateLimitException;
 import it.uniupo.boardhub.eventservice.service.exception.PlayerAuthenticationException;
+import it.uniupo.boardhub.eventservice.service.exception.MoveCommandConflictException;
+import it.uniupo.boardhub.eventservice.service.exception.MoveRejectedException;
 import it.uniupo.boardhub.eventservice.service.exception.SessionCapacityException;
 import it.uniupo.boardhub.eventservice.service.exception.SessionPieceConflictException;
+import it.uniupo.boardhub.eventservice.service.exception.SessionPieceNotFoundException;
+import it.uniupo.boardhub.eventservice.service.exception.StalePieceStateException;
 import it.uniupo.boardhub.eventservice.service.exception.TableConflictException;
 import it.uniupo.boardhub.eventservice.service.exception.TableSessionNotFoundException;
 import it.uniupo.boardhub.eventservice.service.exception.VenueAuthenticationException;
@@ -86,6 +90,27 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleSessionPieceConflict(SessionPieceConflictException ex) {
         return new ErrorResponse("PIECE_CONFLICT", ex.getMessage());
+    }
+
+    @ExceptionHandler(SessionPieceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleSessionPieceNotFound(SessionPieceNotFoundException ex) {
+        return new ErrorResponse("PIECE_NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler({StalePieceStateException.class, MoveCommandConflictException.class})
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handlePieceMoveConflict(RuntimeException ex) {
+        String code = ex instanceof StalePieceStateException
+                ? "STALE_PIECE_STATE"
+                : "MOVE_COMMAND_CONFLICT";
+        return new ErrorResponse(code, ex.getMessage());
+    }
+
+    @ExceptionHandler(MoveRejectedException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public ErrorResponse handleMoveRejected(MoveRejectedException ex) {
+        return new ErrorResponse("MOVE_REJECTED", ex.getMessage());
     }
 
     @ExceptionHandler(JoinRequestRateLimitException.class)

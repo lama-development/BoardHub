@@ -300,6 +300,44 @@ def render_pieces(data: list[dict[str, Any]]) -> None:
     print(style(f"\n  Totale pedine: {len(data)}", DIM))
 
 
+def movement_rows(cells: list[dict[str, Any]]) -> list[list[Any]]:
+    return [
+        [
+            item.get("cell"),
+            item.get("cost"),
+            " → ".join(item.get("path") or []),
+            ", ".join(item.get("trapsOnPath") or []) or "-",
+        ]
+        for item in cells
+    ]
+
+
+def render_piece_reachability(data: dict[str, Any]) -> None:
+    cells = data.get("reachableCells") or []
+    field("Pedina", data.get("sessionPieceId"))
+    field("Posizione corrente", data.get("currentCell"), CYAN)
+    field("Punti movimento", data.get("movementPoints"))
+    field("Versione", data.get("version"))
+    table(
+        ["CELLA", "COSTO", "PERCORSO", "TRAPPOLE NOTE"],
+        movement_rows(cells),
+        [8, 7, 48, 24],
+    )
+    print(style(f"\n  Celle raggiungibili: {len(cells)}", DIM))
+
+
+def render_piece_move(data: dict[str, Any]) -> None:
+    print(style("● Movimento confermato", GREEN))
+    field("Pedina", data.get("sessionPieceId"))
+    field("Spostamento", f"{text(data.get('from'))} → {text(data.get('to'))}", CYAN)
+    field("Percorso", " → ".join(data.get("path") or []))
+    field("Costo", data.get("cost"))
+    field("Nuova versione", data.get("version"))
+    field("Trappole note", ", ".join(data.get("visibleTrapsOnPath") or []) or "-")
+    field("Command ID", data.get("commandId"))
+    field("Event ID", data.get("eventId"))
+
+
 def render_closed_session(data: dict[str, Any]) -> None:
     print(style("● Sessione conclusa", GREEN))
     field("Sessione", data.get("sessionId"))
@@ -309,23 +347,18 @@ def render_closed_session(data: dict[str, Any]) -> None:
 
 def render_movement(data: dict[str, Any]) -> None:
     cells = data.get("reachableCells") or []
-    rows = [
-        [
-            item.get("cell"),
-            item.get("cost"),
-            " → ".join(item.get("path") or []),
-            ", ".join(item.get("trapsOnPath") or []) or "-",
-        ]
-        for item in cells
-    ]
     field("Personaggio", data.get("characterId"))
-    table(["CELLA", "COSTO", "PERCORSO", "TRAPPOLE NOTE"], rows, [8, 7, 48, 24])
+    table(
+        ["CELLA", "COSTO", "PERCORSO", "TRAPPOLE NOTE"],
+        movement_rows(cells),
+        [8, 7, 48, 24],
+    )
     print(style(f"\n  Celle raggiungibili: {len(cells)}", DIM))
 
 
 def event_detail(item: dict[str, Any]) -> str:
     payload = item.get("payload") or {}
-    if item.get("eventType") == "MOVE":
+    if item.get("eventType") in {"MOVE", "MOVE_CONFIRMED"}:
         return (
             f"{text(payload.get('characterId'))}: "
             f"{text(payload.get('from'))} → {text(payload.get('to'))}"
@@ -376,6 +409,8 @@ def render(profile: str, data: Any) -> None:
         "characters": render_characters,
         "piece": render_piece,
         "pieces": render_pieces,
+        "piece-reachability": render_piece_reachability,
+        "piece-move": render_piece_move,
         "closed-session": render_closed_session,
         "movement": render_movement,
         "events": render_events,

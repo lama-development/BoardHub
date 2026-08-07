@@ -5,6 +5,39 @@
 
 ---
 
+## [0.22.0] - 2026-07-29
+
+Autore: Andrea Perini
+Ambito: Movimento autorevole delle pedine
+
+## Added
+
+- Aggiunte API protette per calcolare le destinazioni dalla posizione
+  persistita e confermare atomicamente il movimento di una pedina posseduta.
+- Aggiunti `commandId` idempotente, controllo della versione della pedina ed
+  evento `MOVE_CONFIRMED` salvato insieme alla nuova posizione.
+- Aggiunta la migrazione Flyway `V6`, i comandi `just` e i test di servizio,
+  controller, repository e schema relativi al movimento.
+
+## Changed
+
+- Posizione, velocita, occupazione e percorso vengono ora ricavati dallo stato
+  autorevole del backend invece che dichiarati dal client.
+- La sequenza degli eventi generati dal backend e separata da quella delle
+  sorgenti MQTT; lo storico usa un ordinamento cronologico deterministico.
+- Aggiornati OpenAPI, contratti, scope e guida operativa al nuovo flusso.
+
+## Fixed
+
+- Impediti doppi spostamenti durante i retry, aggiornamenti da una versione
+  superata e movimenti di pedine appartenenti ad altri partecipanti.
+- Evitata l'esposizione delle trappole nascoste nelle risposte del giocatore.
+- Resa atomica la scrittura di posizione ed evento, evitando stati parziali.
+- Riservata la sorgente `BACKEND` all'event-service per evitare collisioni
+  provocate da messaggi MQTT esterni.
+
+---
+
 ## [0.21.0] - 2026-07-27
 
 Autore: Andrea Perini

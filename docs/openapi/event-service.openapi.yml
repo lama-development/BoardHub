@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: BoardHub Event Service API
-  version: 0.21.0
-  description: API REST dell'event-service BoardHub per controllo dei tavoli, sessioni, ingresso dei giocatori, personaggi, pedine virtuali, eventi e movimento su griglia.
+  version: 0.22.0
+  description: API REST dell'event-service BoardHub per controllo dei tavoli, sessioni, ingresso dei giocatori, personaggi, pedine virtuali, eventi e movimento autorevole su griglia.
 servers:
   - url: http://localhost:8082
     description: Ambiente locale di sviluppo
@@ -514,6 +514,106 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/player/sessions/{sessionId}/pieces/{sessionPieceId}/reachable-cells:
+    get:
+      tags:
+        - Movement
+        - Pieces
+      summary: Calcola le destinazioni raggiungibili dalla pedina
+      description: >
+        Ricava posizione, proprietario e punti movimento dallo stato persistito.
+        Le celle occupate dalle altre pedine sono considerate non attraversabili
+        e le trappole nascoste non vengono esposte al giocatore.
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/SessionPieceId"
+      responses:
+        "200":
+          description: Stato corrente della pedina e destinazioni raggiungibili
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PieceReachabilityResponse"
+        "401":
+          description: Credenziale giocatore non valida o sessione non attiva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Pedina inesistente o appartenente a un altro giocatore
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/player/sessions/{sessionId}/pieces/{sessionPieceId}/moves:
+    post:
+      tags:
+        - Movement
+        - Pieces
+      summary: Conferma atomicamente lo spostamento della pedina
+      description: >
+        Verifica proprietario, versione, occupazione e raggiungibilita usando lo
+        stato persistito. Un comando accettato aggiorna la cella e registra un
+        evento MOVE_CONFIRMED nella stessa transazione. Ripetere lo stesso
+        commandId restituisce il risultato gia registrato senza spostare di nuovo
+        la pedina; riutilizzarlo per un comando diverso produce conflitto.
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/SessionPieceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveSessionPieceRequest"
+            examples:
+              moveToB2:
+                value:
+                  destination: B2
+                  expectedVersion: 0
+                  commandId: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        "200":
+          description: Movimento confermato oppure risultato idempotente del comando gia eseguito
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PieceMoveResponse"
+        "400":
+          description: Destinazione, versione o commandId non validi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Credenziale giocatore non valida o sessione non attiva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Pedina inesistente o appartenente a un altro giocatore
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Versione superata oppure commandId riutilizzato per un altro movimento
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Destinazione non raggiungibile nello stato corrente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /api/v1/dm/sessions/{sessionId}/join-requests:
     get:
       tags:
@@ -901,6 +1001,14 @@ components:
       schema:
         type: string
       example: session-20260705-001
+    SessionPieceId:
+      name: sessionPieceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: 7d1da3ea-e98c-41e7-8747-702c9c89f35d
     RequestId:
       name: requestId
       in: path
@@ -1360,6 +1468,111 @@ components:
         - version
         - createdAt
         - updatedAt
+    MoveSessionPieceRequest:
+      type: object
+      properties:
+        destination:
+          type: string
+          pattern: "^[A-Za-z]+[1-9][0-9]*$"
+          example: B2
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Versione restituita dall'ultima lettura della pedina.
+          example: 0
+        commandId:
+          type: string
+          format: uuid
+          description: Chiave idempotente generata dal client e stabile durante i retry.
+          example: 550e8400-e29b-41d4-a716-446655440000
+      required:
+        - destination
+        - expectedVersion
+        - commandId
+    PieceReachabilityResponse:
+      type: object
+      properties:
+        sessionPieceId:
+          type: string
+          format: uuid
+        currentCell:
+          type: string
+          example: A1
+        movementPoints:
+          type: integer
+          minimum: 0
+          description: Velocita in celle ricavata dal personaggio persistito.
+          example: 6
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        reachableCells:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReachableCell"
+      required:
+        - sessionPieceId
+        - currentCell
+        - movementPoints
+        - version
+        - reachableCells
+    PieceMoveResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [CONFIRMED]
+        commandId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          example: move-550e8400-e29b-41d4-a716-446655440000
+        sessionPieceId:
+          type: string
+          format: uuid
+        characterId:
+          type: string
+          format: uuid
+        from:
+          type: string
+          example: A1
+        to:
+          type: string
+          example: B2
+        path:
+          type: array
+          items:
+            type: string
+          example: [A1, B1, B2]
+        cost:
+          type: integer
+          minimum: 0
+          example: 2
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Nuova versione della pedina da usare nel comando successivo.
+        visibleTrapsOnPath:
+          type: array
+          description: Contiene soltanto trappole gia visibili al giocatore.
+          items:
+            type: string
+      required:
+        - status
+        - commandId
+        - eventId
+        - sessionPieceId
+        - characterId
+        - from
+        - to
+        - path
+        - cost
+        - version
+        - visibleTrapsOnPath
     AcceptJoinRequestResponse:
       type: object
       properties:

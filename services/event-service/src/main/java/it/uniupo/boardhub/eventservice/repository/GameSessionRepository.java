@@ -188,6 +188,31 @@ public class GameSessionRepository {
                 """, sessionId) == 1;
     }
 
+    // Assegna una sequenza monotona agli eventi prodotti dal backend.
+    public long nextServerEventSequence(String sessionId) {
+        int updated = jdbcTemplate.update("""
+                UPDATE game_schema.game_sessions
+                SET server_event_sequence = server_event_sequence + 1
+                WHERE session_id = ?
+                """, sessionId);
+        if (updated != 1) {
+            throw new IllegalStateException(
+                    "Impossibile assegnare la sequenza evento alla sessione " + sessionId
+            );
+        }
+        Long sequence = jdbcTemplate.queryForObject("""
+                SELECT server_event_sequence
+                FROM game_schema.game_sessions
+                WHERE session_id = ?
+                """, Long.class, sessionId);
+        if (sequence == null) {
+            throw new IllegalStateException(
+                    "Sequenza evento non disponibile per la sessione " + sessionId
+            );
+        }
+        return sequence;
+    }
+
     // Recupera le celle configurate della griglia.
     public List<GridCellState> findCellsBySessionId(String sessionId) {
         return jdbcTemplate.query(FIND_CELLS_SQL, new GridCellStateRowMapper(), sessionId);

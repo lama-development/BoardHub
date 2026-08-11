@@ -39,7 +39,7 @@ export function BoardGrid({ tokens }: BoardGridProps) {
         ))}
       </div>
 
-      <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-3 flex flex-col gap-2 border-t-2 border-[#111111] pt-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-3 text-xs font-normal text-slate-500">
           <LegendToken kind="character" label="Personaggio" />
           <LegendToken kind="monster" label="Mostro" />
@@ -79,10 +79,10 @@ function GridRow({
 
         return (
           <button
-            className={`flex aspect-square min-h-8 cursor-pointer items-center justify-center rounded-md border p-0.5 transition-colors sm:min-h-10 sm:p-1 ${
+            className={`flex aspect-square min-h-8 cursor-pointer items-center justify-center rounded-[2px] border-2 border-[#111111] p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] sm:min-h-10 sm:p-1 ${
               selectedCell === cell
-                ? "border-slate-900 bg-white"
-                : "border-slate-200 bg-slate-50 hover:border-slate-400 hover:bg-white"
+                ? "-translate-y-0.5 bg-[#ffd400] shadow-[3px_3px_0_#111111]"
+                : "bg-[#fbfaf6] hover:bg-[#d8f7fb] hover:shadow-[2px_2px_0_#111111]"
             }`}
             key={cell}
             onClick={() => onSelectCell(cell)}
@@ -106,7 +106,7 @@ function BoardPiece({ cell, token }: { cell: string; token: BoardToken }) {
 
   return (
     <span
-      className={`h-4 w-4 rounded-full sm:h-5 sm:w-5 ${token.kind === "character" ? "bg-slate-900" : "bg-rose-600"}`}
+      className={`h-4 w-4 rounded-full border border-[#111111] shadow-[1px_1px_0_#111111] sm:h-5 sm:w-5 ${token.kind === "character" ? "bg-[#04c8e8]" : "bg-[#ff3b9d]"}`}
       title={title}
     />
   );
@@ -116,9 +116,9 @@ function LegendToken({ kind, label }: { kind: BoardToken["kind"]; label: string 
   return (
     <span className="inline-flex items-center gap-2">
       {kind === "character" ? (
-        <span className="h-2.5 w-2.5 rounded-full bg-slate-900" />
+        <span className="h-2.5 w-2.5 rounded-full border border-[#111111] bg-[#04c8e8]" />
       ) : (
-        <span className="h-2.5 w-2.5 rounded-full bg-rose-600" />
+        <span className="h-2.5 w-2.5 rounded-full border border-[#111111] bg-[#ff3b9d]" />
       )}
       {label}
     </span>

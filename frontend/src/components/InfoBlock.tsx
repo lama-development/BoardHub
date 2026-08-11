@@ -7,8 +7,8 @@ type InfoBlockProps = {
 
 export function InfoBlock({ title, children }: InfoBlockProps) {
   return (
-    <section className="border-b border-slate-200 px-4 py-3 last:border-b-0">
-      <h3 className="mb-2 text-xs font-normal uppercase text-slate-500">{title}</h3>
+    <section className="border-b-2 border-[#111111] px-4 py-3.5 last:border-b-0">
+      <p className="mb-2 text-[12px] font-bold uppercase leading-[1.25] tracking-[0.035em] text-slate-600">{title}</p>
       <div className="wrap-break-word text-sm text-slate-800">{children}</div>
     </section>
   );

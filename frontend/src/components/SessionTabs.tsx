@@ -1,4 +1,5 @@
 import * as React from "react";
+import { LayoutGrid } from "lucide-react";
 import type { BoardToken, GameEvent } from "../types";
 import { BoardGrid } from "./BoardGrid";
 import { EventLog } from "./EventLog";
@@ -15,10 +16,13 @@ export function SessionTabs({ events, isLoading, tokens }: SessionTabsProps) {
   const [activeTab, setActiveTab] = React.useState<ActiveTab>("grid");
 
   return (
-    <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
-      <div className="flex min-h-11 flex-col gap-2 border-b border-slate-200 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-        <h2 className="text-base font-medium text-slate-950">Sessione</h2>
-        <div className="grid w-full grid-cols-2 rounded-md border border-slate-200 bg-slate-50 p-0.5 sm:inline-grid sm:w-auto">
+    <section className="bh-surface overflow-hidden">
+      <div className="flex min-h-14 flex-col gap-3 border-b-2 border-[#111111] bg-[#ff8bc7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="bh-card-icon"><LayoutGrid size={18} /></span>
+          <h2 className="text-xl">Tavolo di gioco</h2>
+        </div>
+        <div className="grid w-full grid-cols-2 rounded-[2px] border-2 border-[#111111] bg-white p-1 sm:inline-grid sm:w-auto">
           <TabButton active={activeTab === "grid"} onClick={() => setActiveTab("grid")}>
             Griglia
           </TabButton>
@@ -44,8 +48,8 @@ function TabButton({
 }) {
   return (
     <button
-      className={`h-8 cursor-pointer rounded px-3 text-sm transition-colors ${
-        active ? "bg-white text-slate-950" : "text-slate-500 hover:text-slate-900"
+      className={`h-8 cursor-pointer rounded-[1px] px-3 text-xs font-extrabold uppercase tracking-[0.05em] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] ${
+        active ? "bg-[#ff3b9d] text-[#111111]" : "text-slate-600 hover:bg-[#fff2a7] hover:text-[#111111]"
       }`}
       onClick={onClick}
       type="button"

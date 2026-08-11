@@ -1,22 +1,12 @@
 import type { ReactNode } from "react";
 import type { GameEvent } from "../types";
 import { formatDateTime, readPayloadText } from "../utils/events";
+import { EventTypeChip } from "./EventTypeChip";
 
 type EventLogProps = {
   events: GameEvent[];
   isLoading: boolean;
 };
-
-function eventTypeClassName(eventType: string) {
-  return {
-    SESSION_START: "border-cyan-200 bg-cyan-50 text-cyan-700",
-    MOVE: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    SPAWN_MONSTER: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700",
-    ATTACK: "border-amber-200 bg-amber-50 text-amber-700",
-    DAMAGE: "border-red-200 bg-red-50 text-red-700",
-    ROUND_END: "border-blue-200 bg-blue-50 text-blue-700",
-  }[eventType] ?? "border-slate-200 bg-slate-100 text-slate-700";
-}
 
 function describeEvent(event: GameEvent) {
   const payload = event.payload;
@@ -61,14 +51,12 @@ export function EventLog({ events, isLoading }: EventLogProps) {
     <div className="max-h-[360px] overflow-auto">
       <div className="grid gap-2 p-3 sm:hidden">
         {events.map((event) => (
-          <article className="rounded-md border border-slate-200 bg-white" key={event.eventId}>
+          <article className="rounded-[2px] border-2 border-[#111111] bg-white" key={event.eventId}>
             <div className="flex items-start justify-between gap-3 p-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-slate-400">#{event.sequenceNumber}</span>
-                  <span className={`rounded-md border px-2 py-0.5 text-xs ${eventTypeClassName(event.eventType)}`}>
-                    {event.eventType}
-                  </span>
+                  <span className="text-xs font-bold text-slate-500">#{event.sequenceNumber}</span>
+                  <EventTypeChip type={event.eventType} />
                 </div>
                 <p className="mt-2 truncate text-sm font-medium text-slate-900">{describeEvent(event)}</p>
                 <p className="mt-1 text-xs text-slate-500">{formatDateTime(event.occurredAt)}</p>
@@ -78,7 +66,7 @@ export function EventLog({ events, isLoading }: EventLogProps) {
 
             <details className="border-t border-slate-100 px-3 py-2">
               <summary className="cursor-pointer text-xs text-slate-500">Payload</summary>
-              <code className="mt-2 block max-h-24 overflow-auto rounded-md bg-slate-50 p-2 font-mono text-xs text-slate-600">
+              <code className="bh-code-block mt-2 block max-h-24 overflow-auto p-2.5 text-xs leading-relaxed text-slate-700">
                 {readPayloadText(event.payload)}
               </code>
             </details>
@@ -99,18 +87,16 @@ export function EventLog({ events, isLoading }: EventLogProps) {
         <tbody>
           {events.map((event) => (
             <tr key={event.eventId}>
-              <TableCell className="font-mono">{event.sequenceNumber}</TableCell>
+              <TableCell className="font-bold">{event.sequenceNumber}</TableCell>
               <TableCell>
-                <span
-                  className={`inline-flex min-h-6 items-center rounded-md border px-2 py-0.5 text-xs font-normal ${eventTypeClassName(event.eventType)}`}
-                >
-                  {event.eventType}
-                </span>
+                <EventTypeChip type={event.eventType} />
               </TableCell>
               <TableCell>{event.source}</TableCell>
               <TableCell className="hidden md:table-cell">{formatDateTime(event.occurredAt)}</TableCell>
-              <TableCell className="wrap-break-word font-mono text-xs text-slate-600">
-                {readPayloadText(event.payload)}
+              <TableCell>
+                <code className="bh-code-block block max-h-24 overflow-auto p-2.5 text-xs leading-relaxed text-slate-700">
+                  {readPayloadText(event.payload)}
+                </code>
               </TableCell>
             </tr>
           ))}
@@ -129,7 +115,7 @@ function TableHead({
 }) {
   return (
     <th
-      className={`sticky top-0 z-10 border-b border-slate-200 bg-white px-3 py-2 text-left text-xs font-normal uppercase text-slate-500 ${className}`}
+      className={`sticky top-0 z-10 border-b-2 border-[#111111] bg-[#ffd400] px-3 py-2 text-left text-xs font-extrabold uppercase tracking-wide text-[#111111] ${className}`}
     >
       {children}
     </th>
@@ -143,5 +129,5 @@ function TableCell({
   children: ReactNode;
   className?: string;
 }) {
-  return <td className={`border-b border-slate-100 px-3 py-2 align-top text-sm text-slate-700 ${className}`}>{children}</td>;
+  return <td className={`border-b border-[#111111] px-3 py-2 align-top text-sm text-slate-700 ${className}`}>{children}</td>;
 }

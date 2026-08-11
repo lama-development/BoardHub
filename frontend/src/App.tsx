@@ -6,6 +6,7 @@ import { Metric } from "./components/Metric";
 import { SessionInspector } from "./components/SessionInspector";
 import { SessionTabs } from "./components/SessionTabs";
 import { PublicTablePage } from "./components/PublicTablePage";
+import { AlertBanner, Button, PageHeaderIdentity } from "./components/ui";
 import { DEFAULT_SESSION_ID } from "./config";
 import type { GameEvent, HealthStatus } from "./types";
 import { formatDateTime, getBoardTokens, getEventTypes, sortEvents } from "./utils/events";
@@ -74,31 +75,28 @@ function SessionMonitor() {
   }, [refreshHealth]);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-3 py-4 text-slate-900 sm:px-6">
-      <section className="mx-auto flex w-full max-w-295 flex-col gap-4 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-slate-200 bg-white text-slate-700">
-            <LayoutDashboard size={20} aria-hidden="true" />
-          </span>
-          <div className="flex h-10 flex-col justify-center">
-            <p className="text-[11px] font-normal leading-none text-slate-500">BoardHub</p>
-            <h1 className="mt-1 text-xl font-medium leading-none text-slate-950">Session Monitor</h1>
-          </div>
-        </div>
+    <main className="min-h-screen bg-transparent px-4 py-5 text-[#111111] sm:px-6 sm:py-7">
+      <section className="bh-surface mx-auto flex w-full max-w-320 flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between sm:p-5">
+        <PageHeaderIdentity
+          accentClassName="bg-[#ff3b9d]"
+          eyebrow="BoardHub · Panoramica"
+          icon={<LayoutDashboard size={20} />}
+          title="Dashboard di gioco"
+        />
 
         <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
           <BackendStatus status={backendStatus} />
           <form
-            className="grid w-full gap-2 sm:w-auto sm:grid-cols-[auto_minmax(240px,360px)_auto] sm:items-center"
+            className="grid w-full gap-2 sm:w-auto sm:grid-cols-[minmax(240px,360px)_auto] sm:items-center"
             onSubmit={(event) => {
               event.preventDefault();
               void fetchEvents();
             }}
           >
-            <label className="text-sm font-normal text-slate-600" htmlFor="sessionId">
-              Sessione
+            <label className="sr-only" htmlFor="sessionId">
+              ID sessione
             </label>
-            <div className="flex h-9 items-center gap-2 rounded-md border border-slate-300 bg-white px-3">
+            <div className="bh-input flex h-10 items-center gap-2 px-3">
               <Search className="shrink-0 text-slate-500" size={18} aria-hidden="true" />
               <input
                 className="w-full min-w-0 border-0 bg-transparent text-slate-900 outline-none"
@@ -108,24 +106,25 @@ function SessionMonitor() {
                 placeholder={DEFAULT_SESSION_ID}
               />
             </div>
-            <button
-              className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md bg-slate-900 px-3 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-progress disabled:opacity-60"
+            <Button
+              variant="primary"
               type="submit"
               disabled={isLoading}
               title="Aggiorna eventi"
+              icon={<RefreshCw className={isLoading ? "animate-spin" : ""} size={17} aria-hidden="true" />}
             >
-              <RefreshCw size={18} aria-hidden="true" />
               <span>{isLoading ? "Aggiorno" : "Aggiorna"}</span>
-            </button>
+            </Button>
           </form>
         </div>
       </section>
 
-      <section className="mx-auto my-3 grid w-full max-w-295 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={<ClipboardList size={19} />} label="Eventi" value={String(sortedEvents.length)} />
-        <Metric icon={<Grid2X2 size={19} />} label="Pedine" value={String(tokens.length)} />
-        <Metric icon={<History size={19} />} label="Ultimo evento" value={latestEvent?.eventType ?? "-"} />
+      <section className="mx-auto my-4 grid w-full max-w-320 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric accent="pink" icon={<ClipboardList size={19} />} label="Eventi" value={String(sortedEvents.length)} />
+        <Metric accent="cyan" icon={<Grid2X2 size={19} />} label="Pedine" value={String(tokens.length)} />
+        <Metric accent="yellow" icon={<History size={19} />} label="Ultimo evento" value={latestEvent?.eventType ?? "-"} />
         <Metric
+          accent="purple"
           icon={<Clock size={19} />}
           label="Aggiornato"
           value={lastUpdatedAt ? formatDateTime(lastUpdatedAt) : "-"}
@@ -133,16 +132,17 @@ function SessionMonitor() {
       </section>
 
       {error ? (
-        <section
-          className="mx-auto mb-3 flex min-h-10 w-full max-w-295 items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-normal text-red-700"
+        <AlertBanner
+          className="mx-auto mb-4 w-full max-w-320"
+          tone="danger"
+          icon={<AlertCircle size={18} />}
           role="alert"
         >
-          <AlertCircle size={20} aria-hidden="true" />
           <span>{error}</span>
-        </section>
+        </AlertBanner>
       ) : null}
 
-      <section className="mx-auto grid w-full max-w-295 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <section className="mx-auto grid w-full max-w-320 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_370px]">
         <SessionTabs events={sortedEvents} isLoading={isLoading} tokens={tokens} />
         <SessionInspector latestEvent={latestEvent} eventTypes={eventTypes} tokens={tokens} />
       </section>

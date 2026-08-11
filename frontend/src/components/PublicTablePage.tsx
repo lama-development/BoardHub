@@ -35,6 +35,8 @@ import {
 } from "../utils/playerJoinStorage";
 import { createUuid } from "../utils/uuid";
 import { DmSessionPanel } from "./DmSessionPanel";
+import { PlayerSessionPanel } from "./PlayerSessionPanel";
+import { AlertBanner, Button, PageHeaderIdentity, StatusChip } from "./ui";
 
 type PublicTablePageProps = {
   tablePublicId: string;
@@ -283,31 +285,45 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
     );
   }
 
+  if (
+    table?.status === "IN_SESSION" &&
+    table.activeSession &&
+    playerJoinAccess?.request.status === "ACCEPTED" &&
+    playerJoinAccess.accessToken
+  ) {
+    return (
+      <PlayerSessionPanel
+        sessionId={table.activeSession.sessionId}
+        sessionTitle={table.activeSession.title}
+        tableDisplayName={table.tableDisplayName}
+        playerToken={playerJoinAccess.accessToken}
+        onLeave={leavePage}
+      />
+    );
+  }
+
   const expiryLabel = claimExpiryLabel(table?.claimExpiresAt ?? null);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
-      <header className="mx-auto flex w-full max-w-180 items-center justify-between border-b border-slate-200 pb-4">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-800">
-            <QrCode size={20} aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-xs text-slate-500">BoardHub</p>
-            <h1 className="text-lg font-semibold text-slate-950">Accesso al tavolo</h1>
-          </div>
-        </div>
-        <button
-          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-100"
-          type="button"
+    <main className="min-h-screen bg-transparent px-4 py-5 text-[#111111] sm:px-6 sm:py-8">
+      <header className="bh-surface mx-auto flex w-full max-w-320 items-center justify-between p-4">
+        <PageHeaderIdentity
+          accentClassName="bg-[#ff3b9d]"
+          eyebrow="BoardHub · Accesso giocatori"
+          icon={<QrCode size={20} />}
+          title="Entra nel tavolo"
+        />
+        <Button
+          size="compact"
+          variant="secondary"
+          icon={<ArrowLeft size={17} aria-hidden="true" />}
           onClick={leavePage}
         >
-          <ArrowLeft size={17} aria-hidden="true" />
           Esci
-        </button>
+        </Button>
       </header>
 
-      <section className="mx-auto w-full max-w-180 py-8">
+      <section className="bh-surface mx-auto mt-4 w-full max-w-320 px-5 sm:px-6">
         {isLoading ? (
           <div className="flex min-h-64 items-center justify-center gap-3 text-slate-600">
             <LoaderCircle className="animate-spin" size={22} aria-hidden="true" />
@@ -316,7 +332,7 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
         ) : null}
 
         {!isLoading && error && !table ? (
-          <div className="border-l-4 border-red-500 bg-white px-5 py-6">
+          <div className="py-6">
             <div className="flex items-start gap-3">
               <AlertCircle
                 className="mt-0.5 shrink-0 text-red-600"
@@ -328,14 +344,15 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                   QR del tavolo non valido
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{error}</p>
-                <button
-                  className="mt-5 inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-700"
-                  type="button"
+                <Button
+                  className="mt-5"
+                  size="compact"
+                  variant="primary"
+                  icon={<ArrowLeft size={17} aria-hidden="true" />}
                   onClick={leavePage}
                 >
-                  <ArrowLeft size={17} aria-hidden="true" />
                   Torna indietro
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -350,22 +367,16 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                   {table.tableDisplayName}
                 </h2>
               </div>
-              <span
-                className={`inline-flex w-fit items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium ${
-                  table.status === "DISABLED"
-                    ? "bg-slate-200 text-slate-700"
-                    : table.status === "CLAIMABLE"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-blue-50 text-blue-700"
-                }`}
+              <StatusChip
+                dot
+                tone={table.status === "DISABLED" ? "neutral" : table.status === "CLAIMABLE" ? "success" : "info"}
               >
-                <span className="h-2 w-2 rounded-full bg-current" />
                 {table.status === "DISABLED"
                   ? "Tavolo non abilitato"
                   : table.status === "CLAIMABLE"
                     ? "Tavolo pronto"
                     : "Sessione attiva"}
-              </span>
+              </StatusChip>
             </div>
 
             {table.status === "DISABLED" ? (
@@ -396,22 +407,20 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
 
                 {!showDmForm ? (
                   <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-                    <button
-                      className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-700"
-                      type="button"
+                    <Button
+                      variant="primary"
+                      icon={<Shield size={18} aria-hidden="true" />}
                       onClick={() => setShowDmForm(true)}
                     >
-                      <Shield size={18} aria-hidden="true" />
                       Diventa DM e avvia
-                    </button>
-                    <button
-                      className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-100"
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      icon={<ArrowLeft size={18} aria-hidden="true" />}
                       onClick={leavePage}
                     >
-                      <ArrowLeft size={18} aria-hidden="true" />
                       Esci
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <form
@@ -425,37 +434,32 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                       Titolo della sessione
                     </label>
                     <input
-                      className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-slate-600"
+                      className="bh-input mt-2 h-10 w-full px-3"
                       id="sessionTitle"
                       value={sessionTitle}
                       onChange={(event) => setSessionTitle(event.target.value)}
                       required
                       maxLength={120}
                     />
-                    <p className="mt-3 text-xs leading-5 text-slate-500">
+                    <p className="mt-2 text-xs leading-4 text-slate-500">
                       L&apos;accesso DM viene associato a questo browser e resta
                       disponibile dopo un aggiornamento della pagina.
                     </p>
                     <div className="mt-5 flex gap-2">
-                      <button
-                        className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-progress disabled:opacity-60"
+                      <Button
+                        variant="primary"
                         type="submit"
                         disabled={isSubmitting}
+                        icon={isSubmitting ? <LoaderCircle className="animate-spin" size={18} /> : <Dices size={18} />}
                       >
-                        {isSubmitting ? (
-                          <LoaderCircle className="animate-spin" size={18} />
-                        ) : (
-                          <Dices size={18} />
-                        )}
                         Crea sessione
-                      </button>
-                      <button
-                        className="h-10 cursor-pointer rounded-md border border-slate-300 bg-white px-4 text-sm font-medium hover:bg-slate-100"
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="secondary"
                         onClick={() => setShowDmForm(false)}
                       >
                         Annulla
-                      </button>
+                      </Button>
                     </div>
                   </form>
                 )}
@@ -479,9 +483,10 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                 </p>
 
                 {dmToken ? (
-                  <button
-                    className="mt-6 inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-700"
-                    type="button"
+                  <Button
+                    className="mt-6"
+                    variant="primary"
+                    icon={<Shield size={18} aria-hidden="true" />}
                     onClick={() => {
                       const storedAccess = readDmAccess(tablePublicId);
                       if (storedAccess) {
@@ -492,9 +497,8 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                       }
                     }}
                   >
-                    <Shield size={18} aria-hidden="true" />
                     Riapri console DM
-                  </button>
+                  </Button>
                 ) : joinRequest ? (
                   <div
                     className={`mt-7 border-l-4 bg-white px-5 py-5 ${
@@ -554,14 +558,15 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                         </p>
                         {joinRequest.status === "REJECTED" ||
                         joinRequest.status === "EXPIRED" ? (
-                          <button
-                            className="mt-4 inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-100"
-                            type="button"
+                          <Button
+                            className="mt-4"
+                            size="compact"
+                            variant="secondary"
+                            icon={<RefreshCw size={16} aria-hidden="true" />}
                             onClick={resetJoinRequest}
                           >
-                            <RefreshCw size={16} aria-hidden="true" />
                             Invia una nuova richiesta
-                          </button>
+                          </Button>
                         ) : null}
                       </div>
                     </div>
@@ -578,7 +583,7 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                       Il tuo nome
                     </label>
                     <input
-                      className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 outline-none focus:border-slate-600"
+                      className="bh-input mt-2 h-10 w-full px-3"
                       id="playerName"
                       value={playerName}
                       onChange={(event) => setPlayerName(event.target.value)}
@@ -586,45 +591,40 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                       required
                       maxLength={80}
                     />
-                    <button
-                      className="mt-4 inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-progress disabled:opacity-60"
+                    <Button
+                      className="mt-4"
+                      variant="primary"
                       type="submit"
                       disabled={isSubmitting}
+                      icon={isSubmitting ? <LoaderCircle className="animate-spin" size={18} /> : <Users size={18} />}
                     >
-                      {isSubmitting ? (
-                        <LoaderCircle className="animate-spin" size={18} />
-                      ) : (
-                        <Users size={18} />
-                      )}
                       Richiedi di partecipare
-                    </button>
+                    </Button>
                   </form>
                 )}
               </div>
             ) : null}
 
             {error ? (
-              <div
-                className="mt-2 flex items-start gap-2 border-l-4 border-red-500 bg-white px-4 py-3 text-sm text-red-700"
+              <AlertBanner
+                className="mt-2"
+                tone="danger"
+                icon={<AlertCircle size={18} />}
                 role="alert"
               >
-                <AlertCircle
-                  className="mt-0.5 shrink-0"
-                  size={18}
-                  aria-hidden="true"
-                />
                 <span>{error}</span>
-              </div>
+              </AlertBanner>
             ) : null}
 
-            <button
-              className="mt-2 inline-flex h-9 cursor-pointer items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950"
-              type="button"
+            <Button
+              className="mb-5 mt-1"
+              size="compact"
+              variant="ghost"
+              icon={<RefreshCw size={17} aria-hidden="true" />}
               onClick={() => void loadTable()}
             >
-              <RefreshCw size={17} aria-hidden="true" />
               Aggiorna stato tavolo
-            </button>
+            </Button>
           </>
         ) : null}
       </section>

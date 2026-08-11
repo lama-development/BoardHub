@@ -3,8 +3,10 @@ import {
   AlertCircle,
   Check,
   Clock3,
+  Heart,
   LoaderCircle,
   LogOut,
+  MapPin,
   RefreshCw,
   Shield,
   UserRoundCheck,
@@ -15,10 +17,13 @@ import {
   acceptDmJoinRequest,
   closeDmSession,
   fetchDmJoinRequests,
+  fetchDmCharacters,
   fetchDmParticipants,
+  fetchDmPieces,
   rejectDmJoinRequest,
 } from "../api/boardhubApi";
-import type { JoinRequest, Participant } from "../types";
+import type { JoinRequest, Participant, PlayerCharacter, SessionPiece } from "../types";
+import { AlertBanner, Button, PageHeaderIdentity, StatusChip, SummaryCard } from "./ui";
 
 type DmSessionPanelProps = {
   sessionId: string;
@@ -32,13 +37,14 @@ type DmSessionPanelProps = {
 export function DmSessionPanel({
   sessionId,
   sessionTitle,
-  tableDisplayName,
   dmToken,
   onLeave,
   onSessionClosed,
 }: DmSessionPanelProps) {
   const [requests, setRequests] = React.useState<JoinRequest[]>([]);
   const [participants, setParticipants] = React.useState<Participant[]>([]);
+  const [characters, setCharacters] = React.useState<PlayerCharacter[]>([]);
+  const [pieces, setPieces] = React.useState<SessionPiece[]>([]);
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [busyRequestId, setBusyRequestId] = React.useState<string | null>(null);
@@ -47,12 +53,16 @@ export function DmSessionPanel({
   const refresh = React.useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     try {
-      const [pendingRequests, activeParticipants] = await Promise.all([
+      const [pendingRequests, activeParticipants, sessionCharacters, sessionPieces] = await Promise.all([
         fetchDmJoinRequests(sessionId, dmToken),
         fetchDmParticipants(sessionId, dmToken),
+        fetchDmCharacters(sessionId, dmToken),
+        fetchDmPieces(sessionId, dmToken),
       ]);
       setRequests(pendingRequests);
       setParticipants(activeParticipants);
+      setCharacters(sessionCharacters);
+      setPieces(sessionPieces);
       setError(null);
     } catch (refreshError) {
       setError(
@@ -112,88 +122,74 @@ export function DmSessionPanel({
   const players = participants.filter((participant) => participant.role === "PLAYER");
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
-      <header className="mx-auto flex w-full max-w-240 flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-slate-900 text-white">
-            <Shield size={20} aria-hidden="true" />
-          </span>
-          <div>
-            <p className="text-xs text-slate-500">Console Dungeon Master · {tableDisplayName}</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-950">{sessionTitle}</h1>
-            <p className="mt-1 text-xs text-slate-500">{sessionId}</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-100"
-            type="button"
+    <main className="min-h-screen bg-transparent px-4 py-5 text-[#111111] sm:px-6 sm:py-8">
+      <header className="bh-surface mx-auto flex w-full max-w-320 flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <PageHeaderIdentity
+          accentClassName="bg-[#ffd400]"
+          eyebrow="BoardHub · Area Dungeon Master"
+          icon={<Shield size={20} />}
+          title={sessionTitle}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="compact"
+            variant="secondary"
+            icon={<RefreshCw className={isLoading ? "animate-spin" : ""} size={17} aria-hidden="true" />}
             onClick={() => void refresh()}
             disabled={isLoading}
           >
-            <RefreshCw className={isLoading ? "animate-spin" : ""} size={17} aria-hidden="true" />
             Aggiorna
-          </button>
-          <button
-            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-100"
-            type="button"
+          </Button>
+          <Button
+            size="compact"
+            variant="secondary"
+            icon={<LogOut size={17} aria-hidden="true" />}
             onClick={onLeave}
           >
-            <LogOut size={17} aria-hidden="true" />
             Esci dal pannello
-          </button>
-          <button
-            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-progress disabled:opacity-60"
-            type="button"
+          </Button>
+          <Button
+            size="compact"
+            variant="danger"
+            icon={isClosing ? <LoaderCircle className="animate-spin" size={17} aria-hidden="true" /> : <X size={17} aria-hidden="true" />}
             onClick={() => void closeSession()}
             disabled={isClosing}
           >
-            {isClosing ? (
-              <LoaderCircle className="animate-spin" size={17} aria-hidden="true" />
-            ) : (
-              <X size={17} aria-hidden="true" />
-            )}
             Concludi sessione
-          </button>
+          </Button>
         </div>
       </header>
 
-      <section className="mx-auto grid w-full max-w-240 gap-3 border-b border-slate-200 py-5 sm:grid-cols-3">
-        <div>
-          <p className="text-xs font-medium uppercase text-slate-500">Stato</p>
-          <p className="mt-1 text-lg font-semibold text-emerald-700">Sessione attiva</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase text-slate-500">Richieste in attesa</p>
-          <p className="mt-1 text-lg font-semibold text-slate-950">{requests.length}</p>
-        </div>
-        <div>
-          <p className="text-xs font-medium uppercase text-slate-500">Giocatori attivi</p>
-          <p className="mt-1 text-lg font-semibold text-slate-950">
-            {players.length} / 8
-          </p>
-        </div>
+      <section className="mx-auto mt-4 grid w-full max-w-320 gap-3 sm:grid-cols-3">
+        <SummaryCard accent="lime" icon={<Shield size={18} />} label="Stato">
+          <StatusChip tone="success" dot>Sessione attiva</StatusChip>
+        </SummaryCard>
+        <SummaryCard accent="pink" icon={<Clock3 size={18} />} label="Richieste in attesa">
+          <strong className="text-xl font-extrabold leading-tight">{requests.length}</strong>
+        </SummaryCard>
+        <SummaryCard accent="cyan" icon={<Users size={18} />} label="Giocatori attivi">
+          <strong className="text-xl font-extrabold leading-tight">{players.length} / 8</strong>
+        </SummaryCard>
       </section>
 
       {error ? (
-        <section className="mx-auto mt-4 flex w-full max-w-240 items-start gap-2 border-l-4 border-red-500 bg-white px-4 py-3 text-sm text-red-700" role="alert">
-          <AlertCircle className="mt-0.5 shrink-0" size={18} aria-hidden="true" />
+        <AlertBanner className="mx-auto mt-4 w-full max-w-320" tone="danger" icon={<AlertCircle size={18} />} role="alert">
           <span>{error}</span>
-        </section>
+        </AlertBanner>
       ) : null}
 
-      <section className="mx-auto grid w-full max-w-240 gap-8 py-7 lg:grid-cols-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <Clock3 size={19} aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-slate-950">Richieste di partecipazione</h2>
+      <section className="mx-auto grid w-full max-w-320 gap-4 py-4 lg:grid-cols-2">
+        <div className="bh-surface p-4 sm:p-5">
+          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#ff8bc7] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+            <span className="bh-card-icon"><Clock3 size={18} /></span>
+            <h2 className="text-xl">Richieste di partecipazione</h2>
           </div>
           {requests.length === 0 ? (
-            <p className="mt-4 border-t border-slate-200 py-5 text-sm text-slate-500">
+            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
               Nessuna richiesta in attesa. La lista viene aggiornata automaticamente.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+            <ul className="mt-4 divide-y-2 divide-[#111111]">
               {requests.map((request) => (
                 <li className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between" key={request.requestId}>
                   <div>
@@ -201,24 +197,24 @@ export function DmSessionPanel({
                     <p className="mt-1 text-xs text-slate-500">{request.playerReference}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-progress disabled:opacity-60"
-                      type="button"
+                    <Button
+                      size="compact"
+                      variant="success"
+                      icon={<Check size={17} aria-hidden="true" />}
                       disabled={busyRequestId === request.requestId}
                       onClick={() => void resolveRequest(request.requestId, true)}
                     >
-                      <Check size={17} aria-hidden="true" />
                       Accetta
-                    </button>
-                    <button
-                      className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium hover:bg-slate-100 disabled:cursor-progress disabled:opacity-60"
-                      type="button"
+                    </Button>
+                    <Button
+                      size="compact"
+                      variant="secondary"
+                      icon={<X size={17} aria-hidden="true" />}
                       disabled={busyRequestId === request.requestId}
                       onClick={() => void resolveRequest(request.requestId, false)}
                     >
-                      <X size={17} aria-hidden="true" />
                       Rifiuta
-                    </button>
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -226,17 +222,17 @@ export function DmSessionPanel({
           )}
         </div>
 
-        <div>
-          <div className="flex items-center gap-2">
-            <Users size={19} aria-hidden="true" />
-            <h2 className="text-lg font-semibold text-slate-950">Giocatori accettati</h2>
+        <div className="bh-surface p-4 sm:p-5">
+          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#8fe8f4] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+            <span className="bh-card-icon"><Users size={18} /></span>
+            <h2 className="text-xl">Giocatori accettati</h2>
           </div>
           {players.length === 0 ? (
-            <p className="mt-4 border-t border-slate-200 py-5 text-sm text-slate-500">
+            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
               Non ci sono ancora giocatori associati alla sessione.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+            <ul className="mt-4 divide-y-2 divide-[#111111]">
               {players.map((participant) => (
                 <li className="flex items-center gap-3 py-4" key={participant.participantId}>
                   <UserRoundCheck className="text-emerald-700" size={20} aria-hidden="true" />
@@ -246,6 +242,66 @@ export function DmSessionPanel({
                   </div>
                 </li>
               ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="mx-auto grid w-full max-w-320 gap-4 pb-8 lg:grid-cols-2">
+        <div className="bh-surface p-4 sm:p-5">
+          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#ffd400] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+            <span className="bh-card-icon"><Heart size={18} /></span>
+            <h2 className="text-xl">Personaggi della sessione</h2>
+          </div>
+          {characters.length === 0 ? (
+            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
+              I giocatori non hanno ancora creato personaggi.
+            </p>
+          ) : (
+            <ul className="mt-4 divide-y-2 divide-[#111111]">
+              {characters.map((character) => (
+                <li className="flex items-center justify-between gap-3 py-4" key={character.characterId}>
+                  <div>
+                    <p className="font-medium text-slate-950">{character.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {character.species} · {character.className} · Livello {character.level}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs text-slate-500">
+                    <p>PF {character.hpCurrent}/{character.hpMax}</p>
+                    <p className="mt-1">CA {character.armorClass}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="bh-surface p-4 sm:p-5">
+          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#c8b1ff] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+            <span className="bh-card-icon"><MapPin size={18} /></span>
+            <h2 className="text-xl">Pedine sulla griglia</h2>
+          </div>
+          {pieces.length === 0 ? (
+            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
+              Non ci sono ancora pedine associate alla griglia.
+            </p>
+          ) : (
+            <ul className="mt-4 divide-y-2 divide-[#111111]">
+              {pieces.map((piece) => {
+                const character = characters.find((item) => item.characterId === piece.characterId);
+                return (
+                  <li className="flex items-center justify-between gap-3 py-4" key={piece.sessionPieceId}>
+                    <div>
+                      <p className="font-medium text-slate-950">{character?.name ?? "Personaggio"}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {piece.representationMode.toLowerCase()} · versione {piece.version}
+                      </p>
+                    </div>
+                    <StatusChip tone="info">Cella {piece.currentCell}</StatusChip>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

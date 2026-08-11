@@ -55,6 +55,81 @@ export type Participant = {
   joinedAt: string;
 };
 
+export type CharacterPartyVisibility = "OWNER_ONLY" | "PARTY" | "DM_ONLY";
+
+export type PlayerCharacter = {
+  characterId: string;
+  sessionId: string;
+  participantId: string;
+  name: string;
+  species: string;
+  age: number | null;
+  className: string;
+  level: number;
+  speedCells: number;
+  hpCurrent: number;
+  hpMax: number;
+  armorClass: number;
+  partyVisibility: CharacterPartyVisibility;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreatePlayerCharacterInput = {
+  name: string;
+  species: string;
+  age: number | null;
+  className: string;
+  level: number;
+  speedCells: number;
+  hpCurrent?: number;
+  hpMax: number;
+  armorClass: number;
+  partyVisibility: CharacterPartyVisibility;
+};
+
+export type SessionPiece = {
+  sessionPieceId: string;
+  sessionId: string;
+  characterId: string;
+  participantId: string;
+  representationMode: "VIRTUAL" | "PHYSICAL";
+  currentCell: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ReachableCell = {
+  cell: string;
+  cost: number;
+  path: string[];
+  trapsOnPath: string[];
+};
+
+export type PieceReachability = {
+  sessionPieceId: string;
+  currentCell: string;
+  movementPoints: number;
+  version: number;
+  reachableCells: ReachableCell[];
+};
+
+export type PieceMoveResult = {
+  status: "CONFIRMED";
+  commandId: string;
+  eventId: string;
+  sessionPieceId: string;
+  characterId: string;
+  from: string;
+  to: string;
+  path: string[];
+  cost: number;
+  version: number;
+  visibleTrapsOnPath: string[];
+};
+
 export type AcceptJoinRequestResult = {
   request: JoinRequest;
   participant: Participant;

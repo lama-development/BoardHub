@@ -276,6 +276,7 @@ def piece_row(item: dict[str, Any]) -> list[Any]:
     return [
         item.get("currentCell"),
         item.get("representationMode"),
+        item.get("controlMode"),
         item.get("characterId"),
         item.get("sessionPieceId"),
         item.get("version"),
@@ -285,17 +286,17 @@ def piece_row(item: dict[str, Any]) -> list[Any]:
 def render_piece(data: dict[str, Any]) -> None:
     print(style("● Pedina virtuale posizionata", GREEN))
     table(
-        ["CELLA", "MODALITA", "CHARACTER ID", "PIECE ID", "VER."],
+        ["CELLA", "MODALITA", "CONTROLLO", "CHARACTER ID", "PIECE ID", "VER."],
         [piece_row(data)],
-        [8, 10, 38, 38, 5],
+        [8, 10, 18, 38, 38, 5],
     )
 
 
 def render_pieces(data: list[dict[str, Any]]) -> None:
     table(
-        ["CELLA", "MODALITA", "CHARACTER ID", "PIECE ID", "VER."],
+        ["CELLA", "MODALITA", "CONTROLLO", "CHARACTER ID", "PIECE ID", "VER."],
         [piece_row(item) for item in data],
-        [8, 10, 38, 38, 5],
+        [8, 10, 18, 38, 38, 5],
     )
     print(style(f"\n  Totale pedine: {len(data)}", DIM))
 
@@ -327,7 +328,10 @@ def render_piece_reachability(data: dict[str, Any]) -> None:
 
 
 def render_piece_move(data: dict[str, Any]) -> None:
-    print(style("● Movimento confermato", GREEN))
+    status = text(data.get("status"))
+    pending = status == "TRAP_PENDING"
+    print(style("● Movimento interrotto da una trappola" if pending else "● Movimento confermato", YELLOW if pending else GREEN))
+    field("Stato", status, YELLOW if pending else GREEN)
     field("Pedina", data.get("sessionPieceId"))
     field("Spostamento", f"{text(data.get('from'))} → {text(data.get('to'))}", CYAN)
     field("Percorso", " → ".join(data.get("path") or []))
@@ -336,6 +340,71 @@ def render_piece_move(data: dict[str, Any]) -> None:
     field("Trappole note", ", ".join(data.get("visibleTrapsOnPath") or []) or "-")
     field("Command ID", data.get("commandId"))
     field("Event ID", data.get("eventId"))
+    if data.get("resolutionId"):
+        section("Risoluzione richiesta")
+        field("Resolution ID", data.get("resolutionId"), YELLOW)
+        field("Destinazione richiesta", data.get("requestedDestination"))
+        field("Movimento rimanente", data.get("movementRemaining"))
+
+
+def render_trap_resolution(data: dict[str, Any]) -> None:
+    field("Risoluzione", data.get("resolutionId"))
+    field("Stato", data.get("status"), YELLOW)
+    field("Pedina", data.get("sessionPieceId"))
+    field("Personaggio", data.get("characterId"))
+    field("Destinazione richiesta", data.get("requestedDestination"))
+    field("Cella di attivazione", data.get("triggerCell"), CYAN)
+    field("Movimento rimanente", data.get("movementRemaining"))
+    field("Versione", data.get("version"))
+
+
+def render_trap_resolutions(data: list[dict[str, Any]]) -> None:
+    rows = [
+        [
+            item.get("status"),
+            item.get("triggerCell"),
+            item.get("requestedDestination"),
+            item.get("movementRemaining"),
+            item.get("resolutionId"),
+            item.get("version"),
+        ]
+        for item in data
+    ]
+    table(
+        ["STATO", "TRIGGER", "DESTINAZIONE", "MOV.", "RESOLUTION ID", "VER."],
+        rows,
+        [18, 9, 14, 6, 38, 5],
+    )
+    print(style(f"\n  Risoluzioni in attesa: {len(data)}", DIM))
+
+
+def render_trap_roll(data: dict[str, Any]) -> None:
+    print(style("● Tiro salvezza risolto", GREEN))
+    field("Risoluzione", data.get("resolutionId"))
+    dice = [data.get("d20First")]
+    if data.get("d20Second") is not None:
+        dice.append(data.get("d20Second"))
+    field("Dadi d20", ", ".join(text(value) for value in dice))
+    field("Dado selezionato", data.get("selectedD20"))
+    field("Bonus salvezza", data.get("saveBonus"))
+    field("Totale", data.get("saveTotal"))
+    field("Esito", "SUCCESSO" if data.get("success") else "FALLIMENTO", GREEN if data.get("success") else RED)
+    field("Dadi danno", ", ".join(text(value) for value in data.get("damageRolls") or []) or "-")
+    field("Danno totale", data.get("damageTotal"))
+    field("Punti ferita rimasti", data.get("hpCurrent"))
+    field("Stato tattico", data.get("tacticalStatus"))
+    field("Decisione movimento", data.get("movementDecision"))
+    field("Movimento rimanente", data.get("movementRemaining"))
+    field("Versione", data.get("version"))
+
+
+def render_character_control(data: dict[str, Any]) -> None:
+    print(style("● Controllo temporaneo assegnato al DM", GREEN))
+    field("Sessione", data.get("sessionId"))
+    field("Personaggio", data.get("characterId"))
+    field("DM", data.get("dmParticipantId"))
+    field("Versione controllo", data.get("version"))
+    field("Assunto il", local_date(data.get("assumedAt")))
 
 
 def render_closed_session(data: dict[str, Any]) -> None:
@@ -411,6 +480,10 @@ def render(profile: str, data: Any) -> None:
         "pieces": render_pieces,
         "piece-reachability": render_piece_reachability,
         "piece-move": render_piece_move,
+        "trap-resolution": render_trap_resolution,
+        "trap-resolutions": render_trap_resolutions,
+        "trap-roll": render_trap_roll,
+        "character-control": render_character_control,
         "closed-session": render_closed_session,
         "movement": render_movement,
         "events": render_events,

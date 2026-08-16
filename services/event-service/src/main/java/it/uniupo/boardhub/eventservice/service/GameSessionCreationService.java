@@ -10,6 +10,7 @@ import it.uniupo.boardhub.eventservice.model.session.GameSessionStatus;
 import it.uniupo.boardhub.eventservice.model.session.GridCellState;
 import it.uniupo.boardhub.eventservice.model.session.GridTrapState;
 import it.uniupo.boardhub.eventservice.model.session.GridWallState;
+import it.uniupo.boardhub.eventservice.model.trap.TrapDefinition;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
 import it.uniupo.boardhub.eventservice.service.command.CreateGameSessionCommand;
 import it.uniupo.boardhub.eventservice.service.exception.DuplicateGameSessionException;
@@ -181,10 +182,26 @@ public class GameSessionCreationService {
                     sessionId,
                     trap.trapId(),
                     trap.cell(),
-                    TrapVisibility.valueOf(trap.visibility().toUpperCase(Locale.ROOT)),
-                    trap.armed()
+                    TrapVisibility.valueOf(trap.visibility().toUpperCase(Locale.ROOT)).normalized(),
+                    trap.armed(),
+                    enumValue(trap.lifecyclePolicy(), TrapDefinition.LifecyclePolicy.class),
+                    trap.armed() ? TrapDefinition.LifecycleState.ARMED : TrapDefinition.LifecycleState.DISARMED,
+                    enumValue(trap.saveAbility(), TrapDefinition.SaveAbility.class),
+                    trap.saveDc(),
+                    enumValue(trap.rollMode(), TrapDefinition.RollMode.class),
+                    trap.damageExpression(),
+                    enumValue(trap.successDamage(), TrapDefinition.DamagePolicy.class),
+                    enumValue(trap.successMovement(), TrapDefinition.MovementDecision.class),
+                    enumValue(trap.failureDamage(), TrapDefinition.DamagePolicy.class),
+                    enumValue(trap.failureMovement(), TrapDefinition.MovementDecision.class),
+                    0,
+                    null
             ));
         }
+    }
+
+    private <E extends Enum<E>> E enumValue(String value, Class<E> type) {
+        return Enum.valueOf(type, value.trim().toUpperCase(Locale.ROOT));
     }
 
     private String sessionIdOrGenerated(String sessionId) {

@@ -3,6 +3,7 @@ package it.uniupo.boardhub.eventservice.mqtt;
 import it.uniupo.boardhub.eventservice.config.MqttProperties;
 import it.uniupo.boardhub.eventservice.model.GameEvent;
 import it.uniupo.boardhub.eventservice.repository.GameEventRepository;
+import it.uniupo.boardhub.eventservice.service.SessionEventStreamService;
 import jakarta.annotation.PreDestroy;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
@@ -27,16 +28,19 @@ public class MqttEventSubscriber implements ApplicationRunner, MqttCallback {
     private final MqttProperties properties;
     private final GameEventParser parser;
     private final GameEventRepository repository;
+    private final SessionEventStreamService eventStreamService;
     private MqttClient client;
 
     public MqttEventSubscriber(
             MqttProperties properties,
             GameEventParser parser,
-            GameEventRepository repository
+            GameEventRepository repository,
+            SessionEventStreamService eventStreamService
     ) {
         this.properties = properties;
         this.parser = parser;
         this.repository = repository;
+        this.eventStreamService = eventStreamService;
     }
 
     @Override
@@ -75,6 +79,9 @@ public class MqttEventSubscriber implements ApplicationRunner, MqttCallback {
             requireMatchingTopic(topic, event);
             requireExternalSource(event);
             boolean inserted = repository.save(event);
+            if (inserted) {
+                eventStreamService.publishAfterCommit(event);
+            }
             log.info(
                     "Evento MQTT ricevuto tipo={} seq={} sessione={} sorgente={} topic={} salvato={}",
                     event.eventType(),

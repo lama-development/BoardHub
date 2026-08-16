@@ -17,6 +17,6 @@ public record GridTrap(String trapId, GridPosition position, TrapVisibility visi
     }
 
     public boolean canBeRevealed() {
-        return visibility != TrapVisibility.ALWAYS_HIDDEN;
+        return visibility.normalized() != TrapVisibility.KEEP_DETAILS_HIDDEN;
     }
 }

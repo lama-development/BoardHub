@@ -14,6 +14,9 @@ public record PieceMoveResponse(
         List<String> path,
         int cost,
         long version,
-        List<String> visibleTrapsOnPath
+        List<String> visibleTrapsOnPath,
+        UUID resolutionId,
+        String requestedDestination,
+        Integer movementRemaining
 ) {
 }

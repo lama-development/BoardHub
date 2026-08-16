@@ -8,6 +8,7 @@ import it.uniupo.boardhub.eventservice.model.session.GameSessionStatus;
 import it.uniupo.boardhub.eventservice.model.session.GridCellState;
 import it.uniupo.boardhub.eventservice.model.session.GridTrapState;
 import it.uniupo.boardhub.eventservice.model.session.GridWallState;
+import it.uniupo.boardhub.eventservice.model.trap.TrapDefinition;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -63,9 +64,21 @@ public class GameSessionRepository {
                 trap_id,
                 cell,
                 visibility,
-                armed
+                armed,
+                lifecycle_policy,
+                lifecycle_state,
+                save_ability,
+                save_dc,
+                roll_mode,
+                damage_expression,
+                success_damage,
+                success_movement,
+                failure_damage,
+                failure_movement,
+                version,
+                updated_at
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
             """;
 
     private static final String FIND_SESSION_SQL = """
@@ -100,7 +113,10 @@ public class GameSessionRepository {
             """;
 
     private static final String FIND_TRAPS_SQL = """
-            SELECT session_id, trap_id, cell, visibility, armed
+            SELECT session_id, trap_id, cell, visibility, armed,
+                   lifecycle_policy, lifecycle_state, save_ability, save_dc, roll_mode,
+                   damage_expression, success_damage, success_movement,
+                   failure_damage, failure_movement, version, updated_at
             FROM game_schema.game_grid_traps
             WHERE session_id = ?
             ORDER BY trap_id ASC
@@ -158,8 +174,20 @@ public class GameSessionRepository {
                 trap.sessionId(),
                 trap.trapId(),
                 trap.cell(),
-                trap.visibility().name(),
-                trap.armed()
+                trap.visibility().normalized().name(),
+                trap.armed(),
+                trap.lifecyclePolicy().name(),
+                trap.lifecycleState().name(),
+                trap.saveAbility().name(),
+                trap.saveDc(),
+                trap.rollMode().name(),
+                trap.damageExpression(),
+                trap.successDamage().name(),
+                trap.successMovement().name(),
+                trap.failureDamage().name(),
+                trap.failureMovement().name(),
+                trap.version(),
+                trap.updatedAt() == null ? null : Timestamp.from(trap.updatedAt().toInstant())
         );
     }
 
@@ -286,7 +314,19 @@ public class GameSessionRepository {
                     rs.getString("trap_id"),
                     rs.getString("cell"),
                     TrapVisibility.valueOf(rs.getString("visibility")),
-                    rs.getBoolean("armed")
+                    rs.getBoolean("armed"),
+                    TrapDefinition.LifecyclePolicy.valueOf(rs.getString("lifecycle_policy")),
+                    TrapDefinition.LifecycleState.valueOf(rs.getString("lifecycle_state")),
+                    TrapDefinition.SaveAbility.valueOf(rs.getString("save_ability")),
+                    rs.getInt("save_dc"),
+                    TrapDefinition.RollMode.valueOf(rs.getString("roll_mode")),
+                    rs.getString("damage_expression"),
+                    TrapDefinition.DamagePolicy.valueOf(rs.getString("success_damage")),
+                    TrapDefinition.MovementDecision.valueOf(rs.getString("success_movement")),
+                    TrapDefinition.DamagePolicy.valueOf(rs.getString("failure_damage")),
+                    TrapDefinition.MovementDecision.valueOf(rs.getString("failure_movement")),
+                    rs.getLong("version"),
+                    rs.getTimestamp("updated_at").toInstant().atOffset(java.time.ZoneOffset.UTC)
             );
         }
     }

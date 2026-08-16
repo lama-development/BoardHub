@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.util.UUID;
 
@@ -51,7 +53,7 @@ public class PlayerSessionPieceMovementController {
     }
 
     @PostMapping("/moves")
-    public PieceMoveResponse move(
+    public ResponseEntity<PieceMoveResponse> move(
             @PathVariable String sessionId,
             @PathVariable UUID sessionPieceId,
             @RequestHeader(value = "Authorization", required = false) String authorization,
@@ -70,8 +72,8 @@ public class PlayerSessionPieceMovementController {
                 authorization,
                 command
         );
-        return new PieceMoveResponse(
-                "CONFIRMED",
+        PieceMoveResponse response = new PieceMoveResponse(
+                result.status().name(),
                 result.commandId(),
                 result.eventId(),
                 result.sessionPieceId(),
@@ -81,7 +83,14 @@ public class PlayerSessionPieceMovementController {
                 result.path(),
                 result.cost(),
                 result.version(),
-                result.visibleTrapsOnPath()
+                result.visibleTrapsOnPath(),
+                result.resolutionId(),
+                result.requestedDestination(),
+                result.movementRemaining()
         );
+        HttpStatus status = result.status() == PieceMoveResult.Status.TRAP_PENDING
+                ? HttpStatus.ACCEPTED
+                : HttpStatus.OK;
+        return ResponseEntity.status(status).body(response);
     }
 }

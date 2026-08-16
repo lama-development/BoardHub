@@ -37,7 +37,7 @@ Il tavolo BoardHub rappresenta una sessione D&D fisica o simulata. Per l'MVP il 
 | Accesso giocatore | Il QR del tavolo apre la sessione pubblica; il DM accetta o rifiuta la richiesta. | API REST pubbliche e API protette per il DM. |
 | Preparazione mappa | La configurazione iniziale della griglia e accettata dall'API di creazione sessione. | Celle, terreno, muri e trappole nel payload REST. |
 | Movimento | Il backend calcola le celle raggiungibili su griglia stateless o salvata. | Risposta REST con costo, percorso e trappole visibili. |
-| Dadi | Previsto per l'app mobile; non ancora implementato. | Futuro evento `DICE_ROLLED`. |
+| Dadi | Il tiro salvezza richiesto da una trappola e generato dal backend; il lancio libero dell'app resta futuro. | API idempotenti di risoluzione e futuri eventi `DICE_ROLLED` generici. |
 | Turni e round | Il simulatore include `ROUND_END`; la gestione completa dei turni e futura. | Eventi MQTT generici, senza motore completo del regolamento D&D. |
 
 I contratti non automatizzano tutto il regolamento D&D. Descrivono solo le informazioni necessarie per dimostrare plancia connessa, comunicazione MQTT, persistenza e consultazione tramite API.
@@ -55,10 +55,12 @@ I contratti non automatizzano tutto il regolamento D&D. Descrivono solo le infor
 | Personaggi | Implementati nel backend | Il giocatore crea e legge i propri personaggi; il DM legge tutti quelli della sessione. |
 | Pedine virtuali | Implementate nel backend | Ogni pedina collega proprietario, personaggio e cella univoca; il DM vede l'intera sessione. |
 | Ricostruzione griglia | Implementata come servizio interno | Lo stato persistito, comprese le pedine, viene convertito in `GameGrid` per il calcolo del movimento. |
-| API REST eventi | Implementata | `event-service` espone gli eventi persistiti tramite `GET /api/v1/sessions/{sessionId}/events`. |
+| Eventi REST e SSE | Implementati | Proiezioni pubblica, giocatore e DM; aggiornamenti live filtrati per ruolo. |
 | API REST sessioni | Implementata | `POST /api/v1/sessions` salva sessione e griglia e occupa il tavolo indicato. |
 | API REST ingresso | Implementata | Risoluzione QR, richiesta idempotente, decisione DM, partecipanti e chiusura sessione. |
 | API REST movimento | Implementata | Le due API `reachable-cells` calcolano il movimento su griglia stateless o persistita. |
+| Risoluzione trappole | Implementata | Interruzione del percorso, tiro server-side, danni, HP, prosecuzione e ciclo di vita persistito. |
+| Controllo temporaneo DM | Implementato | Il DM puo assumere e restituire il controllo di un personaggio con audit degli eventi. |
 | Dashboard web | Base implementata | Consuma health check e storico eventi; l'integrazione con la griglia variabile deve essere completata. |
 
 Per mantenere prevedibile il carico del servizio, una richiesta accetta al massimo **2.500 celle complessive** e **100 punti movimento**. Questi limiti sono protezioni tecniche dell'MVP, non regole del regolamento D&D.
@@ -122,7 +124,11 @@ docs/openapi/event-service.openapi.yml
 | Metodo | Endpoint | Scopo |
 | :--- | :--- | :--- |
 | `POST` | `/api/v1/sessions` | Consuma il claim del tavolo, crea la sessione e restituisce il token DM. |
-| `GET` | `/api/v1/sessions/{sessionId}/events` | Restituisce lo storico in ordine cronologico deterministico. |
+| `GET` | `/api/v1/sessions/{sessionId}/events` | Restituisce la proiezione pubblica e sanitizzata dello storico. |
+| `GET` | `/api/v1/player/sessions/{sessionId}/events` | Restituisce gli eventi del giocatore autenticato senza segreti del DM. |
+| `GET` | `/api/v1/dm/sessions/{sessionId}/events` | Restituisce al DM la proiezione completa dello storico. |
+| `GET` | `/api/v1/player/sessions/{sessionId}/events/stream` | Apre il flusso SSE filtrato per il giocatore autenticato. |
+| `GET` | `/api/v1/dm/sessions/{sessionId}/events/stream` | Apre il flusso SSE completo per il DM autenticato. |
 | `POST` | `/api/v1/movement/reachable-cells` | Calcola le celle raggiungibili su una griglia fornita nella richiesta. |
 | `POST` | `/api/v1/sessions/{sessionId}/movement/reachable-cells` | Calcola le celle raggiungibili usando la griglia salvata della sessione. |
 | `GET` | `/api/v1/public/tables/{tablePublicId}` | Restituisce `DISABLED`, `CLAIMABLE` o `IN_SESSION`. |
@@ -136,12 +142,22 @@ docs/openapi/event-service.openapi.yml
 | `GET` | `/api/v1/player/sessions/{sessionId}/pieces` | Elenca soltanto le pedine possedute dal giocatore autenticato. |
 | `GET` | `/api/v1/player/sessions/{sessionId}/pieces/{sessionPieceId}/reachable-cells` | Calcola le destinazioni usando posizione e velocita persistite della pedina. |
 | `POST` | `/api/v1/player/sessions/{sessionId}/pieces/{sessionPieceId}/moves` | Conferma atomicamente lo spostamento e registra `MOVE_CONFIRMED`. |
+| `GET` | `/api/v1/player/sessions/{sessionId}/trap-resolutions/{resolutionId}` | Legge lo stato sicuro di una trappola attivata. |
+| `POST` | `/api/v1/player/sessions/{sessionId}/trap-resolutions/{resolutionId}/roll` | Esegue una sola volta il tiro salvezza autorevole. |
+| `POST` | `/api/v1/player/sessions/{sessionId}/trap-resolutions/{resolutionId}/continue` | Prosegue il movimento residuo quando consentito. |
 | `GET` | `/api/v1/dm/sessions/{sessionId}/join-requests` | Elenca le richieste filtrate per stato. |
 | `POST` | `/api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/accept` | Accetta la richiesta e crea il partecipante. |
 | `POST` | `/api/v1/dm/sessions/{sessionId}/join-requests/{requestId}/reject` | Rifiuta la richiesta. |
 | `GET` | `/api/v1/dm/sessions/{sessionId}/participants` | Elenca i partecipanti attivi. |
 | `GET` | `/api/v1/dm/sessions/{sessionId}/characters` | Elenca tutti i personaggi della sessione, comprese le schede riservate. |
 | `GET` | `/api/v1/dm/sessions/{sessionId}/pieces` | Elenca tutte le pedine virtuali e le loro celle per il DM. |
+| `POST/DELETE` | `/api/v1/dm/sessions/{sessionId}/characters/{characterId}/control` | Assume o restituisce il controllo temporaneo del personaggio. |
+| `GET` | `/api/v1/dm/sessions/{sessionId}/pieces/{sessionPieceId}/reachable-cells` | Calcola il movimento per una pedina controllata dal DM. |
+| `POST` | `/api/v1/dm/sessions/{sessionId}/pieces/{sessionPieceId}/moves` | Conferma il movimento per una pedina controllata dal DM. |
+| `GET` | `/api/v1/dm/sessions/{sessionId}/trap-resolutions` | Elenca le risoluzioni ancora pendenti. |
+| `GET` | `/api/v1/dm/sessions/{sessionId}/trap-resolutions/{resolutionId}` | Consulta la trappola per un personaggio controllato dal DM. |
+| `POST` | `/api/v1/dm/sessions/{sessionId}/trap-resolutions/{resolutionId}/roll` | Esegue il tiro salvezza per un personaggio controllato dal DM. |
+| `POST` | `/api/v1/dm/sessions/{sessionId}/trap-resolutions/{resolutionId}/continue` | Prosegue il movimento del personaggio controllato dal DM quando consentito. |
 | `POST` | `/api/v1/dm/sessions/{sessionId}/close` | Conclude la sessione e disabilita il tavolo, che dovrà essere riabilitato dal locale. |
 | `GET` | `/api/v1/admin/tables` | Elenca tutti i tavoli dalla console privata del locale. |
 | `POST` | `/api/v1/admin/tables/{tablePublicId}/enable` | Apre una finestra temporanea di avvio. |
@@ -397,7 +413,16 @@ Content-Type: application/json
         "trapId": "trap-01",
         "cell": "B1",
         "visibility": "HIDDEN",
-        "armed": true
+        "armed": true,
+        "lifecyclePolicy": "PERSISTENT",
+        "saveAbility": "DEXTERITY",
+        "saveDc": 12,
+        "rollMode": "NORMAL",
+        "damageExpression": "1d6",
+        "successDamage": "NONE",
+        "successMovement": "CONTINUE",
+        "failureDamage": "FULL",
+        "failureMovement": "STOP"
       }
     ]
   }
@@ -558,7 +583,36 @@ eventi allo storico. Una versione superata produce
 `HIDDEN` e `ALWAYS_HIDDEN` non compaiono in `trapsOnPath` o
 `visibleTrapsOnPath`.
 
-### 4.9 Esempio lettura eventi sessione
+### 4.9 Risoluzione autorevole delle trappole
+
+Una trappola attraversabile non viene trattata come un muro. Il backend
+calcola il percorso e, quando incontra la prima trappola che deve attivarsi,
+sposta atomicamente la pedina sulla sua cella e restituisce `202` con stato
+`TRAP_PENDING`, `resolutionId`, destinazione originaria e movimento residuo.
+La configurazione segreta (CD, formula dei danni e note del DM) non compare
+nella risposta del giocatore.
+
+Il tiro usa `expectedVersion` e `commandId`: una ripetizione identica restituisce
+lo stesso risultato, mentre una versione superata viene rifiutata. Il backend
+genera il d20, applica vantaggio o svantaggio, somma il bonus della
+caratteristica, tira gli eventuali danni, aggiorna HP e stato `DOWNED`, quindi
+decide `CONTINUE` o `STOP`. Se il movimento puo proseguire, il comando
+`continue` riparte dalla cella di attivazione con il budget residuo e puo
+interrompersi di nuovo su un'altra trappola.
+
+Le trappole `ONE_SHOT` diventano `SPENT`; quelle `PERSISTENT` rimangono
+`TRIGGERED_ACTIVE` finche il DM non le disarma. Una trappola persistente gia
+nota viene evitata dal percorso automatico quando esiste un'alternativa, ma
+rimane calpestabile se il giocatore sceglie esplicitamente la sua cella o viene
+mosso forzatamente. Alla chiusura della sessione ogni risoluzione pendente
+diventa `CANCELLED`.
+
+Il DM puo assumere temporaneamente il controllo del personaggio. Finche il
+controllo e attivo i comandi del proprietario vengono rifiutati; il DM usa gli
+endpoint equivalenti e poi restituisce il controllo. Assunzione e rilascio sono
+idempotenti, persistiti e registrati nello storico.
+
+### 4.10 Esempio lettura eventi sessione
 
 Richiesta:
 
@@ -573,10 +627,7 @@ Risposta:
   {
     "eventId": "evt-000042",
     "eventType": "MOVE",
-    "venueId": "venue-01",
-    "tableId": "table-04",
     "sessionId": "session-20260630-001",
-    "source": "SIMULATOR",
     "occurredAt": "2026-06-30T17:45:00Z",
     "sequenceNumber": 2,
     "payload": {
@@ -588,6 +639,12 @@ Risposta:
 ]
 ```
 
+La risposta precedente e la proiezione pubblica. Le API autenticate di
+giocatore e DM restituiscono proiezioni progressivamente piu complete. Gli
+stessi filtri sono applicati ai flussi SSE, che usano l'header Bearer e non
+inseriscono credenziali nell'URL. Dopo una disconnessione il client ricarica lo
+stato corrente con REST e riapre lo stream.
+
 ## 5. Contratto MQTT
 
 MQTT viene usato per la comunicazione asincrona e real-time tra simulatore, componente edge e backend.
@@ -596,7 +653,8 @@ Topic MQTT attualmente utilizzato:
 
 | Topic | Direzione | Scopo |
 | :--- | :--- | :--- |
-| `boardhub/v1/venues/{venueId}/tables/{tableId}/events` | Simulatore -> Backend | Pubblicazione degli eventi della demo. |
+| `boardhub/v1/venues/{venueId}/tables/{tableId}/events` | Simulatore/edge -> Backend | Pubblicazione degli eventi osservati dalla plancia. |
+| `boardhub/v1/venues/{venueId}/tables/{tableId}/commands` | Backend -> Edge/plancia | Comandi visuali derivati da stato gia confermato nel database. |
 
 Esempio topic reale:
 
@@ -609,6 +667,10 @@ Il valore predefinito usa la wildcard controllata
 `boardhub/v1/venues/venue-01/tables/+/events`, quindi una sola istanza gestisce
 tutti i tavoli del locale. Prima del salvataggio il backend verifica che
 `venueId` e `tableId` del payload corrispondano esattamente al topic ricevuto.
+Gli eventi validi ricevuti dal simulatore vengono inoltre inoltrati ai client
+SSE dopo il salvataggio. I comandi diretti alla plancia sono pubblicati solo
+dopo il commit del backend: una mancata consegna MQTT non annulla lo stato
+autorevole, che l'edge puo riallineare tramite una futura snapshot.
 
 ### 5.1 Tipi di evento attualmente prodotti dalla demo
 
@@ -617,6 +679,12 @@ tutti i tavoli del locale. Prima del salvataggio il backend verifica che
 | `SESSION_START` | Avvio di una nuova sessione. |
 | `MOVE` | Movimento di un personaggio o mostro sulla griglia. |
 | `MOVE_CONFIRMED` | Movimento di una pedina validato e persistito dal backend. |
+| `TRAP_TRIGGERED` | Il percorso e stato interrotto sulla cella della trappola. |
+| `TRAP_ROLL_RESOLVED` | Tiro salvezza, danni e decisione di movimento sono stati persistiti. |
+| `TRAP_RESOLUTION_COMPLETED` | La risoluzione non richiede altre azioni. |
+| `CHARACTER_DOWNED` | I punti ferita del personaggio hanno raggiunto zero. |
+| `CHARACTER_CONTROL_ASSUMED` | Il DM ha assunto temporaneamente il controllo. |
+| `CHARACTER_CONTROL_RELEASED` | Il controllo e tornato al proprietario. |
 | `SPAWN_MONSTER` | Creazione di un mostro sulla mappa. |
 | `ATTACK` | Attacco tra due entita. |
 | `DAMAGE` | Applicazione di danno a un bersaglio. |
@@ -649,9 +717,24 @@ Il calcolo interno delle celle raggiungibili usa Dijkstra semplificato sulla gri
 
 Quando il movimento non viene eseguito passo per passo, il backend mantiene anche il percorso scelto dall'algoritmo. Questo serve a verificare se il tragitto attraversa una casella con trappola, anche se la casella finale e diversa.
 
-### 5.3 Contratto previsto per i dadi
+### 5.3 Contratto dei comandi per la plancia
 
-Il progetto prevede dadi fisici o digitali, ma il tiro digitale e la relativa generazione di eventi non sono ancora implementati nel repository.
+Il backend pubblica un sottoinsieme minimo e privo di segreti:
+
+| Comando | Origine | Campi utili |
+| :--- | :--- | :--- |
+| `SHOW_PATH` | `MOVE_CONFIRMED` | `sessionPieceId`, destinazione e percorso confermato. |
+| `SHOW_CORRECTION_CELL` | `TRAP_TRIGGERED` | Pedina e cella sulla quale correggere la posizione fisica. |
+| `CLEAR_EFFECT` | Fine tiro o risoluzione | Rimuove l'effetto temporaneo dalla plancia. |
+
+Il payload non contiene `trapId`, CD, formula dei danni, note del DM o token.
+Queste informazioni restano nel backend e nella sola proiezione autorizzata.
+
+### 5.4 Contratto previsto per i dadi liberi
+
+Il tiro salvezza legato alle trappole e gia generato dal backend. Il lancio
+libero di dadi fisici o digitali richiesto dal DM e la relativa API generica
+non sono ancora implementati nel repository.
 
 | Dado | Uso principale nel progetto |
 | :--- | :--- |
@@ -841,9 +924,9 @@ Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazi
 
 | Campo | Valore |
 | :--- | :--- |
-| Versione | `0.7` |
-| Stato | Contratto allineato a controllo tavoli, accessi, personaggi, pedine ed esecuzione autorevole del movimento |
-| Data | 2026-07-29 |
+| Versione | `0.8` |
+| Stato | Contratto allineato a controllo tavoli, accessi, personaggi, pedine, movimento autorevole e risoluzione trappole |
+| Data | 2026-08-08 |
 | Ambito | MVP BoardHub |
 
 Prossimi passi:
@@ -851,5 +934,9 @@ Prossimi passi:
 - validare il contratto con il collaboratore;
 - mantenere sincronizzata la specifica OpenAPI con gli endpoint implementati;
 - aggiungere filtri o paginazione alla lettura eventi se il volume dati cresce;
-- implementare app mobile e componente edge;
-- introdurre progressivamente attivazione trappole, dadi, buffer offline ed event replay.
+- progettare e implementare componente edge, buffer offline, acknowledgement
+  applicativo e riallineamento;
+- introdurre il secondo microservizio minimo per risultati, statistiche e
+  torneo richiesto dalla traccia;
+- integrare i contratti stabili nel frontend e, solo successivamente, nell'app
+  mobile.

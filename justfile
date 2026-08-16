@@ -45,6 +45,7 @@ help:
     @printf '  just venue-close-table N        ◇ Chiude dal locale la sessione del tavolo N\n'
     @printf '  just table-status QR            ◇ Mostra lo stato pubblico del tavolo\n'
     @printf '  just create-session ID          ◇ Crea una sessione D&D con griglia demo\n'
+    @printf '  just create-trap-session ID     ◇ Crea una demo con trappola obbligata in C2\n'
     @printf '  just move-session ID            ◇ Calcola il movimento usando la griglia salvata della sessione\n'
     @printf '  just move-stateless             ◇ Calcola il movimento passando la griglia direttamente nella richiesta\n'
     @printf '  just events ID                  ◇ Legge gli eventi salvati per una sessione\n\n'
@@ -67,6 +68,24 @@ help:
     @printf '  just piece-reachable ID PIECE   ◇ Mostra dove puo arrivare la pedina\n'
     @printf '  just move-piece ID PIECE CELLA [VERSIONE] [COMMAND]\n'
     @printf '                                  ◇ Conferma uno spostamento autorevole\n'
+    @printf '  just trap-status ID RESOLUTION  ◇ Mostra la trappola in attesa del giocatore\n'
+    @printf '  just roll-trap ID RESOLUTION VERSIONE\n'
+    @printf '                                  ◇ Esegue il tiro salvezza della trappola\n'
+    @printf '  just continue-trap ID RESOLUTION VERSIONE\n'
+    @printf '                                  ◇ Prosegue il percorso dopo la risoluzione\n'
+    @printf '  just pending-traps ID           ◇ Elenca al DM le trappole da risolvere\n'
+    @printf '  just assume-character ID CHAR   ◇ Il DM assume temporaneamente il controllo\n'
+    @printf '  just release-character ID CHAR  ◇ Il DM restituisce il controllo al giocatore\n'
+    @printf '  just dm-move-piece ID PIECE CELLA [VERSIONE] [COMMAND]\n'
+    @printf '                                  ◇ Muove una pedina controllata dal DM\n'
+    @printf '  just dm-piece-reachable ID PIECE\n'
+    @printf '                                  ◇ Mostra le celle raggiungibili al DM\n'
+    @printf '  just dm-roll-trap ID RESOLUTION VERSIONE\n'
+    @printf '                                  ◇ Il DM esegue il tiro salvezza\n'
+    @printf '  just dm-continue-trap ID RESOLUTION VERSIONE\n'
+    @printf '                                  ◇ Il DM prosegue il percorso risolto\n'
+    @printf '  just player-events ID           ◇ Eventi filtrati del giocatore autenticato\n'
+    @printf '  just dm-events ID               ◇ Eventi completi visibili al DM\n'
     @printf '  just close-session ID           ◇ Conclude la sessione e disabilita il tavolo\n\n'
     @printf '\033[38;5;208m◈ MQTT\033[0m\n'
     @printf '  just publish-event ID [EVENTO]  ◈ Pubblica un evento MOVE sul broker MQTT\n\n'
@@ -96,6 +115,9 @@ help:
     @printf '  just my-pieces session-demo-001\n'
     @printf '  just piece-reachable session-demo-001 PIECE_ID\n'
     @printf '  just move-piece session-demo-001 PIECE_ID C2 0\n'
+    @printf '  just trap-status session-demo-001 RESOLUTION_ID\n'
+    @printf '  just roll-trap session-demo-001 RESOLUTION_ID VERSIONE\n'
+    @printf '  just continue-trap session-demo-001 RESOLUTION_ID VERSIONE\n'
     @printf '  just dm-pieces session-demo-001\n'
     @printf '  just participants session-demo-001\n'
 
@@ -248,6 +270,13 @@ create-session session_id table_id="table-04" table_public_id="qr-table-04" tabl
       -d '{"sessionId":"{{ session_id }}","venueId":"venue-01","tableId":"{{ table_id }}","tablePublicId":"{{ table_public_id }}","tableDisplayName":"{{ table_display_name }}","title":"Cripta del Re Caduto","gameType":"DND","publicSummary":"Avventura dimostrativa per personaggi di livello 3.","acceptingJoinRequests":true,"grid":{"width":3,"height":3,"difficultCells":["C1"],"blockedCells":["A2"],"obstacleCells":[],"occupiedCells":["A1"],"walls":[{"cell":"B1","direction":"SOUTH"}],"traps":[{"trapId":"trap-01","cell":"B1","visibility":"HIDDEN","armed":true}]}}' \
       | python3 {{ formatter }} created-session
 
+create-trap-session session_id table_id="table-08" table_public_id="qr-table-08" table_display_name="Tavolo 8":
+    @printf '\033[38;5;141m[◇ API]\033[0m Creazione demo trappola %s...\n' "{{ session_id }}"
+    @set -o pipefail; curl --fail-with-body --silent --show-error -X POST {{ base_url }}/api/v1/sessions \
+      -H 'Content-Type: application/json' \
+      -d '{"sessionId":"{{ session_id }}","venueId":"venue-01","tableId":"{{ table_id }}","tablePublicId":"{{ table_public_id }}","tableDisplayName":"{{ table_display_name }}","title":"Corridoio delle Lame","gameType":"DND","publicSummary":"Demo tecnica della risoluzione autorevole delle trappole.","acceptingJoinRequests":true,"grid":{"width":4,"height":3,"difficultCells":[],"blockedCells":[],"obstacleCells":["C1","C3"],"occupiedCells":[],"walls":[],"traps":[{"trapId":"trap-c2","cell":"C2","visibility":"HIDDEN","armed":true,"lifecyclePolicy":"PERSISTENT","saveAbility":"DEXTERITY","saveDc":12,"rollMode":"NORMAL","damageExpression":"1d6","successDamage":"NONE","successMovement":"CONTINUE","failureDamage":"FULL","failureMovement":"STOP"}]}}' \
+      | python3 {{ formatter }} created-session
+
 table-status table_public_id="qr-table-04":
     @printf '\033[38;5;141m[◇ API]\033[0m Stato pubblico di %s...\n' "{{ table_public_id }}"
     @set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/api/v1/public/tables/{{ table_public_id }} \
@@ -397,6 +426,119 @@ move-piece session_id session_piece_id destination expected_version="0" command_
         -H 'Content-Type: application/json' \
         -d "{\"destination\":\"{{ destination }}\",\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
         | python3 {{ formatter }} piece-move
+
+trap-status session_id resolution_id:
+    @set -euo pipefail; \
+      TOKEN="{{ player_token }}"; \
+      if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token giocatore assente. Esporta BOARDHUB_PLAYER_TOKEN.\n'; exit 1; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Stato risoluzione trappola %s...\n' "{{ resolution_id }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error \
+        {{ base_url }}/api/v1/player/sessions/{{ session_id }}/trap-resolutions/{{ resolution_id }} \
+        -H "Authorization: Bearer $TOKEN" \
+        | python3 {{ formatter }} trap-resolution
+
+roll-trap session_id resolution_id expected_version command_id="":
+    @set -euo pipefail; \
+      TOKEN="{{ player_token }}"; \
+      if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token giocatore assente. Esporta BOARDHUB_PLAYER_TOKEN.\n'; exit 1; fi; \
+      COMMAND_ID="{{ command_id }}"; if [ -z "$COMMAND_ID" ]; then COMMAND_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Tiro salvezza per la risoluzione %s...\n' "{{ resolution_id }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error -X POST \
+        {{ base_url }}/api/v1/player/sessions/{{ session_id }}/trap-resolutions/{{ resolution_id }}/roll \
+        -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+        -d "{\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
+        | python3 {{ formatter }} trap-roll
+
+continue-trap session_id resolution_id expected_version command_id="":
+    @set -euo pipefail; \
+      TOKEN="{{ player_token }}"; \
+      if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token giocatore assente. Esporta BOARDHUB_PLAYER_TOKEN.\n'; exit 1; fi; \
+      COMMAND_ID="{{ command_id }}"; if [ -z "$COMMAND_ID" ]; then COMMAND_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Prosecuzione del movimento dopo la trappola...\n'; \
+      set -o pipefail; curl --fail-with-body --silent --show-error -X POST \
+        {{ base_url }}/api/v1/player/sessions/{{ session_id }}/trap-resolutions/{{ resolution_id }}/continue \
+        -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+        -d "{\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
+        | python3 {{ formatter }} piece-move
+
+pending-traps session_id:
+    @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Risoluzioni di trappole in attesa per %s...\n' "{{ session_id }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error \
+        {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/trap-resolutions \
+        -H "Authorization: Bearer $TOKEN" \
+        | python3 {{ formatter }} trap-resolutions
+
+assume-character session_id character_id:
+    @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Assunzione del controllo del personaggio %s...\n' "{{ character_id }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error -X POST \
+        {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/characters/{{ character_id }}/control \
+        -H "Authorization: Bearer $TOKEN" \
+        | python3 {{ formatter }} character-control
+
+release-character session_id character_id:
+    @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Restituzione del controllo del personaggio %s...\n' "{{ character_id }}"; \
+      curl --fail-with-body --silent --show-error -X DELETE \
+        {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/characters/{{ character_id }}/control \
+        -H "Authorization: Bearer $TOKEN"; \
+      printf '\033[38;5;42m● Controllo restituito al giocatore\033[0m\n'
+
+dm-move-piece session_id session_piece_id destination expected_version="0" command_id="":
+    @set -euo pipefail; \
+      TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
+      COMMAND_ID="{{ command_id }}"; if [ -z "$COMMAND_ID" ]; then COMMAND_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Movimento DM della pedina %s verso %s...\n' "{{ session_piece_id }}" "{{ destination }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error -X POST \
+        {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/pieces/{{ session_piece_id }}/moves \
+        -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+        -d "{\"destination\":\"{{ destination }}\",\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
+        | python3 {{ formatter }} piece-move
+
+dm-piece-reachable session_id session_piece_id:
+    @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Celle raggiungibili dal personaggio controllato dal DM...\n'; \
+      set -o pipefail; curl --fail-with-body --silent --show-error \
+        {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/pieces/{{ session_piece_id }}/reachable-cells \
+        -H "Authorization: Bearer $TOKEN" \
+        | python3 {{ formatter }} piece-reachability
+
+dm-roll-trap session_id resolution_id expected_version command_id="":
+    @set -euo pipefail; \
+      TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
+      COMMAND_ID="{{ command_id }}"; if [ -z "$COMMAND_ID" ]; then COMMAND_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Tiro salvezza eseguito dal DM per %s...\n' "{{ resolution_id }}"; \
+      set -o pipefail; curl --fail-with-body --silent --show-error -X POST \
+        {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/trap-resolutions/{{ resolution_id }}/roll \
+        -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+        -d "{\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
+        | python3 {{ formatter }} trap-roll
+
+dm-continue-trap session_id resolution_id expected_version command_id="":
+    @set -euo pipefail; \
+      TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
+      COMMAND_ID="{{ command_id }}"; if [ -z "$COMMAND_ID" ]; then COMMAND_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Prosecuzione del movimento eseguita dal DM...\n'; \
+      set -o pipefail; curl --fail-with-body --silent --show-error -X POST \
+        {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/trap-resolutions/{{ resolution_id }}/continue \
+        -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+        -d "{\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
+        | python3 {{ formatter }} piece-move
+
+player-events session_id:
+    @TOKEN="{{ player_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token giocatore assente. Esporta BOARDHUB_PLAYER_TOKEN.\n'; exit 1; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Eventi visibili al giocatore...\n'; \
+      set -o pipefail; curl --fail-with-body --silent --show-error \
+        {{ base_url }}/api/v1/player/sessions/{{ session_id }}/events \
+        -H "Authorization: Bearer $TOKEN" | python3 {{ formatter }} events
+
+dm-events session_id:
+    @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
+      printf '\033[38;5;141m[◇ API]\033[0m Eventi completi visibili al DM...\n'; \
+      set -o pipefail; curl --fail-with-body --silent --show-error \
+        {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/events \
+        -H "Authorization: Bearer $TOKEN" | python3 {{ formatter }} events
 
 close-session session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \

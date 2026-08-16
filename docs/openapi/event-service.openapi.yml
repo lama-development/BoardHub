@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: BoardHub Event Service API
-  version: 0.22.0
-  description: API REST dell'event-service BoardHub per controllo dei tavoli, sessioni, ingresso dei giocatori, personaggi, pedine virtuali, eventi e movimento autorevole su griglia.
+  version: 0.23.0
+  description: API REST dell'event-service BoardHub per controllo dei tavoli, sessioni, ingresso dei giocatori, personaggi, pedine virtuali, eventi filtrati, movimento autorevole e risoluzione delle trappole.
 servers:
   - url: http://localhost:8082
     description: Ambiente locale di sviluppo
@@ -25,6 +25,10 @@ tags:
     description: Associazione e posizione delle pedine virtuali sulla plancia
   - name: Movement
     description: Calcolo movimento su griglia
+  - name: Traps
+    description: Interruzione del movimento, tiro salvezza e prosecuzione dopo una trappola
+  - name: Control
+    description: Controllo temporaneo dei personaggi da parte del Dungeon Master
 paths:
   /actuator/health:
     get:
@@ -776,6 +780,238 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /api/v1/dm/sessions/{sessionId}/characters/{characterId}/control:
+    post:
+      tags: [Control]
+      summary: Assegna temporaneamente al DM il controllo di un personaggio
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: characterId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Controllo assegnato; una ripetizione dello stesso comando e idempotente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharacterControlResponse"
+        "401":
+          description: Credenziale DM non valida
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+        "409":
+          description: Il personaggio e controllato da un altro DM o non e disponibile
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ErrorResponse"}
+    delete:
+      tags: [Control]
+      summary: Restituisce al giocatore il controllo del personaggio
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: characterId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "204":
+          description: Controllo restituito; l'operazione ripetuta e idempotente
+  /api/v1/dm/sessions/{sessionId}/pieces/{sessionPieceId}/reachable-cells:
+    get:
+      tags: [Movement, Control]
+      summary: Calcola le celle raggiungibili per una pedina controllata dal DM
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/SessionPieceId"
+      responses:
+        "200":
+          description: Stato e celle raggiungibili
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PieceReachabilityResponse"}
+  /api/v1/dm/sessions/{sessionId}/pieces/{sessionPieceId}/moves:
+    post:
+      tags: [Movement, Control]
+      summary: Muove una pedina di cui il DM ha assunto il controllo
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - $ref: "#/components/parameters/SessionPieceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MoveSessionPieceRequest"}
+      responses:
+        "200":
+          description: Movimento concluso
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PieceMoveResponse"}
+        "202":
+          description: Movimento interrotto da una trappola da risolvere
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PieceMoveResponse"}
+  /api/v1/player/sessions/{sessionId}/trap-resolutions/{resolutionId}:
+    get:
+      tags: [Traps]
+      summary: Legge una risoluzione di trappola appartenente al giocatore
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: resolutionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Stato della risoluzione senza configurazione segreta della trappola
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TrapResolutionResponse"}
+  /api/v1/player/sessions/{sessionId}/trap-resolutions/{resolutionId}/roll:
+    post:
+      tags: [Traps]
+      summary: Esegue sul server il tiro salvezza richiesto dalla trappola
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: resolutionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/TrapCommandRequest"}
+      responses:
+        "200":
+          description: Esito deterministico e persistito del tiro e degli eventuali danni
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TrapRollResponse"}
+  /api/v1/player/sessions/{sessionId}/trap-resolutions/{resolutionId}/continue:
+    post:
+      tags: [Traps, Movement]
+      summary: Prosegue il movimento residuo dopo la risoluzione della trappola
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: resolutionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/TrapCommandRequest"}
+      responses:
+        "200":
+          description: Movimento concluso o fermato
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PieceMoveResponse"}
+        "202":
+          description: Il percorso ha attivato una successiva trappola
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PieceMoveResponse"}
+  /api/v1/dm/sessions/{sessionId}/trap-resolutions:
+    get:
+      tags: [Traps]
+      summary: Elenca le risoluzioni di trappole ancora in attesa
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Risoluzioni pendenti della sessione
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/TrapResolutionResponse"}
+  /api/v1/dm/sessions/{sessionId}/trap-resolutions/{resolutionId}:
+    get:
+      tags: [Traps]
+      summary: Legge una risoluzione di trappola come DM
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: resolutionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Stato della risoluzione
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TrapResolutionResponse"}
+  /api/v1/dm/sessions/{sessionId}/trap-resolutions/{resolutionId}/roll:
+    post:
+      tags: [Traps, Control]
+      summary: Esegue il tiro salvezza per un personaggio controllato dal DM
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: resolutionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/TrapCommandRequest"}
+      responses:
+        "200":
+          description: Esito del tiro
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TrapRollResponse"}
+  /api/v1/dm/sessions/{sessionId}/trap-resolutions/{resolutionId}/continue:
+    post:
+      tags: [Traps, Control, Movement]
+      summary: Prosegue il movimento per un personaggio controllato dal DM
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: resolutionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/TrapCommandRequest"}
+      responses:
+        "200":
+          description: Movimento concluso o fermato
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PieceMoveResponse"}
   /api/v1/dm/sessions/{sessionId}/close:
     post:
       tags:
@@ -802,8 +1038,8 @@ paths:
     get:
       tags:
         - Events
-      summary: Restituisce gli eventi salvati di una sessione
-      description: Gli eventi vengono restituiti in ordine crescente di sequenceNumber.
+      summary: Restituisce la proiezione pubblica degli eventi di una sessione
+      description: Gli eventi sono ordinati per sequenceNumber; eventi e campi riservati a giocatore o DM vengono esclusi.
       parameters:
         - name: sessionId
           in: path
@@ -820,22 +1056,80 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/GameEvent"
+                  $ref: "#/components/schemas/SessionEventNotification"
               examples:
                 moveEvent:
                   value:
                     - eventId: evt-000001
                       eventType: MOVE
-                      venueId: venue-01
-                      tableId: table-04
                       sessionId: session-20260630-001
-                      source: SIMULATOR
                       occurredAt: "2026-06-30T17:45:00Z"
                       sequenceNumber: 2
                       payload:
                         characterId: adv-01
                         from: A3
                         to: A4
+  /api/v1/player/sessions/{sessionId}/events:
+    get:
+      tags: [Events]
+      summary: Restituisce gli eventi visibili al giocatore autenticato
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Eventi pubblici e del personaggio posseduto, senza segreti del DM
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/SessionEventNotification"}
+  /api/v1/dm/sessions/{sessionId}/events:
+    get:
+      tags: [Events]
+      summary: Restituisce la proiezione completa degli eventi al DM
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Eventi completi della sessione
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/SessionEventNotification"}
+  /api/v1/player/sessions/{sessionId}/events/stream:
+    get:
+      tags: [Events]
+      summary: Apre il flusso SSE degli eventi visibili al giocatore
+      description: Usa l'header Authorization; in caso di riconnessione il client riallinea lo stato tramite le API REST.
+      security:
+        - PlayerBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Flusso Server-Sent Events
+          content:
+            text/event-stream:
+              schema: {type: string}
+  /api/v1/dm/sessions/{sessionId}/events/stream:
+    get:
+      tags: [Events]
+      summary: Apre il flusso SSE completo del Dungeon Master
+      security:
+        - DmSessionBearer: []
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Flusso Server-Sent Events
+          content:
+            text/event-stream:
+              schema: {type: string}
   /api/v1/movement/reachable-cells:
     post:
       tags:
@@ -1033,8 +1327,9 @@ components:
           example: UP
       required:
         - status
-    GameEvent:
+    SessionEventNotification:
       type: object
+      description: Proiezione dell'evento filtrata in base al ruolo chiamante.
       properties:
         eventId:
           type: string
@@ -1042,18 +1337,9 @@ components:
         eventType:
           type: string
           example: MOVE
-        venueId:
-          type: string
-          example: venue-01
-        tableId:
-          type: string
-          example: table-04
         sessionId:
           type: string
           example: session-20260630-001
-        source:
-          type: string
-          example: SIMULATOR
         occurredAt:
           type: string
           format: date-time
@@ -1072,10 +1358,7 @@ components:
       required:
         - eventId
         - eventType
-        - venueId
-        - tableId
         - sessionId
-        - source
         - occurredAt
         - sequenceNumber
         - payload
@@ -1349,6 +1632,36 @@ components:
           maximum: 100
           description: Classe Armatura effettiva; l'intervallo è una protezione tecnica BoardHub, non una regola D&D.
           example: 12
+        strengthSave:
+          type: integer
+          minimum: -100
+          maximum: 100
+          default: 0
+        dexteritySave:
+          type: integer
+          minimum: -100
+          maximum: 100
+          default: 0
+        constitutionSave:
+          type: integer
+          minimum: -100
+          maximum: 100
+          default: 0
+        intelligenceSave:
+          type: integer
+          minimum: -100
+          maximum: 100
+          default: 0
+        wisdomSave:
+          type: integer
+          minimum: -100
+          maximum: 100
+          default: 0
+        charismaSave:
+          type: integer
+          minimum: -100
+          maximum: 100
+          default: 0
         partyVisibility:
           type: string
           enum: [OWNER_ONLY, PARTY, DM_ONLY]
@@ -1384,6 +1697,21 @@ components:
           type: integer
         armorClass:
           type: integer
+        strengthSave:
+          type: integer
+        dexteritySave:
+          type: integer
+        constitutionSave:
+          type: integer
+        intelligenceSave:
+          type: integer
+        wisdomSave:
+          type: integer
+        charismaSave:
+          type: integer
+        tacticalStatus:
+          type: string
+          enum: [ACTIVE, DOWNED]
         partyVisibility:
           type: string
           enum: [OWNER_ONLY, PARTY, DM_ONLY]
@@ -1408,6 +1736,13 @@ components:
         - hpCurrent
         - hpMax
         - armorClass
+        - strengthSave
+        - dexteritySave
+        - constitutionSave
+        - intelligenceSave
+        - wisdomSave
+        - charismaSave
+        - tacticalStatus
         - partyVisibility
         - version
         - createdAt
@@ -1422,6 +1757,10 @@ components:
         representationMode:
           type: string
           enum: [VIRTUAL]
+        controlMode:
+          type: string
+          enum: [PLAYER_CONTROLLED, DM_CONTROLLED]
+          description: Identifica chi puo impartire comandi autorevoli alla pedina in questo momento.
           default: VIRTUAL
           description: L'MVP supporta soltanto pedine virtuali; il collegamento hardware verra aggiunto con un contratto dedicato.
         startCell:
@@ -1464,6 +1803,7 @@ components:
         - characterId
         - participantId
         - representationMode
+        - controlMode
         - currentCell
         - version
         - createdAt
@@ -1523,7 +1863,7 @@ components:
       properties:
         status:
           type: string
-          enum: [CONFIRMED]
+          enum: [CONFIRMED, TRAP_PENDING]
         commandId:
           type: string
           format: uuid
@@ -1561,6 +1901,18 @@ components:
           description: Contiene soltanto trappole gia visibili al giocatore.
           items:
             type: string
+        resolutionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Presente quando il movimento e interrotto da una trappola.
+        requestedDestination:
+          type: string
+          nullable: true
+        movementRemaining:
+          type: integer
+          minimum: 0
+          nullable: true
       required:
         - status
         - commandId
@@ -1725,11 +2077,109 @@ components:
         armed:
           type: boolean
           example: true
+        lifecyclePolicy:
+          type: string
+          enum: [ONE_SHOT, PERSISTENT]
+          default: ONE_SHOT
+        saveAbility:
+          type: string
+          enum: [STRENGTH, DEXTERITY, CONSTITUTION, INTELLIGENCE, WISDOM, CHARISMA]
+          default: DEXTERITY
+        saveDc:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        rollMode:
+          type: string
+          enum: [NORMAL, ADVANTAGE, DISADVANTAGE]
+          default: NORMAL
+        damageExpression:
+          type: string
+          pattern: "^[1-9][0-9]*d[1-9][0-9]*([+-][0-9]+)?$"
+          example: 1d6
+        successDamage:
+          type: string
+          enum: [NONE, HALF, FULL]
+          default: NONE
+        successMovement:
+          type: string
+          enum: [CONTINUE, STOP]
+          default: CONTINUE
+        failureDamage:
+          type: string
+          enum: [NONE, HALF, FULL]
+          default: FULL
+        failureMovement:
+          type: string
+          enum: [CONTINUE, STOP]
+          default: STOP
       required:
         - trapId
         - cell
         - visibility
         - armed
+    TrapCommandRequest:
+      type: object
+      properties:
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Versione corrente della risoluzione, necessaria per impedire doppi tiri o prosecuzioni concorrenti.
+        commandId:
+          type: string
+          format: uuid
+          description: Identificativo idempotente stabile durante i retry.
+      required: [expectedVersion, commandId]
+    TrapResolutionResponse:
+      type: object
+      properties:
+        resolutionId: {type: string, format: uuid}
+        status:
+          type: string
+          enum: [AWAITING_ROLL, AWAITING_CONTINUATION, COMPLETED, CANCELLED]
+        sessionPieceId: {type: string, format: uuid}
+        characterId: {type: string, format: uuid}
+        requestedDestination: {type: string}
+        triggerCell: {type: string}
+        movementRemaining: {type: integer, minimum: 0}
+        version: {type: integer, format: int64, minimum: 0}
+      required: [resolutionId, status, sessionPieceId, characterId, requestedDestination, triggerCell, movementRemaining, version]
+    TrapRollResponse:
+      type: object
+      properties:
+        resolutionId: {type: string, format: uuid}
+        status: {type: string}
+        d20First: {type: integer, minimum: 1, maximum: 20}
+        d20Second: {type: integer, minimum: 1, maximum: 20, nullable: true}
+        selectedD20: {type: integer, minimum: 1, maximum: 20}
+        saveBonus: {type: integer}
+        saveTotal: {type: integer}
+        success: {type: boolean}
+        damageRolls:
+          type: array
+          items: {type: integer}
+        damageTotal: {type: integer, minimum: 0}
+        hpCurrent: {type: integer, minimum: 0}
+        tacticalStatus:
+          type: string
+          enum: [ACTIVE, DOWNED]
+        movementDecision:
+          type: string
+          enum: [CONTINUE, STOP]
+        movementRemaining: {type: integer, minimum: 0}
+        version: {type: integer, format: int64, minimum: 0}
+      required: [resolutionId, status, d20First, selectedD20, saveBonus, saveTotal, success, damageRolls, damageTotal, hpCurrent, tacticalStatus, movementDecision, movementRemaining, version]
+    CharacterControlResponse:
+      type: object
+      properties:
+        sessionId: {type: string}
+        characterId: {type: string, format: uuid}
+        dmParticipantId: {type: string, format: uuid}
+        version: {type: integer, format: int64, minimum: 0}
+        assumedAt: {type: string, format: date-time}
+      required: [sessionId, characterId, dmParticipantId, version, assumedAt]
     ReachableCellsResponse:
       type: object
       properties:

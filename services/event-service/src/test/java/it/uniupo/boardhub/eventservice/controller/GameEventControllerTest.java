@@ -3,6 +3,7 @@ package it.uniupo.boardhub.eventservice.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import it.uniupo.boardhub.eventservice.model.GameEvent;
 import it.uniupo.boardhub.eventservice.repository.GameEventRepository;
+import it.uniupo.boardhub.eventservice.service.SessionEventStreamService;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -44,7 +45,10 @@ class GameEventControllerTest {
             }
         };
         MockMvc mockMvc = MockMvcBuilders
-                .standaloneSetup(new GameEventController(repository))
+                .standaloneSetup(new GameEventController(
+                        repository,
+                        new SessionEventStreamService(null)
+                ))
                 .build();
 
         mockMvc.perform(get("/api/v1/sessions/session-20260703-001/events"))
@@ -53,5 +57,36 @@ class GameEventControllerTest {
                 .andExpect(jsonPath("$[0].eventType").value("MOVE"))
                 .andExpect(jsonPath("$[0].sequenceNumber").value(1))
                 .andExpect(jsonPath("$[0].payload.characterId").value("adv-01"));
+    }
+
+    @Test
+    void nonEsponeEventiOAttributiRiservatiAllaDashboardPubblica() throws Exception {
+        GameEvent event = new GameEvent(
+                "trap-000001", "TRAP_TRIGGERED", "venue-01", "table-04",
+                "session-20260703-001", "BACKEND", "2026-07-03T10:00:00Z", 2,
+                objectMapper.readTree("""
+                        {
+                          "trapId": "trap-secret",
+                          "saveDc": 18,
+                          "actorId": "00000000-0000-0000-0000-000000000001"
+                        }
+                        """)
+        );
+        GameEventRepository repository = new GameEventRepository(null, null) {
+            @Override
+            public List<GameEvent> findBySessionId(String sessionId) {
+                return List.of(event);
+            }
+        };
+        MockMvc mockMvc = MockMvcBuilders
+                .standaloneSetup(new GameEventController(
+                        repository,
+                        new SessionEventStreamService(null)
+                ))
+                .build();
+
+        mockMvc.perform(get("/api/v1/sessions/session-20260703-001/events"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
     }
 }

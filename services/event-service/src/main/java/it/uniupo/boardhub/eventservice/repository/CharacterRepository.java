@@ -2,6 +2,7 @@ package it.uniupo.boardhub.eventservice.repository;
 
 import it.uniupo.boardhub.eventservice.model.character.PartyVisibility;
 import it.uniupo.boardhub.eventservice.model.character.PlayerCharacter;
+import it.uniupo.boardhub.eventservice.model.character.CharacterTacticalStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -20,6 +21,8 @@ public class CharacterRepository {
     private static final String SELECT_FIELDS = """
             SELECT character_id, session_id, participant_id, name, species, age,
                    class_name, level, speed_cells, hp_current, hp_max, armor_class,
+                   strength_save, dexterity_save, constitution_save,
+                   intelligence_save, wisdom_save, charisma_save, tactical_status,
                    party_visibility, version, created_at, updated_at
             FROM game_schema.characters
             """;
@@ -35,8 +38,10 @@ public class CharacterRepository {
                         INSERT INTO game_schema.characters (
                             character_id, session_id, participant_id, name, species, age,
                             class_name, level, speed_cells, hp_current, hp_max, armor_class,
+                            strength_save, dexterity_save, constitution_save,
+                            intelligence_save, wisdom_save, charisma_save, tactical_status,
                             party_visibility, version, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                 character.characterId(),
                 character.sessionId(),
@@ -50,6 +55,13 @@ public class CharacterRepository {
                 character.hpCurrent(),
                 character.hpMax(),
                 character.armorClass(),
+                character.strengthSave(),
+                character.dexteritySave(),
+                character.constitutionSave(),
+                character.intelligenceSave(),
+                character.wisdomSave(),
+                character.charismaSave(),
+                character.tacticalStatus().name(),
                 character.partyVisibility().name(),
                 character.version(),
                 Timestamp.from(character.createdAt().toInstant()),
@@ -100,6 +112,39 @@ public class CharacterRepository {
         ).stream().findFirst();
     }
 
+    public Optional<PlayerCharacter> findByIdAndSessionForUpdate(UUID characterId, String sessionId) {
+        return jdbcTemplate.query(
+                SELECT_FIELDS + " WHERE character_id = ? AND session_id = ? FOR UPDATE",
+                new CharacterRowMapper(),
+                characterId,
+                sessionId
+        ).stream().findFirst();
+    }
+
+    public boolean applyDamage(
+            UUID characterId,
+            String sessionId,
+            int damage,
+            long expectedVersion,
+            java.time.OffsetDateTime updatedAt
+    ) {
+        return jdbcTemplate.update("""
+                UPDATE game_schema.characters
+                SET hp_current = GREATEST(0, hp_current - ?),
+                    tactical_status = CASE WHEN hp_current - ? <= 0 THEN 'DOWNED' ELSE 'ACTIVE' END,
+                    version = version + 1,
+                    updated_at = ?
+                WHERE character_id = ? AND session_id = ? AND version = ?
+                """,
+                damage,
+                damage,
+                Timestamp.from(updatedAt.toInstant()),
+                characterId,
+                sessionId,
+                expectedVersion
+        ) == 1;
+    }
+
     private static class CharacterRowMapper implements RowMapper<PlayerCharacter> {
 
         @Override
@@ -119,6 +164,13 @@ public class CharacterRepository {
                     rs.getInt("hp_current"),
                     rs.getInt("hp_max"),
                     rs.getInt("armor_class"),
+                    rs.getInt("strength_save"),
+                    rs.getInt("dexterity_save"),
+                    rs.getInt("constitution_save"),
+                    rs.getInt("intelligence_save"),
+                    rs.getInt("wisdom_save"),
+                    rs.getInt("charisma_save"),
+                    CharacterTacticalStatus.valueOf(rs.getString("tactical_status")),
                     PartyVisibility.valueOf(rs.getString("party_visibility")),
                     rs.getLong("version"),
                     rs.getTimestamp("created_at").toInstant().atOffset(ZoneOffset.UTC),

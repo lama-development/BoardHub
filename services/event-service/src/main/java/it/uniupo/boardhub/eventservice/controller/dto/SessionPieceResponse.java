@@ -10,6 +10,7 @@ public record SessionPieceResponse(
         UUID participantId,
         String representationMode,
         String currentCell,
+        String controlMode,
         long version,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt

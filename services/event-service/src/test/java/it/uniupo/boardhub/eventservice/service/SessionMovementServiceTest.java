@@ -122,6 +122,18 @@ class SessionMovementServiceTest {
                     cell VARCHAR(10) NOT NULL,
                     visibility VARCHAR(40) NOT NULL,
                     armed BOOLEAN NOT NULL,
+                    lifecycle_policy VARCHAR(20) NOT NULL DEFAULT 'ONE_SHOT',
+                    lifecycle_state VARCHAR(30) NOT NULL DEFAULT 'ARMED',
+                    save_ability VARCHAR(20) NOT NULL DEFAULT 'DEXTERITY',
+                    save_dc INTEGER NOT NULL DEFAULT 10,
+                    roll_mode VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+                    damage_expression VARCHAR(30) NOT NULL DEFAULT '1d6',
+                    success_damage VARCHAR(10) NOT NULL DEFAULT 'NONE',
+                    success_movement VARCHAR(10) NOT NULL DEFAULT 'CONTINUE',
+                    failure_damage VARCHAR(10) NOT NULL DEFAULT 'FULL',
+                    failure_movement VARCHAR(10) NOT NULL DEFAULT 'STOP',
+                    version BIGINT NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (session_id, trap_id)
                 )
                 """);

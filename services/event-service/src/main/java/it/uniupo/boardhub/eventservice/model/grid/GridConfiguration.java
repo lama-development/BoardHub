@@ -38,7 +38,22 @@ public record GridConfiguration(
             String trapId,
             String cell,
             String visibility,
-            boolean armed
+            boolean armed,
+            String lifecyclePolicy,
+            String saveAbility,
+            Integer saveDc,
+            String rollMode,
+            String damageExpression,
+            String successDamage,
+            String successMovement,
+            String failureDamage,
+            String failureMovement
     ) {
+        public TrapConfiguration(String trapId, String cell, String visibility, boolean armed) {
+            this(
+                    trapId, cell, visibility, armed, "ONE_SHOT", "DEXTERITY", 10,
+                    "NORMAL", "1d6", "NONE", "CONTINUE", "FULL", "STOP"
+            );
+        }
     }
 }

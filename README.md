@@ -38,7 +38,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | Controllo locale | Implementato con API private locali per elencare, abilitare, disabilitare e chiudere i tavoli. |
 | Personaggi | Implementati con proprietario autenticato, limiti, validazione e vista completa riservata al DM. |
 | Pedine virtuali | Implementate con proprietario, personaggio, cella univoca e vista completa riservata al DM. |
-| API REST eventi | Implementata con `GET /api/v1/sessions/{sessionId}/events`. |
+| Eventi REST e live | Implementati con proiezioni separate pubblica, giocatore e DM; aggiornamento live tramite SSE senza segreti negli URL. |
 | API REST sessioni | Implementata con `POST /api/v1/sessions`. |
 | OpenAPI | Specifica iniziale disponibile in `docs/openapi/event-service.openapi.yml`. |
 | Comandi rapidi | Disponibili tramite `just help`. |
@@ -48,6 +48,9 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | Ricostruzione griglia da sessione | Implementata come servizio interno da stato persistito. |
 | API movimento da sessione | Implementata con `POST /api/v1/sessions/{sessionId}/movement/reachable-cells`. |
 | Movimento autorevole pedina | Implementato con posizione e velocita persistite, controllo versione, idempotenza ed evento `MOVE_CONFIRMED`. |
+| Trappole autorevoli | Implementate con interruzione del percorso, tiro salvezza server-side, danni, HP, prosecuzione e ciclo di vita one-shot o persistente. |
+| Controllo temporaneo DM | Implementato per assumere, muovere e restituire un personaggio quando il giocatore non puo operare. |
+| Comandi plancia | Implementata la pubblicazione MQTT backend-edge di percorso, correzione e cancellazione effetti senza dettagli riservati della trappola. |
 | Dashboard web | Base implementata per monitor, pagina QR, avvio DM, richieste e partecipanti; personaggi e pedine persistite devono ancora essere collegati all'interfaccia. |
 | App mobile | Da implementare. |
 
@@ -333,6 +336,9 @@ just my-pieces session-demo-001
 just dm-pieces session-demo-001
 just piece-reachable session-demo-001 PIECE_ID
 just move-piece session-demo-001 PIECE_ID C2 0
+just trap-status session-demo-001 RESOLUTION_ID
+just roll-trap session-demo-001 RESOLUTION_ID VERSIONE_RISOLUZIONE
+just continue-trap session-demo-001 RESOLUTION_ID NUOVA_VERSIONE
 ```
 
 I primi tre comandi creano e ispezionano le schede dei personaggi. I tre
@@ -350,12 +356,83 @@ idempotente lo stesso comando, passare esplicitamente come quinto argomento lo
 stesso UUID: il backend restituira il risultato gia salvato senza applicare
 un secondo spostamento.
 
+Se il percorso incontra una trappola attiva, `move-piece` restituisce
+`TRAP_PENDING` e un `RESOLUTION_ID`: la pedina si ferma sulla cella di
+attivazione. `trap-status` legge lo stato, `roll-trap` esegue sul server il d20
+con bonus e danni configurati, mentre `continue-trap` usa il movimento residuo
+solo quando l'esito lo consente. Ogni comando richiede la versione mostrata
+dalla risposta precedente e puo essere ritentato con lo stesso `commandId`
+senza duplicare tiro, danni o spostamento.
+
+Il DM consulta tutte le risoluzioni con `just pending-traps ID`. In caso di
+telefono scarico o client indisponibile puo usare `just assume-character ID
+CHARACTER_ID`, operare con `just dm-move-piece`, quindi restituire il controllo
+con `just release-character`. Il controllo e persistito e compare nel campo
+`controlMode` delle pedine anche dopo un refresh.
+
+Lo storico pubblico (`just events`) e intenzionalmente ridotto. Le viste
+autenticate `just player-events` e `just dm-events` applicano proiezioni
+diverse: il giocatore vede solo i propri dati, il DM vede lo stato completo.
+
+### Demo completa della trappola
+
+La ricetta `create-trap-session` crea una griglia `4 x 3` con partenza prevista
+in `B2`, destinazione `D2`, ostacoli in `C1` e `C3` e una trappola persistente
+nascosta in `C2`. Il percorso e quindi univoco e permette di verificare
+l'interruzione senza dipendere dalla scelta di uno fra piu cammini equivalenti.
+
+Con infrastruttura e backend gia attivi, usare un tavolo libero:
+
+```bash
+just enable-table 8 15
+just create-trap-session session-trap-demo-001
+export BOARDHUB_DM_TOKEN='TOKEN_DM_RESTITUITO'
+
+just request-join session-trap-demo-001 player-device-01 Andrea
+just pending-joins session-trap-demo-001
+just accept-join session-trap-demo-001 REQUEST_ID
+export BOARDHUB_PLAYER_TOKEN='TOKEN_GIOCATORE_RESTITUITO'
+
+just create-character session-trap-demo-001
+just create-piece session-trap-demo-001 CHARACTER_ID B2
+just move-piece session-trap-demo-001 PIECE_ID D2 0
+```
+
+L'ultimo comando deve rispondere `TRAP_PENDING`: la pedina e salvata in `C2`
+e la risposta fornisce `RESOLUTION_ID`, movimento residuo e nuova versione.
+Proseguire sempre usando la versione mostrata dalla risposta precedente:
+
+```bash
+just trap-status session-trap-demo-001 RESOLUTION_ID
+just roll-trap session-trap-demo-001 RESOLUTION_ID VERSIONE_RISOLUZIONE
+just continue-trap session-trap-demo-001 RESOLUTION_ID NUOVA_VERSIONE
+just player-events session-trap-demo-001
+just dm-events session-trap-demo-001
+```
+
+Se il tiro impone `STOP`, `continue-trap` viene correttamente rifiutato. Se
+consente `CONTINUE`, la pedina termina in `D2`. Per simulare un telefono non
+disponibile, il DM puo assumere il controllo e usare le API equivalenti:
+
+```bash
+just assume-character session-trap-demo-001 CHARACTER_ID
+just dm-piece-reachable session-trap-demo-001 PIECE_ID
+just dm-roll-trap session-trap-demo-001 RESOLUTION_ID VERSIONE_RISOLUZIONE
+just dm-continue-trap session-trap-demo-001 RESOLUTION_ID NUOVA_VERSIONE
+just release-character session-trap-demo-001 CHARACTER_ID
+```
+
+Il tiro e casuale e va eseguito una sola volta per quella risoluzione. I retry
+devono riutilizzare lo stesso `commandId`; in tal caso il backend restituisce
+lo stesso risultato senza ritirare i dadi o applicare nuovamente il danno.
+
 Il personaggio persistito e una scheda tattica minima, non la riproduzione
 completa della scheda D&D. Livello, HP, CA e velocita seguono la semantica
 delle [Free Rules 2024](https://www.dndbeyond.com/sources/dnd/br-2024/creating-a-character);
 le soglie elevate su HP, CA e caselle sono protezioni tecniche del servizio.
-Il sistema non calcola ancora automaticamente questi valori da
-caratteristiche, classe, equipaggiamento o capacita.
+Il sistema non calcola automaticamente questi valori da caratteristiche,
+classe, equipaggiamento o capacita: salva anche i sei bonus ai tiri salvezza e
+li usa come valori effettivi durante la risoluzione delle trappole.
 
 Calcolare le celle raggiungibili:
 
@@ -380,7 +457,7 @@ cd services/event-service
 mvn test
 ```
 
-Nella risposta REST, `trapsOnPath` contiene solo le trappole gia rivelate ai giocatori. Le trappole nascoste restano gestite internamente dal backend e non vengono esposte al client.
+Nella risposta REST, `trapsOnPath` contiene solo le trappole gia rivelate ai giocatori. Le trappole nascoste restano gestite internamente dal backend e non vengono esposte al client; se vengono attraversate, il backend interrompe comunque il movimento in modo autorevole.
 
 ## Documentazione
 
@@ -400,7 +477,9 @@ schema iniziale; `V2` aggiunge tavoli, richieste di ingresso e partecipanti;
 controllo del locale sullo stato dei tavoli e sulle finestre temporanee di
 avvio; `V5` collega ogni pedina virtuale al proprietario, al personaggio e a
 una cella univoca della sessione; `V6` aggiunge il contatore degli eventi
-generati dal backend e separa la progressione degli eventi per sorgente. I dati
+generati dal backend e separa la progressione degli eventi per sorgente; `V7`
+aggiunge definizioni complete delle trappole, risoluzioni persistite, tiri,
+danni, stato tattico e controllo temporaneo del DM. I dati
 esistenti non vengono cancellati e
 non e piu necessario eseguire manualmente `init.sql`.
 

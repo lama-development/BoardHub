@@ -7,6 +7,7 @@ import it.uniupo.boardhub.eventservice.config.JoinProperties;
 import it.uniupo.boardhub.eventservice.config.VenueProperties;
 import it.uniupo.boardhub.eventservice.model.grid.GridConfiguration;
 import it.uniupo.boardhub.eventservice.repository.CharacterRepository;
+import it.uniupo.boardhub.eventservice.repository.CharacterControlRepository;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
 import it.uniupo.boardhub.eventservice.repository.GameTableRepository;
 import it.uniupo.boardhub.eventservice.repository.JoinRequestRepository;
@@ -116,7 +117,11 @@ class TableJoinControllerTest {
         SessionLifecycleService lifecycleService = new SessionLifecycleService(
                 sessionRepository, tableRepository,
                 new JoinRequestRepository(jdbcTemplate),
-                participantRepository, clock
+                participantRepository,
+                new it.uniupo.boardhub.eventservice.repository.TrapResolutionRepository(
+                        jdbcTemplate, objectMapper
+                ),
+                clock
         );
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new PublicTableController(tableService, joinService),
@@ -135,8 +140,15 @@ class TableJoinControllerTest {
                                 lifecycleService,
                                 characterService
                         ),
-                        new PlayerSessionPieceController(pieceService),
-                        new DmSessionPieceController(dmAccessService, pieceService)
+                        new PlayerSessionPieceController(
+                                pieceService,
+                                new CharacterControlRepository(jdbcTemplate)
+                        ),
+                        new DmSessionPieceController(
+                                dmAccessService,
+                                pieceService,
+                                new CharacterControlRepository(jdbcTemplate)
+                        )
                 )
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();

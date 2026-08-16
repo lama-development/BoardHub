@@ -6,7 +6,10 @@ BoardHub e una piattaforma distribuita per sessioni fisiche di **Dungeons & Drag
 
 Il progetto immagina un locale ludico con piu tavoli. Ogni tavolo puo ospitare una sessione D&D e puo essere dotato di una plancia fisica intelligente. Nell'architettura completa la plancia comunica con un nodo edge locale, che invia eventi tramite MQTT; il backend centrale li salva e li rende disponibili tramite API REST a giocatori e Dungeon Master.
 
-L'MVP attuale simula plancia e sensori in software. Broker, backend, database, contratti e algoritmo di movimento sono operativi; nodo edge, app mobile e rilevamento fisico restano fasi successive.
+L'MVP attuale simula plancia e sensori in software. Broker, primo microservizio
+backend, database, contratti e algoritmo di movimento sono operativi; nodo
+edge, secondo microservizio, app mobile e rilevamento fisico restano fasi
+successive.
 
 L'obiettivo per PISSIR non e realizzare un gestionale commerciale del locale, ma dimostrare un sistema distribuito che collega un oggetto fisico a servizi di rete.
 
@@ -64,6 +67,9 @@ Le regole D&D gestite dall'MVP sono intenzionalmente limitate:
 | :--- | :--- | :--- |
 | Giocatore | Persona che controlla un personaggio. | Associa pedina, gestisce scheda base, vede turno, azioni, dadi e log. |
 | Dungeon Master | Gestisce sessione e combattimento. | Avvia encounter, posiziona mostri, muri, trappole, round e turni. |
+| Amministratore del locale | Gestisce i tavoli installati nel locale. | Abilita o disabilita tavoli, controlla sessioni e interviene in emergenza. |
+| Amministratore del gioco | Ruolo previsto dalla traccia, non ancora implementato. | Configura tipi di gioco, sensori e regole di acquisizione. |
+| Amministratore della piattaforma | Ruolo previsto dalla traccia, non ancora implementato. | Gestisce configurazioni globali e dati aggregati. |
 | Nodo edge | Componente vicino al tavolo fisico. | Raccoglie eventi, valida dati locali, pubblica MQTT, gestisce buffer offline. |
 | Backend centrale | Servizi lato server. | Riceve eventi, salva storico, espone API REST, ricostruisce stato. |
 | App mobile | Interfaccia principale per giocatori e DM. | Mostra personaggio, azioni, dadi, movimento e registro eventi. |
@@ -127,7 +133,7 @@ La scelta di Dijkstra e motivata dal terreno difficile: non tutte le caselle han
 
 Il movimento diagonale e supportato in forma semplificata. Una diagonale costa quanto la casella di arrivo, ma non puo tagliare un angolo: se una delle due celle laterali e non attraversabile o se un muro blocca uno dei passaggi laterali coinvolti, la diagonale viene rifiutata.
 
-Le trappole non sono ostacoli: possono trovarsi su una casella attraversabile. Una trappola puo essere nascosta ai giocatori, rivelata dopo un tiro di percezione o attivata quando il percorso del personaggio attraversa la casella. Se il Dungeon Master la configura come sempre nascosta, il sistema puo registrare l'attivazione senza mostrarla preventivamente sulla plancia.
+Le trappole non sono ostacoli: possono trovarsi su una casella attraversabile. Una trappola puo essere nascosta ai giocatori, rivelata dopo un tiro di percezione o attivata quando il percorso del personaggio attraversa la casella. Se il Dungeon Master la configura come sempre nascosta, il sistema interrompe comunque il movimento senza esporne preventivamente configurazione o presenza al giocatore.
 
 La complessita, usando una coda di priorita, e:
 
@@ -143,8 +149,8 @@ dove `V` e il numero di caselle e `E` il numero di collegamenti tra caselle. Su 
 | :--- | :--- | :--- | :--- |
 | Ordinamento cronologico deterministico | Implementato | `event-service`, lettura eventi sessione. | Ordina per istante, sorgente, sequenza e identificativo senza confondere contatori indipendenti. |
 | Dijkstra semplificato | Implementato | Movimento su griglia. | Gestisce costi del terreno, celle non attraversabili e muri tra celle adiacenti. |
-| Parser dadi | Da implementare | Tiri digitali dall'app mobile. | Interpreta formule come `1d20+3` e registra risultati verificabili. |
-| Verifica trappole sul percorso | Implementata internamente; trappole nascoste mascherate nelle API client | Movimento su griglia. | Permette al backend di rilevare il percorso interessato senza rivelare informazioni riservate al giocatore. |
+| Parser e generatore dadi | Parziale | Risoluzione trappole. | Interpreta formule limitate `NdS+K`, genera d20 e danni sul server; il lancio libero dell'app resta futuro. |
+| Risoluzione trappole sul percorso | Implementata | Movimento autorevole su griglia. | Interrompe il percorso, applica tiro, danni e prosecuzione senza rivelare informazioni riservate. |
 | Event replay | Da implementare | Ricostruzione stato partita. | Applica gli eventi in ordine per ricavare stato corrente. |
 | Linea di vista | Estensione futura | Attacchi a distanza e magie. | Verifica se muri, ostacoli o celle bloccate interrompono la visibilita. |
 
@@ -172,6 +178,14 @@ spostamento.
 I rifiuti sono risposte API strutturate e non eventi: una richiesta che non ha
 modificato il dominio non inquina lo storico della partita.
 
+Quando il percorso incontra una trappola attiva, la pedina viene fermata sulla
+cella interessata e il backend crea una risoluzione persistita. Il d20, i bonus
+ai tiri salvezza, gli eventuali danni e gli HP sono applicati una sola volta
+tramite versione e `commandId`; se rimane movimento e la regola lo consente, il
+percorso prosegue dalla cella di attivazione. Il DM puo assumere temporaneamente
+il controllo di un personaggio indisponibile e ogni cambio di controllo viene
+registrato.
+
 ## 8. Eventi
 
 Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAWN_MONSTER`, `ATTACK`, `DAMAGE` e `ROUND_END`. Gli eventi seguenti descrivono il dominio previsto e non sono tutti ancora implementati.
@@ -194,6 +208,11 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | `TERRAIN_UPDATED` | Il DM modifica terreno normale, terreno difficile o aree bloccate. |
 | `TRAP_REVEALED` | Trappola rivelata. |
 | `TRAP_TRIGGERED` | Trappola attivata dal passaggio o dalla posizione del personaggio. |
+| `TRAP_ROLL_RESOLVED` | Tiro salvezza, danno e decisione di movimento persistiti. |
+| `TRAP_RESOLUTION_COMPLETED` | La risoluzione non richiede altre operazioni. |
+| `CHARACTER_DOWNED` | Il personaggio raggiunge zero punti ferita. |
+| `CHARACTER_CONTROL_ASSUMED` | Il DM assume temporaneamente il controllo del personaggio. |
+| `CHARACTER_CONTROL_RELEASED` | Il DM restituisce il controllo al proprietario. |
 | `ROUND_END` | Fine round. |
 | `SESSION_END` | Fine sessione. |
 
@@ -249,20 +268,30 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | API celle raggiungibili | Implementata | Espone il risultato del movimento a dashboard/app. |
 | Ricostruzione griglia da sessione | Implementata | Trasforma lo stato persistito della sessione in `GameGrid`. |
 | API movimento da sessione | Implementata | Calcola le celle raggiungibili usando la griglia persistita della sessione. |
+| Trappole autorevoli | Implementate | Persistono configurazione, interruzione, tiro salvezza, danni, HP e prosecuzione. |
+| Aggiornamenti live | Implementati | SSE filtrato per giocatore e DM; gli eventi MQTT ricevuti aggiornano anche i client live. |
+| Comandi edge | Base implementata | Pubblica via MQTT percorso, correzione cella e cancellazione effetti senza segreti del DM. |
+| Controllo temporaneo DM | Implementato | Consente al DM di operare per un giocatore indisponibile e poi restituire il controllo. |
 | Limiti di elaborazione | Implementati | Proteggono il servizio da griglie oltre 2.500 celle e budget di movimento oltre 100. |
 | App mobile | Da implementare | Interfaccia giocatore/DM. |
 | Edge avanzato | Da implementare | Simulazione piu vicina alla plancia fisica. |
 
 ## 11. MVP per l'esame
 
-L'MVP deve restare concentrato sulla parte PISSIR:
+L'MVP deve restare concentrato sulla parte PISSIR e coprire almeno una
+dimostrazione ridotta ma completa delle categorie richieste dalla traccia:
 
 - una sessione D&D demo;
 - un tavolo/plancia simulata;
+- un edge locale con buffer offline e sincronizzazione;
 - eventi MQTT;
+- almeno due servizi backend con responsabilita distinte;
 - backend che riceve e salva;
 - API REST per leggere eventi;
 - algoritmo movimento su griglia;
+- risultato di sessione, statistiche essenziali e un torneo dimostrativo con
+  classifica;
+- interfaccia per sessione, storico, statistiche e classifica;
 - documentazione dei contratti;
 - demo end-to-end.
 
@@ -298,18 +327,34 @@ Gia realizzato:
   occupazione usata dalla griglia di movimento;
 - calcolo e conferma autorevole del movimento della pedina con controllo
   concorrente, retry idempotente ed evento `MOVE_CONFIRMED`;
+- risoluzione autorevole delle trappole con ciclo di vita, tiro salvezza,
+  danni, HP, stato tattico e prosecuzione del percorso;
+- controllo temporaneo del personaggio da parte del DM;
+- proiezioni evento separate e aggiornamenti live SSE;
+- comandi MQTT minimi dal backend alla futura plancia edge;
 - test automatici;
 - documentazione tecnica iniziale;
 - specifica OpenAPI dell'endpoint implementato.
 
+Rispetto alla consegna PISSIR restano ancora aperti requisiti strutturali, non
+semplici rifiniture: edge offline, seconda responsabilita a microservizio,
+statistiche e torneo minimo, interfacce relative, diagrammi UML e misure della
+validazione. L'app Android e l'hardware fisico possono valorizzare la demo, ma
+non sostituiscono questi requisiti.
+
 Prossimi passi consigliati:
 
-1. definire e implementare l'attivazione autorevole delle trappole, inclusi
-   arresto del percorso e decisione del DM;
-2. realizzare un edge simulato con coda offline e reinvio idempotente;
-3. aggiungere inventario delle pedine fisiche e associazione QR/NFC;
-4. misurare traffico, latenza e comportamento durante una disconnessione;
-5. collegare i contratti stabili all'app Android e alla dashboard del collaboratore.
+1. chiudere la verifica reale dell'incremento trappole con concorrenza
+   PostgreSQL e osservazione REST/SSE/MQTT;
+2. progettare e realizzare un edge simulato con coda offline, riallineamento e
+   reinvio idempotente;
+3. introdurre un secondo microservizio minimo per risultati, statistiche e
+   torneo dimostrativo, senza duplicare il dominio live;
+4. produrre diagrammi UML, diagrammi di sequenza e misure di latenza,
+   disconnessione e recupero;
+5. collegare i contratti stabili alla dashboard del collaboratore;
+6. progettare app Android, inventario fisico e associazione QR/NFC soltanto
+   dopo la copertura dei requisiti obbligatori precedenti.
 
 ## 13. Fattibilita nel contesto reale
 

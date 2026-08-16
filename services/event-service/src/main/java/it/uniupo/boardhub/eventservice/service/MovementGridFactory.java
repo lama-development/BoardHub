@@ -9,6 +9,8 @@ import it.uniupo.boardhub.eventservice.model.grid.GridTrap;
 import it.uniupo.boardhub.eventservice.model.grid.GridWall;
 import it.uniupo.boardhub.eventservice.model.grid.TerrainType;
 import it.uniupo.boardhub.eventservice.model.grid.TrapVisibility;
+import it.uniupo.boardhub.eventservice.model.trap.DiceExpression;
+import it.uniupo.boardhub.eventservice.model.trap.TrapDefinition;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -154,12 +156,39 @@ public class MovementGridFactory {
                 throw new IllegalArgumentException("Sono presenti piu trappole sulla cella " + position.toCell() + ".");
             }
 
+            validateTrapRules(trap);
+
             traps.put(position, new GridTrap(
                     trap.trapId(),
                     position,
                     parseVisibility(trap.visibility()),
                     trap.armed()
             ));
+        }
+    }
+
+    private void validateTrapRules(GridConfiguration.TrapConfiguration trap) {
+        enumValue(trap.lifecyclePolicy(), TrapDefinition.LifecyclePolicy.class, "lifecyclePolicy");
+        enumValue(trap.saveAbility(), TrapDefinition.SaveAbility.class, "saveAbility");
+        if (trap.saveDc() == null || trap.saveDc() < 1 || trap.saveDc() > 30) {
+            throw new IllegalArgumentException("saveDc deve essere compresa tra 1 e 30.");
+        }
+        enumValue(trap.rollMode(), TrapDefinition.RollMode.class, "rollMode");
+        DiceExpression.parse(trap.damageExpression());
+        enumValue(trap.successDamage(), TrapDefinition.DamagePolicy.class, "successDamage");
+        enumValue(trap.failureDamage(), TrapDefinition.DamagePolicy.class, "failureDamage");
+        enumValue(trap.successMovement(), TrapDefinition.MovementDecision.class, "successMovement");
+        enumValue(trap.failureMovement(), TrapDefinition.MovementDecision.class, "failureMovement");
+    }
+
+    private <E extends Enum<E>> E enumValue(String value, Class<E> type, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " e obbligatorio.");
+        }
+        try {
+            return Enum.valueOf(type, value.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(field + " non valido: " + value, ex);
         }
     }
 
@@ -193,7 +222,7 @@ public class MovementGridFactory {
             throw new IllegalArgumentException("La visibilita della trappola e obbligatoria.");
         }
         try {
-            return TrapVisibility.valueOf(visibility.toUpperCase(java.util.Locale.ROOT));
+            return TrapVisibility.valueOf(visibility.toUpperCase(java.util.Locale.ROOT)).normalized();
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Visibilita della trappola non valida: " + visibility, ex);
         }

@@ -3,6 +3,7 @@ package it.uniupo.boardhub.eventservice.controller;
 import it.uniupo.boardhub.eventservice.controller.dto.ErrorResponse;
 import it.uniupo.boardhub.eventservice.service.exception.CharacterCapacityException;
 import it.uniupo.boardhub.eventservice.service.exception.CharacterNotFoundException;
+import it.uniupo.boardhub.eventservice.service.exception.CharacterControlConflictException;
 import it.uniupo.boardhub.eventservice.service.exception.DmAuthenticationException;
 import it.uniupo.boardhub.eventservice.service.exception.DuplicateGameSessionException;
 import it.uniupo.boardhub.eventservice.service.exception.GameSessionNotFoundException;
@@ -19,6 +20,8 @@ import it.uniupo.boardhub.eventservice.service.exception.StalePieceStateExceptio
 import it.uniupo.boardhub.eventservice.service.exception.TableConflictException;
 import it.uniupo.boardhub.eventservice.service.exception.TableSessionNotFoundException;
 import it.uniupo.boardhub.eventservice.service.exception.VenueAuthenticationException;
+import it.uniupo.boardhub.eventservice.service.exception.TrapResolutionConflictException;
+import it.uniupo.boardhub.eventservice.service.exception.TrapResolutionNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -86,6 +89,12 @@ public class ApiExceptionHandler {
         return new ErrorResponse("CHARACTER_NOT_FOUND", ex.getMessage());
     }
 
+    @ExceptionHandler(CharacterControlConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleCharacterControlConflict(CharacterControlConflictException ex) {
+        return new ErrorResponse("CHARACTER_CONTROL_CONFLICT", ex.getMessage());
+    }
+
     @ExceptionHandler(SessionPieceConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleSessionPieceConflict(SessionPieceConflictException ex) {
@@ -96,6 +105,18 @@ public class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleSessionPieceNotFound(SessionPieceNotFoundException ex) {
         return new ErrorResponse("PIECE_NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(TrapResolutionNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleTrapResolutionNotFound(TrapResolutionNotFoundException ex) {
+        return new ErrorResponse("TRAP_RESOLUTION_NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(TrapResolutionConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleTrapResolutionConflict(TrapResolutionConflictException ex) {
+        return new ErrorResponse("TRAP_RESOLUTION_CONFLICT", ex.getMessage());
     }
 
     @ExceptionHandler({StalePieceStateException.class, MoveCommandConflictException.class})

@@ -6,6 +6,7 @@ import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
 import it.uniupo.boardhub.eventservice.repository.GameTableRepository;
 import it.uniupo.boardhub.eventservice.repository.JoinRequestRepository;
 import it.uniupo.boardhub.eventservice.repository.SessionParticipantRepository;
+import it.uniupo.boardhub.eventservice.repository.TrapResolutionRepository;
 import it.uniupo.boardhub.eventservice.service.exception.GameSessionNotFoundException;
 import it.uniupo.boardhub.eventservice.service.exception.JoinRequestConflictException;
 import it.uniupo.boardhub.eventservice.service.exception.TableConflictException;
@@ -24,6 +25,7 @@ public class SessionLifecycleService {
     private final GameTableRepository tableRepository;
     private final JoinRequestRepository requestRepository;
     private final SessionParticipantRepository participantRepository;
+    private final TrapResolutionRepository trapResolutionRepository;
     private final Clock clock;
 
     public SessionLifecycleService(
@@ -31,12 +33,14 @@ public class SessionLifecycleService {
             GameTableRepository tableRepository,
             JoinRequestRepository requestRepository,
             SessionParticipantRepository participantRepository,
+            TrapResolutionRepository trapResolutionRepository,
             Clock clock
     ) {
         this.sessionRepository = sessionRepository;
         this.tableRepository = tableRepository;
         this.requestRepository = requestRepository;
         this.participantRepository = participantRepository;
+        this.trapResolutionRepository = trapResolutionRepository;
         this.clock = clock;
     }
 
@@ -58,6 +62,7 @@ public class SessionLifecycleService {
 
         sessionRepository.endSession(sessionId);
         requestRepository.expirePendingForSession(sessionId, now);
+        trapResolutionRepository.cancelPendingForSession(sessionId, now);
         participantRepository.closeActiveParticipants(sessionId, now);
         if (!tableRepository.releaseSession(sessionId, Timestamp.from(now.toInstant()))) {
             throw new TableConflictException("Il tavolo associato alla sessione non e stato trovato.");

@@ -10,6 +10,12 @@ public record CreateCharacterRequest(
         Integer hpCurrent,
         Integer hpMax,
         Integer armorClass,
+        Integer strengthSave,
+        Integer dexteritySave,
+        Integer constitutionSave,
+        Integer intelligenceSave,
+        Integer wisdomSave,
+        Integer charismaSave,
         String partyVisibility
 ) {
 }

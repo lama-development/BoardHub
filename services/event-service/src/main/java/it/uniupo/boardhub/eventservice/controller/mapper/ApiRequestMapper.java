@@ -75,8 +75,21 @@ public final class ApiRequestMapper {
                 .map(trap -> trap == null
                         ? null
                         : new GridConfiguration.TrapConfiguration(
-                                trap.trapId(), trap.cell(), trap.visibility(), trap.armed()
+                                trap.trapId(), trap.cell(), trap.visibility(), trap.armed(),
+                                defaultText(trap.lifecyclePolicy(), "ONE_SHOT"),
+                                defaultText(trap.saveAbility(), "DEXTERITY"),
+                                trap.saveDc() == null ? 10 : trap.saveDc(),
+                                defaultText(trap.rollMode(), "NORMAL"),
+                                defaultText(trap.damageExpression(), "1d6"),
+                                defaultText(trap.successDamage(), "NONE"),
+                                defaultText(trap.successMovement(), "CONTINUE"),
+                                defaultText(trap.failureDamage(), "FULL"),
+                                defaultText(trap.failureMovement(), "STOP")
                         ))
                 .toList();
+    }
+
+    private static String defaultText(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 }

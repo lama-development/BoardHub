@@ -5,6 +5,43 @@
 
 ---
 
+## [0.23.0] - 2026-08-08
+
+Autore: Andrea Perini
+Ambito: Risoluzione autorevole delle trappole
+
+## Added
+
+- Aggiunta la migrazione Flyway `V7` con definizioni complete delle trappole,
+  risoluzioni persistite, tiri, danni, stato tattico e controllo temporaneo DM.
+- Aggiunte API protette per interrompere il movimento, eseguire un tiro
+  salvezza idempotente, applicare gli effetti e proseguire con il budget residuo.
+- Aggiunte proiezioni evento pubblica, giocatore e DM, aggiornamenti live SSE e
+  comandi MQTT backend-edge privi di dettagli riservati.
+- Aggiunti comandi `just` e output leggibili per trappole, eventi autenticati e
+  controllo temporaneo dei personaggi.
+
+## Changed
+
+- Il movimento autorevole si arresta ora sulla prima trappola applicabile e
+  conserva destinazione, percorso residuo e versione della risoluzione.
+- I personaggi persistono i bonus ai sei tiri salvezza, HP aggiornabili e stato
+  tattico; le pedine dichiarano chi ne possiede il controllo corrente.
+- Gli eventi ricevuti da MQTT, dopo il salvataggio, aggiornano anche i client
+  connessi allo stream live.
+- Aggiornati OpenAPI, contratti, scope e guida operativa al flusso approvato.
+
+## Fixed
+
+- Impediti doppi tiri, doppi danni e prosecuzioni duplicate durante retry o
+  richieste concorrenti tramite `commandId` e controllo versione.
+- Impedita l'esposizione di trappole nascoste, configurazioni del DM e identita
+  interne nelle API e negli stream destinati a pubblico e giocatori.
+- Annullate le risoluzioni pendenti alla chiusura della sessione e reso
+  idempotente il passaggio temporaneo di controllo al DM.
+
+---
+
 ## [0.22.0] - 2026-07-29
 
 Autore: Andrea Perini

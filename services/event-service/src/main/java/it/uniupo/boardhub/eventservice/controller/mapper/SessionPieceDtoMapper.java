@@ -21,7 +21,7 @@ public final class SessionPieceDtoMapper {
         );
     }
 
-    public static SessionPieceResponse toResponse(SessionPiece piece) {
+    public static SessionPieceResponse toResponse(SessionPiece piece, boolean dmControlled) {
         return new SessionPieceResponse(
                 piece.sessionPieceId(),
                 piece.sessionId(),
@@ -29,6 +29,7 @@ public final class SessionPieceDtoMapper {
                 piece.participantId(),
                 piece.representationMode().name(),
                 piece.currentCell(),
+                dmControlled ? "DM_CONTROLLED" : "PLAYER_CONTROLLED",
                 piece.version(),
                 piece.createdAt(),
                 piece.updatedAt()

@@ -45,6 +45,14 @@ public class MovementService {
                 continue;
             }
 
+            GridTrap currentTrap = grid.trapAt(current.position());
+            if (!current.position().equals(request.start())
+                    && currentTrap != null
+                    && currentTrap.armed()
+                    && currentTrap.isVisibleToPlayers()) {
+                continue;
+            }
+
             for (GridDirection direction : GridDirection.values()) {
                 GridPosition next = adjacentPosition(current.position(), direction);
                 if (next == null || !grid.contains(next) || !canMove(grid, current.position(), next, direction)) {

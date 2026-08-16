@@ -24,6 +24,12 @@ public final class CharacterDtoMapper {
                 request.hpCurrent(),
                 request.hpMax(),
                 request.armorClass(),
+                request.strengthSave(),
+                request.dexteritySave(),
+                request.constitutionSave(),
+                request.intelligenceSave(),
+                request.wisdomSave(),
+                request.charismaSave(),
                 request.partyVisibility()
         );
     }
@@ -42,6 +48,13 @@ public final class CharacterDtoMapper {
                 character.hpCurrent(),
                 character.hpMax(),
                 character.armorClass(),
+                character.strengthSave(),
+                character.dexteritySave(),
+                character.constitutionSave(),
+                character.intelligenceSave(),
+                character.wisdomSave(),
+                character.charismaSave(),
+                character.tacticalStatus().name(),
                 character.partyVisibility().name(),
                 character.version(),
                 character.createdAt().toString(),

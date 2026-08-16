@@ -3,6 +3,7 @@ package it.uniupo.boardhub.eventservice.service;
 import it.uniupo.boardhub.eventservice.config.CharacterProperties;
 import it.uniupo.boardhub.eventservice.model.character.PartyVisibility;
 import it.uniupo.boardhub.eventservice.model.character.PlayerCharacter;
+import it.uniupo.boardhub.eventservice.model.character.CharacterTacticalStatus;
 import it.uniupo.boardhub.eventservice.model.join.SessionParticipant;
 import it.uniupo.boardhub.eventservice.repository.CharacterRepository;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
@@ -84,6 +85,13 @@ public class CharacterService {
                 data.hpCurrent(),
                 data.hpMax(),
                 data.armorClass(),
+                data.strengthSave(),
+                data.dexteritySave(),
+                data.constitutionSave(),
+                data.intelligenceSave(),
+                data.wisdomSave(),
+                data.charismaSave(),
+                CharacterTacticalStatus.ACTIVE,
                 data.partyVisibility(),
                 0,
                 now,
@@ -125,10 +133,17 @@ public class CharacterService {
                 ? hpMax
                 : requiredRange(command.hpCurrent(), "hpCurrent", 0, hpMax);
         int armorClass = requiredRange(command.armorClass(), "armorClass", 0, MAX_ARMOR_CLASS);
+        int strengthSave = optionalRange(command.strengthSave(), "strengthSave", -20, 20, 0);
+        int dexteritySave = optionalRange(command.dexteritySave(), "dexteritySave", -20, 20, 0);
+        int constitutionSave = optionalRange(command.constitutionSave(), "constitutionSave", -20, 20, 0);
+        int intelligenceSave = optionalRange(command.intelligenceSave(), "intelligenceSave", -20, 20, 0);
+        int wisdomSave = optionalRange(command.wisdomSave(), "wisdomSave", -20, 20, 0);
+        int charismaSave = optionalRange(command.charismaSave(), "charismaSave", -20, 20, 0);
         PartyVisibility visibility = parseVisibility(command.partyVisibility());
         return new CharacterData(
                 name, species, age, className, level, speedCells,
-                hpCurrent, hpMax, armorClass, visibility
+                hpCurrent, hpMax, armorClass, strengthSave, dexteritySave,
+                constitutionSave, intelligenceSave, wisdomSave, charismaSave, visibility
         );
     }
 
@@ -180,6 +195,13 @@ public class CharacterService {
         return value;
     }
 
+    private int optionalRange(Integer value, String field, int minimum, int maximum, int defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        return requiredRange(value, field, minimum, maximum);
+    }
+
     private PartyVisibility parseVisibility(String value) {
         if (value == null || value.isBlank()) {
             return PartyVisibility.OWNER_ONLY;
@@ -203,6 +225,12 @@ public class CharacterService {
             int hpCurrent,
             int hpMax,
             int armorClass,
+            int strengthSave,
+            int dexteritySave,
+            int constitutionSave,
+            int intelligenceSave,
+            int wisdomSave,
+            int charismaSave,
             PartyVisibility partyVisibility
     ) {
     }

@@ -114,13 +114,31 @@ class TableJoinControllerTest {
         dmAuthorization = "Bearer " + createdSession.dmAccessToken();
 
         objectMapper = new ObjectMapper();
+        var trapResolutionRepository =
+                new it.uniupo.boardhub.eventservice.repository.TrapResolutionRepository(
+                        jdbcTemplate, objectMapper
+                );
         SessionLifecycleService lifecycleService = new SessionLifecycleService(
                 sessionRepository, tableRepository,
                 new JoinRequestRepository(jdbcTemplate),
                 participantRepository,
-                new it.uniupo.boardhub.eventservice.repository.TrapResolutionRepository(
-                        jdbcTemplate, objectMapper
+                trapResolutionRepository,
+                new it.uniupo.boardhub.eventservice.service.SessionResultService(
+                        participantRepository,
+                        new it.uniupo.boardhub.eventservice.repository.CharacterRepository(jdbcTemplate),
+                        new it.uniupo.boardhub.eventservice.repository.GameEventRepository(
+                                jdbcTemplate, objectMapper
+                        ),
+                        trapResolutionRepository
                 ),
+                // Il test copre il ciclo di vita della sessione, non il trasporto MQTT.
+                new it.uniupo.boardhub.eventservice.mqtt.MqttSessionResultPublisher(null, objectMapper) {
+                    @Override
+                    public void publishAfterCommit(
+                            it.uniupo.boardhub.eventservice.model.result.SessionResult result
+                    ) {
+                    }
+                },
                 clock
         );
         mockMvc = MockMvcBuilders.standaloneSetup(

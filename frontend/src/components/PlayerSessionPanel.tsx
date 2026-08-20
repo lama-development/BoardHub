@@ -4,7 +4,8 @@ import {
   BookOpen,
   Check,
   ChevronDown,
-  Heart,
+  Footprints,
+  HeartPulse,
   MapPin,
   Minus,
   LoaderCircle,
@@ -12,7 +13,6 @@ import {
   Plus,
   RefreshCw,
   Shield,
-  Swords,
   UserRound,
   X,
 } from "lucide-react";
@@ -33,6 +33,16 @@ import type {
   PlayerCharacter,
   SessionPiece,
 } from "../types";
+import {
+  calculateArmorClass,
+  calculateHitPointMaximum,
+  DEFENSE_PROFILES,
+  DND_CLASSES,
+  DND_SPECIES,
+  findClassRule,
+  findSpeciesRule,
+} from "../domain/dndCharacterRules";
+import type { DefenseProfile } from "../domain/dndCharacterRules";
 import { createUuid } from "../utils/uuid";
 import { AlertBanner, Button, PageHeaderIdentity, StatusChip, SummaryCard } from "./ui";
 
@@ -50,6 +60,11 @@ type CharacterFormState = {
   age: string;
   className: string;
   level: string;
+  constitution: string;
+  dexterity: string;
+  wisdom: string;
+  defenseProfile: DefenseProfile;
+  hasShield: boolean;
   speedFeet: string;
   hpMax: string;
   armorClass: string;
@@ -62,6 +77,11 @@ const INITIAL_FORM: CharacterFormState = {
   age: "",
   className: "",
   level: "1",
+  constitution: "10",
+  dexterity: "10",
+  wisdom: "10",
+  defenseProfile: "UNARMORED",
+  hasShield: false,
   speedFeet: "30",
   hpMax: "10",
   armorClass: "10",
@@ -74,33 +94,24 @@ const VISIBILITY_LABELS: Record<CharacterPartyVisibility, string> = {
   DM_ONLY: "Io e il DM",
 };
 
-const SPECIES_SUGGESTIONS = [
-  "Aasimar",
-  "Dragonide",
-  "Elfo",
-  "Gnomo",
-  "Goliath",
-  "Halfling",
-  "Nano",
-  "Orco",
-  "Tiefling",
-  "Umano",
-];
+function SpeciesAvatar({ species, size = "medium" }: { species: string; size?: "medium" | "large" }) {
+  const rule = findSpeciesRule(species);
+  const dimensions = size === "large" ? "h-14 w-14" : "h-10 w-10";
 
-const CLASS_SUGGESTIONS = [
-  "Barbaro",
-  "Bardo",
-  "Chierico",
-  "Druido",
-  "Guerriero",
-  "Ladro",
-  "Mago",
-  "Monaco",
-  "Paladino",
-  "Ranger",
-  "Stregone",
-  "Warlock",
-];
+  return (
+    <span className={`grid ${dimensions} shrink-0 place-items-center overflow-hidden border-2 border-[#111111] bg-[#c8b1ff] shadow-[2px_2px_0_#111111]`}>
+      {rule ? (
+        <img
+          alt={`Specie ${rule.label}`}
+          className="h-full w-full object-cover"
+          src={rule.iconPath}
+        />
+      ) : (
+        <UserRound size={size === "large" ? 24 : 18} aria-hidden="true" />
+      )}
+    </span>
+  );
+}
 
 function toCharacterInput(form: CharacterFormState): CreatePlayerCharacterInput {
   return {
@@ -171,8 +182,45 @@ export function PlayerSessionPanel({
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function updateRulesField<Key extends keyof CharacterFormState>(
+    field: Key,
+    value: CharacterFormState[Key],
+  ) {
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      const selectedClass = field === "className" ? findClassRule(String(value)) : findClassRule(next.className);
+      const selectedSpecies = field === "species" ? findSpeciesRule(String(value)) : findSpeciesRule(next.species);
+
+      if (field === "className" && selectedClass) {
+        next.defenseProfile = selectedClass.defaultDefense;
+        next.hasShield = selectedClass.defaultShield;
+      }
+      if (field === "species" && selectedSpecies) {
+        next.speedFeet = String(selectedSpecies.speedFeet);
+      }
+
+      next.hpMax = String(calculateHitPointMaximum(
+        next.className,
+        Number(next.level),
+        Number(next.constitution),
+      ));
+      next.armorClass = String(calculateArmorClass(
+        next.defenseProfile,
+        Number(next.dexterity),
+        Number(next.constitution),
+        Number(next.wisdom),
+        next.hasShield,
+      ));
+      return next;
+    });
+  }
+
   async function submitCharacter(event: React.FormEvent) {
     event.preventDefault();
+    if (!findClassRule(form.className)) {
+      setError("Seleziona una delle classi D&D disponibili.");
+      return;
+    }
     setIsCreating(true);
     setError(null);
     try {
@@ -374,22 +422,69 @@ export function PlayerSessionPanel({
                   description="Il nome con cui il personaggio sarà mostrato al tavolo."
                   onChange={(value) => updateField("name", value)}
                 />
-                <CharacterCombobox
-                  label="Specie"
-                  value={form.species}
-                  placeholder="Scegli o scrivi una specie"
-                  description="Puoi usare una specie suggerita o una consentita dalla campagna."
-                  options={SPECIES_SUGGESTIONS}
-                  onChange={(value) => updateField("species", value)}
+                <CharacterNumberField
+                  label="Età"
+                  value={form.age}
+                  min={1}
+                  description="Dato narrativo facoltativo; non modifica le regole di movimento."
+                  onChange={(value) => updateField("age", value)}
+                  required={false}
                 />
-                <CharacterCombobox
-                  label="Classe"
-                  value={form.className}
-                  placeholder="Scegli o scrivi una classe"
-                  description="La classe principale indicata sulla scheda del personaggio."
-                  options={CLASS_SUGGESTIONS}
-                  onChange={(value) => updateField("className", value)}
-                />
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <span className="text-sm font-bold text-[#111111]">Specie</span>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="group" aria-label="Specie del personaggio">
+                    {DND_SPECIES.map((entry) => {
+                      const selected = form.species === entry.label;
+                      return (
+                        <button
+                          className={`flex min-h-20 cursor-pointer items-center gap-2.5 border-2 border-[#111111] p-2 text-left shadow-[2px_2px_0_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${selected ? "bg-[#04c8e8]" : "bg-white hover:bg-[#d8f7fb]"}`}
+                          key={entry.label}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => updateRulesField("species", entry.label)}
+                        >
+                          <span className="grid h-13 w-13 shrink-0 place-items-center overflow-hidden border-2 border-[#111111] bg-[#c8b1ff]">
+                            <img
+                              alt=""
+                              className="h-full w-full object-cover"
+                              src={entry.iconPath}
+                            />
+                          </span>
+                          <span className="min-w-0">
+                            <strong className="block truncate text-sm leading-tight">{entry.label}</strong>
+                            <span className="mt-1 block text-[11px] font-bold text-slate-600">{entry.speedFeet} piedi</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span className="mt-1.5 block text-xs font-normal leading-4 text-slate-500">
+                    La specie imposta la velocità iniziale e identifica visivamente il personaggio.
+                  </span>
+                </div>
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <span className="text-sm font-bold text-[#111111]">Classe</span>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6" role="group" aria-label="Classe del personaggio">
+                    {DND_CLASSES.map((entry) => {
+                      const selected = form.className === entry.label;
+                      return (
+                        <button
+                          className={`min-h-14 cursor-pointer border-2 border-[#111111] px-3 py-2 text-left shadow-[2px_2px_0_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${selected ? "bg-[#ffd400]" : "bg-white hover:bg-[#fff2a7]"}`}
+                          key={entry.label}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => updateRulesField("className", entry.label)}
+                        >
+                          <strong className="block truncate text-sm leading-tight">{entry.label}</strong>
+                          <span className="mt-1 block text-[11px] font-bold text-slate-600">D{entry.hitDie} PF</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span className="mt-1.5 block text-xs font-normal leading-4 text-slate-500">
+                    La classe imposta dado vita e profilo difensivo iniziale; puoi correggere l'equipaggiamento sotto.
+                  </span>
+                </div>
               </div>
             </fieldset>
 
@@ -402,14 +497,61 @@ export function PlayerSessionPanel({
                   min={1}
                   max={20}
                   description="Livello attuale del personaggio, da 1 a 20."
-                  onChange={(value) => updateField("level", value)}
+                  onChange={(value) => updateRulesField("level", value)}
                 />
+                <NumberStepper
+                  label="Costituzione"
+                  value={form.constitution}
+                  min={1}
+                  max={30}
+                  description="Determina i PF insieme a classe e livello."
+                  onChange={(value) => updateRulesField("constitution", value)}
+                />
+                <NumberStepper
+                  label="Destrezza"
+                  value={form.dexterity}
+                  min={1}
+                  max={30}
+                  description="Contribuisce alla CA quando il profilo lo consente."
+                  onChange={(value) => updateRulesField("dexterity", value)}
+                />
+                <NumberStepper
+                  label="Saggezza"
+                  value={form.wisdom}
+                  min={1}
+                  max={30}
+                  description="Usata dalla Difesa senza armatura del Monaco."
+                  onChange={(value) => updateRulesField("wisdom", value)}
+                />
+              </div>
+              <div className="mt-4 grid gap-3 border-t-2 border-[#111111] pt-4 sm:grid-cols-2 lg:grid-cols-4">
+                <CustomSelect
+                  label="Profilo difensivo"
+                  value={form.defenseProfile}
+                  options={DEFENSE_PROFILES}
+                  description="Formula proposta dalla classe; cambiala se usi un'altra armatura."
+                  onChange={(value) => updateRulesField("defenseProfile", value)}
+                />
+                <label className="flex flex-col gap-1.5 text-sm font-bold text-[#111111]">
+                  Scudo
+                  <button
+                    className={`bh-input flex h-10 cursor-pointer items-center justify-between px-3 text-left ${form.hasShield ? "bg-[#b8ee72]" : "bg-white"}`}
+                    type="button"
+                    role="switch"
+                    aria-checked={form.hasShield}
+                    onClick={() => updateRulesField("hasShield", !form.hasShield)}
+                  >
+                    <span>{form.hasShield ? "Equipaggiato (+2 CA)" : "Non equipaggiato"}</span>
+                    <Shield size={17} aria-hidden="true" />
+                  </button>
+                  <span className="text-xs font-normal leading-4 text-slate-500">Disponibile solo se la scheda prevede competenza.</span>
+                </label>
                 <NumberStepper
                   label="Punti ferita massimi"
                   value={form.hpMax}
                   min={1}
                   max={1000000}
-                  description="Il totale massimo riportato sulla scheda."
+                  description="Calcolati dalla classe e dalla Costituzione; modificabili."
                   onChange={(value) => updateField("hpMax", value)}
                 />
                 <NumberStepper
@@ -417,7 +559,7 @@ export function PlayerSessionPanel({
                   value={form.armorClass}
                   min={0}
                   max={100}
-                  description="Valore totale con armatura, Destrezza e bonus."
+                  description="Calcolata dal profilo difensivo; modificabile."
                   onChange={(value) => updateField("armorClass", value)}
                 />
                 <NumberStepper
@@ -426,7 +568,7 @@ export function PlayerSessionPanel({
                   min={0}
                   max={500}
                   step={5}
-                  description={`${previewSpeedCells} celle sulla plancia.`}
+                  description={`Proposta dalla specie: ${previewSpeedCells} celle sulla plancia.`}
                   onChange={(value) => updateField("speedFeet", value)}
                 />
               </div>
@@ -440,15 +582,7 @@ export function PlayerSessionPanel({
                 </span>
               </summary>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <CharacterNumberField
-                  label="Età"
-                  value={form.age}
-                  min={1}
-                  description="Dato narrativo facoltativo; non modifica le regole di movimento."
-                  onChange={(value) => updateField("age", value)}
-                  required={false}
-                />
-                <CustomSelect
+                  <CustomSelect
                   label="Visibilità nel gruppo"
                   value={form.partyVisibility}
                   options={Object.entries(VISIBILITY_LABELS).map(([value, label]) => ({
@@ -465,7 +599,10 @@ export function PlayerSessionPanel({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <span className="bh-kicker">Anteprima scheda</span>
-                  <h3 className="mt-3 text-2xl">{form.name || "Nome del personaggio"}</h3>
+                  <div className="mt-3 flex items-center gap-3">
+                    <SpeciesAvatar species={form.species} size="large" />
+                    <h3 className="text-2xl">{form.name || "Nome del personaggio"}</h3>
+                  </div>
                   <p className="mt-1 text-sm font-bold text-slate-700">
                     {form.species || "Specie"} · {form.className || "Classe"} · Livello {form.level}
                   </p>
@@ -473,9 +610,9 @@ export function PlayerSessionPanel({
                 <StatusChip tone="info">{VISIBILITY_LABELS[form.partyVisibility]}</StatusChip>
               </div>
               <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <PreviewStat label="Punti ferita" value={`${form.hpMax || "-"}/${form.hpMax || "-"}`} />
-                <PreviewStat label="Classe armatura" value={form.armorClass || "-"} />
-                <PreviewStat label="Movimento" value={`${previewSpeedCells} celle`} />
+                <PreviewStat icon={<HeartPulse size={16} />} label="Punti ferita" value={`${form.hpMax || "-"}/${form.hpMax || "-"}`} />
+                <PreviewStat icon={<Shield size={16} />} label="Classe armatura" value={form.armorClass || "-"} />
+                <PreviewStat icon={<Footprints size={16} />} label="Movimento" value={`${previewSpeedCells} celle`} />
               </div>
             </div>
 
@@ -514,18 +651,21 @@ export function PlayerSessionPanel({
             {characters.map((character) => (
               <li className="bh-surface bh-surface--cream p-4" key={character.characterId}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-950">{character.name}</p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {character.species} · {character.className} · Livello {character.level}
-                    </p>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <SpeciesAvatar species={character.species} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-950">{character.name}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {character.species} · {character.className} · Livello {character.level}
+                      </p>
+                    </div>
                   </div>
                   <StatusChip tone="neutral">{VISIBILITY_LABELS[character.partyVisibility]}</StatusChip>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-                  <CharacterStat icon={<Heart size={16} />} label="PF" value={`${character.hpCurrent}/${character.hpMax}`} />
+                  <CharacterStat icon={<HeartPulse size={16} />} label="PF" value={`${character.hpCurrent}/${character.hpMax}`} />
                   <CharacterStat icon={<Shield size={16} />} label="CA" value={String(character.armorClass)} />
-                  <CharacterStat icon={<Swords size={16} />} label="Velocità" value={`${character.speedCells}`} />
+                  <CharacterStat icon={<Footprints size={16} />} label="Movimento" value={`${character.speedCells} celle`} />
                 </div>
               </li>
             ))}
@@ -685,89 +825,6 @@ function CharacterTextField({
       />
       {description ? <span className="text-xs font-normal leading-4 text-slate-500">{description}</span> : null}
     </label>
-  );
-}
-
-type CharacterComboboxProps = CharacterTextFieldProps & {
-  options: string[];
-};
-
-function CharacterCombobox({
-  label,
-  value,
-  description,
-  placeholder,
-  options,
-  onChange,
-}: CharacterComboboxProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const filteredOptions = options.filter((option) =>
-    option.toLocaleLowerCase("it-IT").includes(value.trim().toLocaleLowerCase("it-IT")),
-  );
-
-  React.useEffect(() => {
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false);
-    }
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
-  }, []);
-
-  return (
-    <div className="relative flex flex-col gap-1.5 text-sm font-bold text-[#111111]" ref={containerRef}>
-      <span>{label}</span>
-      <div className={`bh-input flex h-10 items-center ${isOpen ? "bg-[#fff8cc]" : ""}`}>
-        <input
-          className="h-full min-w-0 flex-1 bg-transparent px-3 font-normal text-slate-950 outline-none"
-          role="combobox"
-          aria-expanded={isOpen}
-          autoComplete="off"
-          value={value}
-          placeholder={placeholder}
-          maxLength={80}
-          required
-          onFocus={() => setIsOpen(true)}
-          onChange={(event) => {
-            onChange(event.target.value);
-            setIsOpen(true);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") setIsOpen(false);
-          }}
-        />
-        <button
-          className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center text-slate-500 hover:text-slate-950"
-          type="button"
-          aria-label={`Apri opzioni ${label.toLocaleLowerCase("it-IT")}`}
-          onClick={() => setIsOpen((current) => !current)}
-        >
-          <ChevronDown className={isOpen ? "rotate-180" : ""} size={17} aria-hidden="true" />
-        </button>
-      </div>
-      {description ? <span className="text-xs font-normal leading-4 text-slate-500">{description}</span> : null}
-      {isOpen && filteredOptions.length > 0 ? (
-        <ul className="absolute inset-x-0 top-[66px] z-20 max-h-52 overflow-auto rounded-[2px] border-2 border-[#111111] bg-white p-1.5 shadow-[4px_4px_0_#111111]" role="listbox">
-          {filteredOptions.map((option) => (
-            <li key={option}>
-              <button
-                className="flex w-full cursor-pointer items-center justify-between rounded-[1px] border-2 border-transparent px-3 py-2 text-left text-sm font-bold text-slate-700 hover:border-[#111111] hover:bg-[#fff2a7]"
-                type="button"
-                role="option"
-                aria-selected={option === value}
-                onClick={() => {
-                  onChange(option);
-                  setIsOpen(false);
-                }}
-              >
-                {option}
-                {option === value ? <Check size={16} aria-hidden="true" /> : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
   );
 }
 
@@ -954,10 +1011,10 @@ function CharacterStat({ icon, label, value }: CharacterStatProps) {
   );
 }
 
-function PreviewStat({ label, value }: { label: string; value: string }) {
+function PreviewStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="border-2 border-[#111111] bg-white p-2.5 shadow-[2px_2px_0_#111111]">
-      <span className="block text-[12px] font-bold uppercase leading-[1.25] tracking-[0.03em] text-slate-700">{label}</span>
+      <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase leading-[1.25] tracking-[0.03em] text-slate-700">{icon}{label}</span>
       <strong className="mt-1 block text-base font-black text-[#111111]">{value}</strong>
     </div>
   );

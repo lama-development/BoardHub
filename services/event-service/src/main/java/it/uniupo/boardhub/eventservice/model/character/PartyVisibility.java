@@ -1,6 +1,6 @@
 package it.uniupo.boardhub.eventservice.model.character;
 
-// Stabilisce quali future proiezioni potranno mostrare il personaggio al gruppo.
+// Stabilisce se il personaggio compare nelle viste condivise del gruppo.
 public enum PartyVisibility {
     OWNER_ONLY,
     PARTY,

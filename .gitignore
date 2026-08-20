@@ -49,3 +49,9 @@ coverage/
 
 # macOS
 .DS_Store
+
+# Nodo edge: ambiente Python e coda locale
+edge/.venv/
+edge/**/__pycache__/
+edge/*.sqlite3
+edge/*.sqlite3-*

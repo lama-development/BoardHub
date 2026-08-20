@@ -6,7 +6,11 @@ BoardHub è una piattaforma distribuita per sessioni di **Dungeons & Dragons** g
 
 Il progetto collega un tavolo di gioco a componenti software di rete: una plancia o un simulatore genera eventi, un nodo edge li raccoglie, MQTT li trasporta verso il backend, PostgreSQL conserva lo storico e le API REST rendono i dati disponibili ad applicazioni client.
 
-Il diagramma seguente rappresenta l'architettura completa. Nell'MVP corrente il simulatore pubblica direttamente sul broker; il nodo edge con buffer offline e sincronizzazione e il principale componente ancora da realizzare.
+Il diagramma seguente rappresenta l'architettura completa. Il nodo edge con
+coda offline e sincronizzazione e implementato in `edge/`: conserva localmente
+le osservazioni della plancia e le riconsegna al backend dopo una
+disconnessione. Il simulatore storico resta disponibile per la demo minima e
+pubblica ancora direttamente sul broker.
 
 ```text
 plancia fisica / simulatore
@@ -40,7 +44,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | Pedine virtuali | Implementate con proprietario, personaggio, cella univoca e vista completa riservata al DM. |
 | Eventi REST e live | Implementati con proiezioni separate pubblica, giocatore e DM; aggiornamento live tramite SSE senza segreti negli URL. |
 | API REST sessioni | Implementata con `POST /api/v1/sessions`. |
-| OpenAPI | Specifica iniziale disponibile in `docs/openapi/event-service.openapi.yml`. |
+| OpenAPI | Specifiche versionate disponibili per `event-service` e `stats-service` in `docs/openapi/`. |
 | Comandi rapidi | Disponibili tramite `just help`. |
 | Modello griglia | Implementato per posizioni, celle, terreno e richieste di movimento. |
 | Algoritmo movimento | Implementato con Dijkstra semplificato. |
@@ -51,7 +55,11 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | Trappole autorevoli | Implementate con interruzione del percorso, tiro salvezza server-side, danni, HP, prosecuzione e ciclo di vita one-shot o persistente. |
 | Controllo temporaneo DM | Implementato per assumere, muovere e restituire un personaggio quando il giocatore non puo operare. |
 | Comandi plancia | Implementata la pubblicazione MQTT backend-edge di percorso, correzione e cancellazione effetti senza dettagli riservati della trappola. |
-| Dashboard web | Base implementata per monitor, pagina QR, avvio DM, richieste e partecipanti; personaggi e pedine persistite devono ancora essere collegati all'interfaccia. |
+| Nodo edge offline | Implementato in `edge/` con coda SQLite persistente, backoff, deduplica end-to-end e riallineamento dopo la disconnessione. |
+| Secondo microservizio | Implementato in `services/stats-service/` su porta 8083, con schema proprio e comunicazione solo via MQTT. |
+| Statistiche e torneo | Implementati con risultato di sessione, statistiche per giocatore, torneo e classifica finale. |
+| Acknowledgement applicativi | Implementati: il backend conferma la persistenza di ogni evento MQTT, cosi l'edge chiude un elemento solo a salvataggio avvenuto. |
+| Dashboard web | Implementata con pagina QR, flussi DM/giocatore persistenti, personaggi, pedine, raggiungibilita, movimento e viste operative della sessione. La risoluzione delle trappole e gli stream SSE non sono ancora collegati all'interfaccia. |
 | App mobile | Da implementare. |
 
 ## Struttura del repository
@@ -59,17 +67,20 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | Percorso | Contenuto |
 | :--- | :--- |
 | `docker/` | Configurazione locale di Mosquitto e PostgreSQL. |
-| `docs/` | Changelog pubblico, contratti di comunicazione e specifica OpenAPI. |
+| `docs/` | Changelog pubblico, contratti di comunicazione e specifiche OpenAPI. |
 | `justfile` | Comandi rapidi per avvio, test e demo locale. |
 | `services/event-service/` | Microservizio Java/Spring Boot per ricezione, salvataggio e lettura degli eventi. |
+| `services/stats-service/` | Secondo microservizio: risultati di sessione, statistiche e tornei. |
+| `edge/` | Nodo edge Python con coda offline persistente. |
 | `frontend/` | Dashboard React per monitorare eventi e stato minimo di una sessione. |
 | `simulator/` | Script Python per pubblicare e leggere eventi MQTT dimostrativi. |
 
 ## Handoff frontend
 
 Questa sezione riassume il contratto operativo che il frontend deve seguire.
-La specifica completa dei payload resta in
-[`docs/openapi/event-service.openapi.yml`](docs/openapi/event-service.openapi.yml).
+Le specifiche complete dei payload restano in
+[`docs/openapi/event-service.openapi.yml`](docs/openapi/event-service.openapi.yml)
+e [`docs/openapi/stats-service.openapi.yml`](docs/openapi/stats-service.openapi.yml).
 
 ### Avvio dell'ambiente
 
@@ -169,15 +180,18 @@ just venue-close-table 1
 
 Il monitor generico `http://localhost:5173` legge soltanto
 `GET /api/v1/sessions/{sessionId}/events` e ricostruisce graficamente le pedine
-dagli eventi `MOVE`. Non e quindi la fonte autorevole delle nuove pedine
-persistite: una pedina creata con `POST .../pieces` puo esistere correttamente
-nel database senza comparire in quel monitor.
+dagli eventi `MOVE`. Un `MOVE` MQTT grezzo descrive un'osservazione della
+plancia e alimenta lo storico, ma non modifica la posizione autorevole di una
+pedina. Non e quindi la fonte autorevole delle nuove pedine persistite: una
+pedina creata con `POST .../pieces` puo esistere correttamente nel database
+senza comparire in quel monitor.
 
-Il frontend deve usare `GET /api/v1/dm/sessions/{sessionId}/pieces` per il
-conteggio e la posizione corrente delle pedine, e
-`GET /api/v1/dm/sessions/{sessionId}/characters` per le schede visibili al DM.
+Le console dedicate usano invece le API autorevoli: il giocatore puo creare e
+leggere personaggi e pedine, calcolare le destinazioni e richiedere un
+movimento; il DM consulta partecipanti, personaggi e pedine della sessione.
 Gli eventi restano lo storico delle azioni, non lo stato corrente della
-plancia.
+plancia. Restano da integrare nel frontend gli stati `TRAP_PENDING`, il tiro e
+la prosecuzione, il takeover del DM dopo refresh e gli stream SSE.
 
 ### Verifica equivalente da terminale
 
@@ -464,6 +478,7 @@ Nella risposta REST, `trapsOnPath` contiene solo le trappole gia rivelate ai gio
 - [Project Scope](PROJECT_SCOPE.md)
 - [Contratti di comunicazione](docs/CONTRATTI_DI_COMUNICAZIONE.md)
 - [Specifica OpenAPI event-service](docs/openapi/event-service.openapi.yml)
+- [Specifica OpenAPI stats-service](docs/openapi/stats-service.openapi.yml)
 - [Changelog](docs/CHANGELOG.md)
 
 ## Note operative
@@ -479,9 +494,11 @@ avvio; `V5` collega ogni pedina virtuale al proprietario, al personaggio e a
 una cella univoca della sessione; `V6` aggiunge il contatore degli eventi
 generati dal backend e separa la progressione degli eventi per sorgente; `V7`
 aggiunge definizioni complete delle trappole, risoluzioni persistite, tiri,
-danni, stato tattico e controllo temporaneo del DM. I dati
-esistenti non vengono cancellati e
-non e piu necessario eseguire manualmente `init.sql`.
+danni, stato tattico e controllo temporaneo del DM; `V8` aggiunge l'outbox
+transazionale che conserva i risultati di sessione finche il broker MQTT non ne
+conferma la pubblicazione. I dati esistenti non vengono cancellati e non e piu
+necessario eseguire manualmente `init.sql`. Lo `stats-service` gestisce invece
+il proprio schema `stats_schema` con migrazioni indipendenti.
 
 Per controllare le migrazioni applicate mentre PostgreSQL e attivo:
 

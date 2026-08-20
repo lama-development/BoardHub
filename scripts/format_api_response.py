@@ -103,11 +103,20 @@ def render_error(data: dict[str, Any]) -> None:
     field("Motivo", data.get("message"))
 
 
-def render_health(data: dict[str, Any]) -> None:
+def render_health(
+    data: dict[str, Any],
+    address: str = "http://localhost:8082",
+    service_name: str = "Backend",
+) -> None:
     status = text(data.get("status"))
     color = GREEN if status == "UP" else RED
-    print(f"{style('●', color)} Backend {style('operativo', color) if status == 'UP' else style(status, color)}")
-    field("Indirizzo", "http://localhost:8082")
+    state = style("operativo", color) if status == "UP" else style(status, color)
+    print(f"{style('●', color)} {service_name} {state}")
+    field("Indirizzo", address)
+
+
+def render_stats_health(data: dict[str, Any]) -> None:
+    render_health(data, "http://localhost:8083", "Servizio statistiche")
 
 
 def render_venue_tables(data: list[dict[str, Any]]) -> None:
@@ -459,6 +468,104 @@ def pretty_json(raw: str, data: Any) -> None:
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
+def render_session_result(data: dict[str, Any]) -> None:
+    print(style(f"\n  {text(data.get('title'))}", BOLD))
+    print(style(
+        f"  {text(data.get('sessionId'))}  ·  {text(data.get('gameType'))}"
+        f"  ·  {text(data.get('durationMinutes'))} minuti",
+        DIM,
+    ))
+    rows = [
+        [
+            item.get("displayName"),
+            f"{text(item.get('characterName'))} ({text(item.get('className'))})",
+            "si" if item.get("survived") else "no",
+            item.get("movesConfirmed"),
+            item.get("cellsTravelled"),
+            f"{text(item.get('savesSucceeded'))}/{text(item.get('savesFailed'))}",
+            item.get("points"),
+        ]
+        for item in data.get("participants", [])
+    ]
+    table(
+        ["GIOCATORE", "PERSONAGGIO", "VIVO", "MOSSE", "CELLE", "TS OK/KO", "PUNTI"],
+        rows,
+        [14, 26, 6, 7, 7, 10, 7],
+    )
+
+
+def render_session_results(data: list[dict[str, Any]]) -> None:
+    rows = [
+        [
+            item.get("title"),
+            item.get("sessionId"),
+            item.get("gameType"),
+            item.get("durationMinutes"),
+            local_date(item.get("endedAt")),
+        ]
+        for item in data
+    ]
+    table(["TITOLO", "SESSIONE", "GIOCO", "MINUTI", "CONCLUSA"], rows, [24, 32, 8, 8, 20])
+    print(style(f"\n  Sessioni concluse: {len(data)}", DIM))
+
+
+def render_player_statistics(data: dict[str, Any]) -> None:
+    print(style(f"\n  {text(data.get('displayName'))}", BOLD))
+    print(style(f"  {text(data.get('playerReference'))}", DIM))
+    table(
+        ["PARTITE", "SOPRAVVISSUTO", "% SOPRAVV.", "PUNTI", "CELLE", "TS OK", "DANNI"],
+        [[
+            data.get("sessionsPlayed"),
+            data.get("sessionsSurvived"),
+            data.get("survivalRate"),
+            data.get("totalPoints"),
+            data.get("totalCellsTravelled"),
+            data.get("totalSavesSucceeded"),
+            data.get("totalDamageTaken"),
+        ]],
+        [9, 15, 12, 8, 8, 8, 8],
+    )
+
+
+def render_tournament(data: dict[str, Any]) -> None:
+    print(style(f"\n  {text(data.get('name'))}", BOLD))
+    print(style(
+        f"  {text(data.get('tournamentId'))}  ·  {text(data.get('gameType'))}"
+        f"  ·  {text(data.get('venueId'))}",
+        DIM,
+    ))
+
+
+def render_tournaments(data: list[dict[str, Any]]) -> None:
+    rows = [
+        [item.get("name"), item.get("gameType"), item.get("venueId"), item.get("tournamentId")]
+        for item in data
+    ]
+    table(["NOME", "GIOCO", "LOCALE", "TOURNAMENT ID"], rows, [24, 8, 12, 38])
+    print(style(f"\n  Tornei: {len(data)}", DIM))
+
+
+def render_leaderboard(data: list[dict[str, Any]]) -> None:
+    rows = [
+        [
+            item.get("position"),
+            item.get("displayName"),
+            item.get("sessionsPlayed"),
+            item.get("points"),
+            item.get("savesSucceeded"),
+            item.get("cellsTravelled"),
+            item.get("timesDowned"),
+        ]
+        for item in data
+    ]
+    table(
+        ["POS", "GIOCATORE", "PARTITE", "PUNTI", "TS OK", "CELLE", "ABBATTUTO"],
+        rows,
+        [5, 16, 8, 7, 7, 7, 10],
+    )
+    print(style("\n  Punteggio: sessione +3, sopravvissuto +2, tiro salvezza +1, abbattuto -1", DIM))
+
+
 def render(profile: str, data: Any) -> None:
     if isinstance(data, dict) and "code" in data and "message" in data:
         render_error(data)
@@ -466,6 +573,7 @@ def render(profile: str, data: Any) -> None:
 
     renderers = {
         "health": render_health,
+        "stats-health": render_stats_health,
         "venue-tables": render_venue_tables,
         "table-status": render_table_status,
         "active-session": render_active_session,
@@ -487,6 +595,12 @@ def render(profile: str, data: Any) -> None:
         "closed-session": render_closed_session,
         "movement": render_movement,
         "events": render_events,
+        "session-result": render_session_result,
+        "session-results": render_session_results,
+        "player-statistics": render_player_statistics,
+        "tournament": render_tournament,
+        "tournaments": render_tournaments,
+        "leaderboard": render_leaderboard,
     }
     renderer = renderers.get(profile)
     if renderer is None:

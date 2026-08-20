@@ -6,10 +6,9 @@ BoardHub e una piattaforma distribuita per sessioni fisiche di **Dungeons & Drag
 
 Il progetto immagina un locale ludico con piu tavoli. Ogni tavolo puo ospitare una sessione D&D e puo essere dotato di una plancia fisica intelligente. Nell'architettura completa la plancia comunica con un nodo edge locale, che invia eventi tramite MQTT; il backend centrale li salva e li rende disponibili tramite API REST a giocatori e Dungeon Master.
 
-L'MVP attuale simula plancia e sensori in software. Broker, primo microservizio
-backend, database, contratti e algoritmo di movimento sono operativi; nodo
-edge, secondo microservizio, app mobile e rilevamento fisico restano fasi
-successive.
+L'MVP attuale simula plancia e sensori in software. Broker, nodo edge con coda
+offline, due microservizi backend, database, contratti e algoritmo di movimento
+sono operativi. App mobile e rilevamento fisico restano fasi successive.
 
 L'obiettivo per PISSIR non e realizzare un gestionale commerciale del locale, ma dimostrare un sistema distribuito che collega un oggetto fisico a servizi di rete.
 
@@ -255,7 +254,7 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | `event-service` Spring Boot | Implementato | Riceve eventi MQTT, salva su DB, espone API REST. |
 | PostgreSQL | Implementato | Salva eventi in `game_schema.game_events`. |
 | Persistenza sessione/plancia | Base implementata | Memorizza sessione, celle configurate, muri e trappole della mappa. |
-| OpenAPI | Implementata | Documenta l'API REST esistente. |
+| OpenAPI | Implementata | Specifiche separate documentano le API REST di `event-service` e `stats-service`. |
 | API creazione sessione | Implementata | Permette di salvare una sessione con griglia iniziale. |
 | Tavoli e QR | Implementati | Il QR stabile mostra tavolo disabilitato, reclamabile o con sessione attiva; il locale controlla l'abilitazione temporanea. |
 | Ingresso giocatori | Implementato | Gestisce claim atomico del DM, richiesta idempotente del giocatore, decisione DM, partecipanti e chiusura. |
@@ -272,9 +271,13 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | Aggiornamenti live | Implementati | SSE filtrato per giocatore e DM; gli eventi MQTT ricevuti aggiornano anche i client live. |
 | Comandi edge | Base implementata | Pubblica via MQTT percorso, correzione cella e cancellazione effetti senza segreti del DM. |
 | Controllo temporaneo DM | Implementato | Consente al DM di operare per un giocatore indisponibile e poi restituire il controllo. |
+| Frontend web | Implementato in parte | Pagina QR, console giocatore/DM, personaggi, pedine e movimento usano le API autorevoli; trappole, takeover completo e SSE restano da integrare. |
 | Limiti di elaborazione | Implementati | Proteggono il servizio da griglie oltre 2.500 celle e budget di movimento oltre 100. |
 | App mobile | Da implementare | Interfaccia giocatore/DM. |
-| Edge avanzato | Da implementare | Simulazione piu vicina alla plancia fisica. |
+| Nodo edge offline | Implementato | Coda SQLite persistente, backoff, acknowledgement applicativi e riallineamento dopo la disconnessione. |
+| `stats-service` | Implementato | Secondo microservizio su porta 8083: risultati, statistiche, tornei e classifica, con schema proprio. |
+| Consegna risultati | Implementata | Outbox transazionale nell'`event-service`, retry MQTT e consumo idempotente nello `stats-service`. |
+| Edge avanzato | Da implementare | Rilevamento fisico reale piu vicino alla plancia. |
 
 ## 11. MVP per l'esame
 
@@ -331,29 +334,34 @@ Gia realizzato:
   danni, HP, stato tattico e prosecuzione del percorso;
 - controllo temporaneo del personaggio da parte del DM;
 - proiezioni evento separate e aggiornamenti live SSE;
-- comandi MQTT minimi dal backend alla futura plancia edge;
+- comandi MQTT minimi dal backend alla plancia edge;
+- nodo edge con coda SQLite persistente, backoff, deduplica end-to-end e
+  riallineamento verificato dopo una disconnessione del broker;
+- acknowledgement applicativi che confermano all'edge l'avvenuta persistenza;
+- frontend web integrato con accesso, personaggi, pedine e movimento
+  autorevole, oltre al monitor storico degli eventi;
 - test automatici;
 - documentazione tecnica iniziale;
-- specifica OpenAPI dell'endpoint implementato.
+- specifiche OpenAPI delle API implementate dai due servizi.
 
-Rispetto alla consegna PISSIR restano ancora aperti requisiti strutturali, non
-semplici rifiniture: edge offline, seconda responsabilita a microservizio,
-statistiche e torneo minimo, interfacce relative, diagrammi UML e misure della
-validazione. L'app Android e l'hardware fisico possono valorizzare la demo, ma
-non sostituiscono questi requisiti.
+Rispetto alla consegna PISSIR restano ancora aperti: le interfacce web per
+storico, statistiche e classifica, i diagrammi UML e le misure della
+validazione. Edge offline, secondo microservizio, statistiche e torneo sono
+stati realizzati e verificati. L'app Android e l'hardware
+fisico possono valorizzare la demo, ma non sostituiscono i requisiti residui.
 
 Prossimi passi consigliati:
 
-1. chiudere la verifica reale dell'incremento trappole con concorrenza
+1. produrre diagrammi UML, diagrammi di sequenza e misure di latenza,
+   disconnessione e recupero, raccogliendo le misure con `just check-offline`;
+2. aggiungere nel frontend le viste di storico, statistiche e classifica, che
+   sono requisito esplicito della traccia;
+3. chiudere la verifica reale dell'incremento trappole con concorrenza
    PostgreSQL e osservazione REST/SSE/MQTT;
-2. progettare e realizzare un edge simulato con coda offline, riallineamento e
-   reinvio idempotente;
-3. introdurre un secondo microservizio minimo per risultati, statistiche e
-   torneo dimostrativo, senza duplicare il dominio live;
-4. produrre diagrammi UML, diagrammi di sequenza e misure di latenza,
-   disconnessione e recupero;
-5. collegare i contratti stabili alla dashboard del collaboratore;
-6. progettare app Android, inventario fisico e associazione QR/NFC soltanto
+4. completare nel frontend del collaboratore risoluzione delle trappole,
+   takeover DM e aggiornamenti SSE, mantenendo il backend come unica fonte
+   autorevole;
+5. progettare app Android, inventario fisico e associazione QR/NFC soltanto
    dopo la copertura dei requisiti obbligatori precedenti.
 
 ## 13. Fattibilita nel contesto reale
@@ -362,6 +370,6 @@ QR code e NFC identificano tavolo, pedina o personaggio, ma non misurano in modo
 
 Nel locale il nodo edge deve aprire connessioni in uscita verso il broker, evitando configurazioni manuali del router. In produzione MQTT deve usare autenticazione e TLS; le porte Docker attuali sono invece limitate a `localhost` per lo sviluppo.
 
-La perdita temporanea della rete richiedera una coda persistente sul nodo edge. Ogni evento conserva `eventId`, `sessionId` e `sequenceNumber`; al ripristino della connessione l'edge potra ritrasmetterlo e il backend dovra ignorare i duplicati. Questa sincronizzazione offline e progettata nei contratti, ma non e ancora implementata.
+La perdita temporanea della rete e gestita da una coda persistente sul nodo edge. Ogni evento conserva `eventId`, `sessionId` e `sequenceNumber`; al ripristino della connessione l'edge lo ritrasmette e il backend ignora i duplicati, confermando l'esito con un acknowledgement applicativo. Lo scenario e riproducibile con `just check-offline`.
 
 Il carico previsto e ridotto: gli eventi sono piccoli messaggi JSON generati alla velocita delle azioni umane. Il requisito e di tipo soft real-time: un aggiornamento entro poche centinaia di millisecondi rende la plancia reattiva, senza richiedere garanzie temporali hard real-time. La validazione sperimentale dovra comunque misurare dimensione dei messaggi, latenza, perdita e tempi di recupero.

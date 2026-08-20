@@ -22,9 +22,11 @@ Questa versione descrive il contratto iniziale dell'MVP e si concentra sul nucle
 | **Backend BoardHub** | Espone API REST, valida i dati, persiste eventi e stato delle sessioni. | HTTP/REST, MQTT |
 | **Broker MQTT Mosquitto** | Smista gli eventi tra simulatore e backend. | MQTT |
 | **Simulatore software** | Genera una mini-sessione D&D dimostrativa. | MQTT |
-| **PostgreSQL** | Memorizza eventi, sessioni, partecipanti, personaggi e configurazione della griglia. | SQL interno |
-| **Dashboard web** | Consulta stato del backend ed eventi di una sessione. | REST |
-| **App mobile, plancia fisica ed edge** | Componenti previsti per gli sviluppi successivi. | REST, MQTT |
+| **PostgreSQL** | Memorizza eventi, sessioni, partecipanti, personaggi, pedine, griglia e risoluzioni delle trappole. | SQL interno |
+| **Dashboard web** | Gestisce accesso QR e console DM/giocatore; consulta stato autorevole e storico eventi. | REST |
+| **Nodo edge software** | Raccoglie osservazioni, le conserva in una outbox SQLite e le riconsegna in ordine dopo una disconnessione. | MQTT, SQLite |
+| **Stats-service** | Consuma risultati di sessione e serve statistiche, tornei e classifiche senza leggere lo schema del gioco. | MQTT, HTTP/REST |
+| **App mobile e plancia fisica** | Componenti previsti per gli sviluppi successivi. | REST, MQTT |
 
 Il database non viene esposto direttamente ai client. Tutto l'accesso ai dati deve passare dal backend.
 
@@ -61,7 +63,10 @@ I contratti non automatizzano tutto il regolamento D&D. Descrivono solo le infor
 | API REST movimento | Implementata | Le due API `reachable-cells` calcolano il movimento su griglia stateless o persistita. |
 | Risoluzione trappole | Implementata | Interruzione del percorso, tiro server-side, danni, HP, prosecuzione e ciclo di vita persistito. |
 | Controllo temporaneo DM | Implementato | Il DM puo assumere e restituire il controllo di un personaggio con audit degli eventi. |
-| Dashboard web | Base implementata | Consuma health check e storico eventi; l'integrazione con la griglia variabile deve essere completata. |
+| Nodo edge offline | Implementato | Outbox SQLite, retry con backoff, ordine per sessione e sorgente e acknowledgement applicativi. |
+| Stats-service | Implementato | Risultati, statistiche, tornei e classifica con schema e processo separati. |
+| Consegna risultati | Implementata | Outbox transazionale nell'event-service e consumo idempotente nello stats-service. |
+| Dashboard web | Implementata in parte | Pagina QR e console DM/giocatore usano accessi, personaggi, pedine e movimento; trappole, takeover completo e SSE restano da integrare. |
 
 Per mantenere prevedibile il carico del servizio, una richiesta accetta al massimo **2.500 celle complessive** e **100 punti movimento**. Questi limiti sono protezioni tecniche dell'MVP, non regole del regolamento D&D.
 
@@ -107,10 +112,11 @@ Base path:
 /api/v1
 ```
 
-La specifica OpenAPI dell'`event-service` e disponibile in:
+Le specifiche OpenAPI dei due servizi sono disponibili in:
 
 ```text
 docs/openapi/event-service.openapi.yml
+docs/openapi/stats-service.openapi.yml
 ```
 
 ### 4.1 Stato del servizio
@@ -654,7 +660,14 @@ Topic MQTT attualmente utilizzato:
 | Topic | Direzione | Scopo |
 | :--- | :--- | :--- |
 | `boardhub/v1/venues/{venueId}/tables/{tableId}/events` | Simulatore/edge -> Backend | Pubblicazione degli eventi osservati dalla plancia. |
+| `boardhub/v1/venues/{venueId}/tables/{tableId}/event-acks` | Backend -> Edge | Esito applicativo dell'evento, pubblicato dopo il commit. |
 | `boardhub/v1/venues/{venueId}/tables/{tableId}/commands` | Backend -> Edge/plancia | Comandi visuali derivati da stato gia confermato nel database. |
+| `boardhub/v1/venues/{venueId}/tables/{tableId}/status` | Edge -> Backend | Stato tecnico del nodo edge, a bassa frequenza. |
+| `boardhub/v1/venues/{venueId}/session-results` | event-service -> stats-service | Risultato di una sessione conclusa. |
+
+Tutti i topic usano QoS 1. Solo `status` viene pubblicato con flag `retained`,
+perche rappresenta l'ultimo stato noto di un nodo e deve essere disponibile a
+chi si collega dopo. Eventi, acknowledgement e comandi non sono mai `retained`.
 
 Esempio topic reale:
 
@@ -671,6 +684,12 @@ Gli eventi validi ricevuti dal simulatore vengono inoltre inoltrati ai client
 SSE dopo il salvataggio. I comandi diretti alla plancia sono pubblicati solo
 dopo il commit del backend: una mancata consegna MQTT non annulla lo stato
 autorevole, che l'edge puo riallineare tramite una futura snapshot.
+
+Un evento MQTT `MOVE` sul topic `events` e un'osservazione della plancia e non
+autorizza da solo uno spostamento. La posizione autorevole cambia soltanto
+attraverso le API di movimento, che verificano token, proprietario o controllo
+DM, `expectedVersion`, `commandId` e raggiungibilita; solo l'esito accettato
+produce `MOVE_CONFIRMED`.
 
 ### 5.1 Tipi di evento attualmente prodotti dalla demo
 
@@ -769,6 +788,135 @@ Un movimento rifiutato usa il formato uniforme degli errori REST e non viene
 salvato nello stream degli eventi, perche non ha prodotto una transizione di
 stato.
 
+### 5.5 Contratto degli acknowledgement applicativi
+
+Il PUBACK di QoS 1 conferma soltanto la consegna al broker. Non dice se il
+backend ha davvero persistito l'evento. Per questo il nodo edge non puo
+eliminare un elemento dalla propria coda basandosi sul PUBACK.
+
+Il backend pubblica quindi un acknowledgement applicativo su `event-acks`,
+**dopo il commit** della transazione che salva l'evento. Il messaggio e
+correlato all'evento originale tramite `eventId`.
+
+```json
+{
+  "ackId": "ack-evt-000042",
+  "eventId": "evt-000042",
+  "sessionId": "session-20260630-001",
+  "status": "PERSISTED",
+  "receivedAt": "2026-08-18T10:15:32Z",
+  "detail": null
+}
+```
+
+Gli esiti ammessi sono un insieme chiuso:
+
+| `status` | Significato | Azione attesa dall'edge |
+| :--- | :--- | :--- |
+| `PERSISTED` | L'evento e stato salvato ora. | Chiude l'elemento dell'outbox. |
+| `DUPLICATE` | Un evento con lo stesso `eventId` era gia presente. | Chiude l'elemento dell'outbox. |
+| `REJECTED` | Payload non valido o non interpretabile. | Non ritenta; marca per revisione diagnostica. |
+| `CONFLICT` | Sessione chiusa o stato incompatibile. | Non ritenta; segnala al personale o al DM. |
+
+`PERSISTED` e `DUPLICATE` sono entrambi esiti di successo dal punto di vista
+dell'edge: in entrambi i casi il fatto e registrato una sola volta nel backend.
+Questa e la proprieta che rende sicuro il reinvio dopo una disconnessione.
+
+Il campo `detail` contiene, quando presente, una diagnostica breve e priva di
+informazioni riservate. Il messaggio non contiene mai token, `trapId`, classi di
+difficolta, formule di danno o note del DM.
+
+### 5.6 Contratto dello stato tecnico dell'edge
+
+Il nodo edge pubblica a bassa frequenza il proprio stato operativo. Serve alla
+demo e alle misure della relazione, non al gioco: nessuna regola D&D dipende da
+questo messaggio.
+
+```json
+{
+  "edgeId": "edge-venue-01-table-04",
+  "venueId": "venue-01",
+  "tableId": "table-04",
+  "observedAt": "2026-08-18T10:15:30Z",
+  "brokerConnected": true,
+  "lastBrokerConnectionAt": "2026-08-18T10:02:11Z",
+  "outboxPending": 0,
+  "outboxPublished": 0,
+  "lastAcknowledgedEventId": "evt-000042",
+  "edgeVersion": "boardhub-edge-0.1.0"
+}
+```
+
+| Campo | Significato |
+| :--- | :--- |
+| `edgeId` | Identita logica del nodo, stabile tra i riavvii. |
+| `brokerConnected` | Stato della connessione al momento della misura. |
+| `outboxPending` | Elementi salvati localmente e non ancora pubblicati. |
+| `outboxPublished` | Elementi pubblicati e in attesa di acknowledgement applicativo. |
+| `lastAcknowledgedEventId` | Ultimo evento confermato dal backend. |
+
+Durante una disconnessione il messaggio non puo essere consegnato: i contatori
+descrivono comunque lo stato locale e vengono ripubblicati alla riconnessione.
+
+### 5.7 Contratto del risultato di sessione
+
+E l'unico canale fra i due microservizi backend. `event-service` lo pubblica
+dopo il commit della chiusura; `stats-service` lo consuma e non accede mai allo
+schema di gioco.
+
+```json
+{
+  "factId": "result-session-20260818-001",
+  "factType": "SESSION_COMPLETED",
+  "sessionId": "session-20260818-001",
+  "venueId": "venue-01",
+  "tableId": "table-04",
+  "title": "Cripta del Re Caduto",
+  "gameType": "DND",
+  "startedAt": "2026-08-18T20:00:00Z",
+  "endedAt": "2026-08-18T22:30:00Z",
+  "durationMinutes": 150,
+  "participants": [
+    {
+      "playerReference": "player-device-01",
+      "displayName": "Andrea",
+      "role": "PLAYER",
+      "characterName": "Elaria",
+      "className": "Ladro",
+      "species": "Elfo",
+      "level": 3,
+      "survived": true,
+      "movesConfirmed": 12,
+      "cellsTravelled": 27,
+      "trapsTriggered": 2,
+      "savesSucceeded": 1,
+      "savesFailed": 1,
+      "damageTaken": 7
+    }
+  ]
+}
+```
+
+Regole del contratto:
+
+- `sessionId` e la chiave del risultato: una consegna ripetuta, possibile con
+  QoS 1, non deve creare un secondo risultato ne raddoppiare le statistiche;
+- il fatto non contiene token, `trapId`, classi di difficolta, formule di danno
+  o note riservate al Dungeon Master;
+- il punteggio del torneo **non** viaggia nel messaggio: e il servizio
+  statistiche a possedere la regola di classifica e ad applicarla in ingresso;
+- un partecipante senza personaggio compare comunque, con misure a zero.
+
+La chiusura della sessione salva il fatto nella tabella
+`game_schema.session_result_outbox` nella stessa transazione che rende la
+sessione conclusa. Dopo il commit, un publisher tenta la consegna con QoS 1 e
+segna l'elemento come pubblicato solo quando il broker la conferma; in caso di
+errore applica backoff e riprova periodicamente. La sessione MQTT persistente
+dello `stats-service` protegge inoltre i periodi in cui il consumatore e spento,
+mentre l'idempotenza su `sessionId` impedisce di raddoppiare risultati e
+statistiche. La correttezza non dipende quindi dall'ordine di avvio iniziale dei
+due servizi.
+
 ## 6. Formato standard degli eventi
 
 Tutti gli eventi MQTT pubblicati sul topic `events` devono rispettare questa struttura generale:
@@ -850,7 +998,7 @@ Questo evento rappresenta l'associazione tra giocatore, personaggio e pedina fis
 }
 ```
 
-### 6.4 Esempio futuro di status del nodo edge
+### 6.4 Esempio di status del nodo edge
 
 Topic:
 
@@ -916,7 +1064,11 @@ Regole minime:
   `sequenceNumber` ed `eventId`;
 - i comandi REST di movimento usano `commandId` come chiave idempotente e
   `expectedVersion` per il controllo concorrente;
-- buffer offline, topic `sync` e replay completo dello stato sono sviluppi futuri e non fanno parte dell'implementazione attuale.
+- l'edge conserva in SQLite gli eventi non confermati e li ripubblica con
+  backoff; per ogni coppia `(sessionId, source)` un evento successivo non puo
+  superarne uno precedente ancora `PENDING` o `PUBLISHED`;
+- il replay completo di uno snapshot autorevole resta uno sviluppo futuro e non
+  fa parte dell'implementazione attuale.
 
 Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazione asincrona, tolleranza a disconnessioni temporanee, idempotenza e consistenza dello stato applicativo.
 
@@ -924,9 +1076,9 @@ Queste regole permettono di dimostrare concetti rilevanti per PISSIR: comunicazi
 
 | Campo | Valore |
 | :--- | :--- |
-| Versione | `0.8` |
-| Stato | Contratto allineato a controllo tavoli, accessi, personaggi, pedine, movimento autorevole e risoluzione trappole |
-| Data | 2026-08-08 |
+| Versione | `0.10` |
+| Stato | Contratto allineato a edge offline, due microservizi, movimento autorevole, trappole e risultati di sessione |
+| Data | 2026-08-20 |
 | Ambito | MVP BoardHub |
 
 Prossimi passi:
@@ -934,9 +1086,9 @@ Prossimi passi:
 - validare il contratto con il collaboratore;
 - mantenere sincronizzata la specifica OpenAPI con gli endpoint implementati;
 - aggiungere filtri o paginazione alla lettura eventi se il volume dati cresce;
-- progettare e implementare componente edge, buffer offline, acknowledgement
-  applicativo e riallineamento;
-- introdurre il secondo microservizio minimo per risultati, statistiche e
-  torneo richiesto dalla traccia;
-- integrare i contratti stabili nel frontend e, solo successivamente, nell'app
-  mobile.
+- completare nel frontend l'integrazione delle API trappole, del controllo
+  temporaneo DM e degli stream SSE; personaggi, pedine e movimento sono gia
+  collegati alle console web;
+- aggiungere le viste frontend per storico, statistiche e classifica;
+- produrre diagrammi e misure ripetibili per la relazione;
+- riutilizzare gli stessi contratti, solo successivamente, nell'app mobile.

@@ -1,0 +1,448 @@
+openapi: 3.0.3
+info:
+  title: BoardHub Stats Service API
+  version: 0.1.0
+  description: >
+    API di sola lettura per risultati e statistiche delle sessioni concluse,
+    con gestione minima di tornei e classifiche dimostrative.
+servers:
+  - url: http://localhost:8083
+    description: Ambiente locale
+tags:
+  - name: Health
+  - name: Statistics
+  - name: Tournaments
+paths:
+  /actuator/health:
+    get:
+      tags: [Health]
+      summary: Verifica lo stato del servizio
+      operationId: getStatsHealth
+      responses:
+        "200":
+          description: Servizio operativo
+          content:
+            application/vnd.spring-boot.actuator.v3+json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/v1/stats/sessions:
+    get:
+      tags: [Statistics]
+      summary: Elenca i risultati delle sessioni concluse
+      operationId: listSessionResults
+      responses:
+        "200":
+          description: Risultati disponibili
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionResult"
+  /api/v1/stats/sessions/{sessionId}:
+    get:
+      tags: [Statistics]
+      summary: Legge il risultato di una sessione
+      operationId: getSessionResult
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Risultato trovato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResult"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/stats/sessions/{sessionId}/players:
+    get:
+      tags: [Statistics]
+      summary: Elenca i risultati dei giocatori di una sessione
+      operationId: listSessionPlayerResults
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Risultati dei giocatori
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlayerResult"
+  /api/v1/stats/players/{playerReference}:
+    get:
+      tags: [Statistics]
+      summary: Legge le statistiche aggregate di un giocatore
+      operationId: getPlayerStatistics
+      parameters:
+        - name: playerReference
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Statistiche trovate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerStatistics"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/stats/scoring-rule:
+    get:
+      tags: [Statistics]
+      summary: Espone la regola di punteggio dimostrativa
+      operationId: getScoringRule
+      responses:
+        "200":
+          description: Formula e coefficienti applicati
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoringRule"
+  /api/v1/tournaments:
+    get:
+      tags: [Tournaments]
+      summary: Elenca i tornei
+      operationId: listTournaments
+      responses:
+        "200":
+          description: Tornei disponibili
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tournament"
+    post:
+      tags: [Tournaments]
+      summary: Crea un torneo
+      operationId: createTournament
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTournamentRequest"
+      responses:
+        "201":
+          description: Torneo creato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+  /api/v1/tournaments/{tournamentId}:
+    get:
+      tags: [Tournaments]
+      summary: Legge un torneo
+      operationId: getTournament
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      responses:
+        "200":
+          description: Torneo trovato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/tournaments/{tournamentId}/leaderboard:
+    get:
+      tags: [Tournaments]
+      summary: Legge la classifica di un torneo
+      operationId: getTournamentLeaderboard
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      responses:
+        "200":
+          description: Classifica ordinata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+    TournamentId:
+      name: tournamentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    InvalidRequest:
+      description: Parametri non validi
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Risorsa non trovata
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: UP
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: RESOURCE_NOT_FOUND
+        message:
+          type: string
+          example: Torneo non trovato.
+    SessionResult:
+      type: object
+      required:
+        - sessionId
+        - venueId
+        - tableId
+        - title
+        - gameType
+        - startedAt
+        - endedAt
+        - durationMinutes
+        - participants
+      properties:
+        sessionId:
+          type: string
+        venueId:
+          type: string
+        tableId:
+          type: string
+        title:
+          type: string
+        gameType:
+          type: string
+          example: DND
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+          format: int64
+          minimum: 0
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayerResult"
+    PlayerResult:
+      type: object
+      required:
+        - sessionId
+        - playerReference
+        - displayName
+        - level
+        - survived
+        - movesConfirmed
+        - cellsTravelled
+        - trapsTriggered
+        - savesSucceeded
+        - savesFailed
+        - damageTaken
+        - points
+      properties:
+        sessionId:
+          type: string
+        playerReference:
+          type: string
+        displayName:
+          type: string
+        characterName:
+          type: string
+          nullable: true
+        className:
+          type: string
+          nullable: true
+        species:
+          type: string
+          nullable: true
+        level:
+          type: integer
+          minimum: 0
+        survived:
+          type: boolean
+        movesConfirmed:
+          type: integer
+          minimum: 0
+        cellsTravelled:
+          type: integer
+          minimum: 0
+        trapsTriggered:
+          type: integer
+          minimum: 0
+        savesSucceeded:
+          type: integer
+          minimum: 0
+        savesFailed:
+          type: integer
+          minimum: 0
+        damageTaken:
+          type: integer
+          minimum: 0
+        points:
+          type: integer
+    PlayerStatistics:
+      type: object
+      required:
+        - playerReference
+        - displayName
+        - sessionsPlayed
+        - sessionsSurvived
+        - survivalRate
+        - totalPoints
+        - totalMoves
+        - totalCellsTravelled
+        - totalTrapsTriggered
+        - totalSavesSucceeded
+        - totalSavesFailed
+        - totalDamageTaken
+      properties:
+        playerReference:
+          type: string
+        displayName:
+          type: string
+        sessionsPlayed:
+          type: integer
+          minimum: 0
+        sessionsSurvived:
+          type: integer
+          minimum: 0
+        survivalRate:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        totalPoints:
+          type: integer
+        totalMoves:
+          type: integer
+          minimum: 0
+        totalCellsTravelled:
+          type: integer
+          minimum: 0
+        totalTrapsTriggered:
+          type: integer
+          minimum: 0
+        totalSavesSucceeded:
+          type: integer
+          minimum: 0
+        totalSavesFailed:
+          type: integer
+          minimum: 0
+        totalDamageTaken:
+          type: integer
+          minimum: 0
+    ScoringRule:
+      type: object
+      required:
+        - descrizione
+        - sessioneCompletata
+        - sopravvissuto
+        - tiroSalvezzaRiuscito
+        - abbattuto
+        - nota
+      properties:
+        descrizione:
+          type: string
+        sessioneCompletata:
+          type: integer
+        sopravvissuto:
+          type: integer
+        tiroSalvezzaRiuscito:
+          type: integer
+        abbattuto:
+          type: integer
+        nota:
+          type: string
+    CreateTournamentRequest:
+      type: object
+      required: [name, gameType, venueId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        gameType:
+          type: string
+          minLength: 1
+          example: DND
+        venueId:
+          type: string
+          minLength: 1
+    Tournament:
+      type: object
+      required: [tournamentId, name, gameType, venueId, createdAt]
+      properties:
+        tournamentId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        gameType:
+          type: string
+        venueId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    LeaderboardEntry:
+      type: object
+      required:
+        - position
+        - playerReference
+        - displayName
+        - sessionsPlayed
+        - points
+        - savesSucceeded
+        - cellsTravelled
+        - timesDowned
+      properties:
+        position:
+          type: integer
+          minimum: 1
+        playerReference:
+          type: string
+        displayName:
+          type: string
+        sessionsPlayed:
+          type: integer
+          minimum: 0
+        points:
+          type: integer
+        savesSucceeded:
+          type: integer
+          minimum: 0
+        cellsTravelled:
+          type: integer
+          minimum: 0
+        timesDowned:
+          type: integer
+          minimum: 0

@@ -1,11 +1,13 @@
 package it.uniupo.boardhub.eventservice.service;
 
+import it.uniupo.boardhub.eventservice.model.result.SessionResult;
 import it.uniupo.boardhub.eventservice.model.session.GameSession;
 import it.uniupo.boardhub.eventservice.model.session.GameSessionStatus;
 import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
 import it.uniupo.boardhub.eventservice.repository.GameTableRepository;
 import it.uniupo.boardhub.eventservice.repository.JoinRequestRepository;
 import it.uniupo.boardhub.eventservice.repository.SessionParticipantRepository;
+import it.uniupo.boardhub.eventservice.mqtt.MqttSessionResultPublisher;
 import it.uniupo.boardhub.eventservice.repository.TrapResolutionRepository;
 import it.uniupo.boardhub.eventservice.service.exception.GameSessionNotFoundException;
 import it.uniupo.boardhub.eventservice.service.exception.JoinRequestConflictException;
@@ -26,6 +28,8 @@ public class SessionLifecycleService {
     private final JoinRequestRepository requestRepository;
     private final SessionParticipantRepository participantRepository;
     private final TrapResolutionRepository trapResolutionRepository;
+    private final SessionResultService resultService;
+    private final MqttSessionResultPublisher resultPublisher;
     private final Clock clock;
 
     public SessionLifecycleService(
@@ -34,6 +38,8 @@ public class SessionLifecycleService {
             JoinRequestRepository requestRepository,
             SessionParticipantRepository participantRepository,
             TrapResolutionRepository trapResolutionRepository,
+            SessionResultService resultService,
+            MqttSessionResultPublisher resultPublisher,
             Clock clock
     ) {
         this.sessionRepository = sessionRepository;
@@ -41,6 +47,8 @@ public class SessionLifecycleService {
         this.requestRepository = requestRepository;
         this.participantRepository = participantRepository;
         this.trapResolutionRepository = trapResolutionRepository;
+        this.resultService = resultService;
+        this.resultPublisher = resultPublisher;
         this.clock = clock;
     }
 
@@ -60,6 +68,9 @@ public class SessionLifecycleService {
             throw new JoinRequestConflictException("La sessione non puo essere conclusa nello stato corrente.");
         }
 
+        // Prima delle mutazioni: la chiusura marca i partecipanti come usciti.
+        SessionResult result = resultService.build(session, now);
+
         sessionRepository.endSession(sessionId);
         requestRepository.expirePendingForSession(sessionId, now);
         trapResolutionRepository.cancelPendingForSession(sessionId, now);
@@ -67,6 +78,8 @@ public class SessionLifecycleService {
         if (!tableRepository.releaseSession(sessionId, Timestamp.from(now.toInstant()))) {
             throw new TableConflictException("Il tavolo associato alla sessione non e stato trovato.");
         }
+
+        resultPublisher.publishAfterCommit(result);
         return now;
     }
 }

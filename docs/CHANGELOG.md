@@ -5,6 +5,188 @@
 
 ---
 
+## [0.26.3] - 2026-08-20
+
+Autore: Andrea Perini
+Ambito: Ordinamento edge, consegna risultati e contratti API
+
+## Added
+
+- Aggiunta la migrazione Flyway `V8` con un'outbox transazionale per i risultati
+  di sessione e il relativo worker di consegna con ritentativi.
+- Aggiunta la specifica OpenAPI separata di `stats-service` e uniformate le
+  risposte di errore del servizio statistiche.
+- Aggiunti test per outbox dei risultati, ordinamento edge ed errori REST del
+  servizio statistiche.
+
+## Changed
+
+- La coda edge mantiene ora un ordine stretto per `(sessionId, source)`: un
+  evento in backoff o in attesa dell'acknowledgement applicativo blocca i suoi
+  successori, senza bloccare le altre sorgenti.
+- Chiarito nei contratti che un evento MQTT `MOVE` proveniente dalla plancia e
+  un'osservazione; lo stato autorevole cambia soltanto tramite le API protette
+  di movimento e l'evento applicativo `MOVE_CONFIRMED`.
+- Riallineati README, ambito, contratti e paper personali allo stato dei due
+  microservizi e del nodo edge.
+
+## Fixed
+
+- Impedito che un evento successivo superi il precedente durante backoff o fra
+  PUBACK MQTT e conferma applicativa del backend.
+- Eliminata la finestra in cui il commit di chiusura poteva riuscire senza che
+  il risultato raggiungesse `stats-service`: fatto e outbox vengono ora salvati
+  nella stessa transazione e la pubblicazione viene ritentata fino alla conferma
+  del broker.
+
+---
+
+## [0.26.2] - 2026-08-18
+
+Autore: Andrea Perini
+Ambito: Consegna garantita dei risultati di partita
+
+## Fixed
+
+- Il risultato di una partita conclusa mentre il servizio statistiche era spento
+  andava perduto: la sottoscrizione usava una sessione MQTT pulita e il broker
+  scartava i messaggi destinati a un client non collegato. Il servizio si
+  collega ora con sessione persistente e identificativo stabile, e riceve alla
+  riconnessione tutto cio che era stato pubblicato nel frattempo.
+
+## Changed
+
+- Abilitata la persistenza su disco del broker Mosquitto, cosi le code dei
+  client scollegati sopravvivono anche a un riavvio del broker.
+
+## Added
+
+- Tre test che impediscono il ritorno del difetto verificando sessione
+  persistente, riconnessione automatica e stabilita dell'identificativo client.
+
+---
+
+## [0.26.1] - 2026-08-18
+
+Autore: Andrea Perini
+Ambito: Comandi operativi del locale
+
+## Added
+
+- Aggiunto `just close-all`: chiude tutte le partite in corso, revoca le
+  abilitazioni non ancora consumate e mostra lo stato finale dei tavoli. Serve a
+  riportare il locale a tavoli liberi prima di una dimostrazione.
+
+---
+
+## [0.26.0] - 2026-08-18
+
+Autore: Andrea Perini
+Ambito: Secondo microservizio per risultati, statistiche e tornei
+
+## Added
+
+- Aggiunto `services/stats-service`, secondo microservizio backend su porta
+  8083, con schema dedicato `stats_schema` gestito da Flyway.
+- Aggiunto il contratto del risultato di sessione sul topic `session-results`:
+  `event-service` lo pubblica alla chiusura, `stats-service` lo consuma.
+- Il servizio statistiche espone risultati di sessione, statistiche per
+  giocatore, tornei e classifica finale.
+- Aggiunta la regola di punteggio dichiarata, consultabile via API: e una
+  convenzione dimostrativa, perche D&D e cooperativo e non prevede un vincitore.
+- Aggiunti i comandi `just stats`, `stats-sessions`, `stats-session`,
+  `stats-player`, `create-tournament`, `tournaments`, `leaderboard` e
+  `stats-test`.
+- Aggiunti undici test del servizio statistiche, compresi consegna ripetuta e
+  correttezza della classifica su piu sessioni.
+
+## Changed
+
+- La chiusura di una sessione calcola il riepilogo dei partecipanti prima delle
+  mutazioni e lo pubblica dopo il commit.
+
+---
+
+## [0.25.0] - 2026-08-18
+
+Autore: Andrea Perini
+Ambito: Nodo edge con coda offline e acknowledgement applicativi
+
+## Added
+
+- Aggiunto il nodo edge `edge/`: processo Python separato che raccoglie le
+  osservazioni della plancia, le conserva in una coda SQLite persistente e le
+  consegna al backend con ritentativi e backoff.
+- Aggiunto il contratto degli acknowledgement applicativi sul topic
+  `event-acks`, con esiti `PERSISTED`, `DUPLICATE`, `REJECTED` e `CONFLICT`.
+- Aggiunto il contratto dello stato tecnico del nodo edge sul topic `status`.
+- Il backend pubblica l'esito applicativo di ogni evento ricevuto via MQTT, cosi
+  l'edge puo chiudere un elemento solo dopo la persistenza effettiva.
+- Il backend rifiuta con `CONFLICT` gli eventi destinati a una sessione conclusa.
+- Aggiunti i comandi `just edge-setup`, `just edge`, `just edge-observe`,
+  `just edge-queue`, `just edge-status`, `just edge-test` e `just check-offline`.
+- Aggiunti dodici test dei componenti della coda locale.
+
+## Fixed
+
+- L'`event-service` non si iscriveva piu al topic degli eventi dopo un riavvio
+  del broker MQTT. Con `cleanSession` attivo il broker scarta le sottoscrizioni
+  alla disconnessione e la sola riconnessione automatica ristabiliva il socket
+  ma non l'iscrizione: il servizio restava collegato e in silenzio. La
+  sottoscrizione viene ora ripristinata a ogni connessione riuscita.
+
+---
+
+## [0.24.1] - 2026-08-16
+
+Autore: Andrea Perini
+Ambito: Schermata pubblica del tavolo
+
+## Changed
+
+- Riorganizzata la pagina pubblica del QR secondo il design system
+  neo-brutalist condiviso, con gerarchia piu chiara fra tavolo, stato e azione
+  disponibile.
+- Resi piu leggibili gli stati di tavolo disabilitato, pronto e con sessione
+  attiva, mantenendo invariato il flusso applicativo.
+
+## Fixed
+
+- Ridotta l'ambiguita fra uscita, aggiornamento dello stato e avvio della
+  sessione sui layout desktop e mobile.
+
+---
+
+## [0.24.0] - 2026-08-11
+
+Autore: Davide La Marca
+Ambito: Integrazione frontend e design system condiviso
+
+## Added
+
+- Aggiunti al frontend i contratti TypeScript e le chiamate API per
+  personaggi, pedine, raggiungibilita e movimento autorevole.
+- Completata la console giocatore per creare il personaggio, associarlo a una
+  pedina virtuale, visualizzare le destinazioni e richiedere uno spostamento.
+- Estesa la console DM con viste operative per partecipanti, personaggi e
+  pedine della sessione.
+- Introdotti componenti UI condivisi e un design system neo-brutalist coerente
+  fra pagina pubblica, dashboard, griglia e registro eventi.
+
+## Changed
+
+- Uniformate dashboard, griglia, metriche, schede informative e
+  visualizzazione degli eventi.
+- Le viste giocatore e DM usano ora lo stato persistito restituito dalle API
+  invece di limitarsi alla ricostruzione dimostrativa del monitor eventi.
+
+## Fixed
+
+- Migliorata la coerenza visuale e informativa fra i diversi flussi web senza
+  spostare nel browser le regole autorevoli di movimento.
+
+---
+
 ## [0.23.0] - 2026-08-08
 
 Autore: Andrea Perini

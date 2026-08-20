@@ -95,6 +95,14 @@ public class TrapResolutionRepository {
                 """, sessionId, pieceId);
     }
 
+    // Serve al riepilogo di fine sessione, che considera tutte le risoluzioni.
+    public List<TrapResolution> findAllBySession(String sessionId) {
+        return jdbcTemplate.query(SELECT + """
+                WHERE session_id = ?
+                ORDER BY created_at ASC, resolution_id ASC
+                """, new ResolutionRowMapper(), sessionId);
+    }
+
     public List<TrapResolution> findPendingBySession(String sessionId) {
         return jdbcTemplate.query(SELECT + """
                 WHERE session_id = ?

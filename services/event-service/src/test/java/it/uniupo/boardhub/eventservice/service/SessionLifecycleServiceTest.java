@@ -7,6 +7,8 @@ import it.uniupo.boardhub.eventservice.repository.GameSessionRepository;
 import it.uniupo.boardhub.eventservice.repository.GameTableRepository;
 import it.uniupo.boardhub.eventservice.repository.JoinRequestRepository;
 import it.uniupo.boardhub.eventservice.repository.SessionParticipantRepository;
+import it.uniupo.boardhub.eventservice.model.result.SessionResult;
+import it.uniupo.boardhub.eventservice.mqtt.MqttSessionResultPublisher;
 import it.uniupo.boardhub.eventservice.repository.TrapResolutionRepository;
 import org.junit.jupiter.api.Test;
 
@@ -28,6 +30,7 @@ class SessionLifecycleServiceTest {
         OffsetDateTime now = OffsetDateTime.parse("2026-08-08T10:00:00Z");
         AtomicBoolean ended = new AtomicBoolean();
         AtomicBoolean trapsCancelled = new AtomicBoolean();
+        AtomicBoolean resultPublished = new AtomicBoolean();
         GameSession session = new GameSession(
                 sessionId, "venue-01", "table-01", "Cripta", "DND", null,
                 true, GameSessionStatus.ACTIVE, 5, 5, now
@@ -72,6 +75,22 @@ class SessionLifecycleServiceTest {
                     }
                 },
                 traps,
+                new SessionResultService(null, null, null, null) {
+                    @Override
+                    public SessionResult build(GameSession closing, OffsetDateTime endedAt) {
+                        return new SessionResult(
+                                closing.sessionId(), closing.venueId(), closing.tableId(),
+                                closing.title(), closing.gameType(), closing.createdAt(),
+                                endedAt, 0, java.util.List.of()
+                        );
+                    }
+                },
+                new MqttSessionResultPublisher(null, new ObjectMapper()) {
+                    @Override
+                    public void publishAfterCommit(SessionResult result) {
+                        resultPublished.set(true);
+                    }
+                },
                 Clock.fixed(Instant.parse("2026-08-08T10:00:00Z"), ZoneOffset.UTC)
         );
 
@@ -79,5 +98,6 @@ class SessionLifecycleServiceTest {
 
         assertThat(ended.get()).isTrue();
         assertThat(trapsCancelled.get()).isTrue();
+        assertThat(resultPublished.get()).isTrue();
     }
 }

@@ -5,15 +5,21 @@ service_dir := "services/event-service"
 frontend_dir := "frontend"
 formatter := "scripts/format_api_response.py"
 base_url := "http://localhost:8082"
+stats_url := "http://localhost:8083"
+stats_dir := "services/stats-service"
 venue_key := env_var_or_default("BOARDHUB_VENUE_ADMIN_KEY", "boardhub-local-venue-admin-key")
 dm_token := env_var_or_default("BOARDHUB_DM_TOKEN", "")
 player_token := env_var_or_default("BOARDHUB_PLAYER_TOKEN", "")
 max_tables := env_var_or_default("BOARDHUB_MAX_ACTIVE_TABLES", "8")
 check_table := env_var_or_default("BOARDHUB_CHECK_TABLE", "8")
+edge_dir := "edge"
+edge_python := "edge/.venv/bin/python"
 
+# Mostra la guida dei comandi disponibili
 default:
     @just help
 
+# Mostra la guida completa dei comandi
 help:
     @printf '\033[1;37mBoardHub - comandi rapidi\033[0m\n'
     @printf '\033[2mEsegui questi comandi dalla radice del progetto BoardHub.\033[0m\n\n'
@@ -32,6 +38,24 @@ help:
     @printf '\033[38;5;42m◆ BACKEND\033[0m\n'
     @printf '  just backend                    ◆ Avvia Spring Boot su localhost:8082\n\n'
     @printf '  just frontend                   ◆ Avvia il sito su localhost:5173\n\n'
+    @printf '\033[38;5;42m◆ STATISTICHE\033[0m\n'
+    @printf '  just stats                      ◆ Avvia il servizio statistiche su localhost:8083\n'
+    @printf '  just stats-health               ◇ Controlla se il servizio statistiche e acceso\n'
+    @printf '  just stats-sessions             ◇ Elenca le sessioni concluse\n'
+    @printf '  just stats-session ID           ◇ Risultato di una sessione conclusa\n'
+    @printf '  just stats-player RIFERIMENTO   ◇ Statistiche complessive di un giocatore\n'
+    @printf '  just create-tournament NOME     ◇ Crea un torneo sulle sessioni gia concluse\n'
+    @printf '  just tournaments                ◇ Elenca i tornei\n'
+    @printf '  just leaderboard ID             ◇ Classifica finale del torneo\n'
+    @printf '  just stats-test                 ● Test del servizio statistiche\n\n'
+    @printf '\033[38;5;208m◈ EDGE\033[0m\n'
+    @printf '  just edge-setup                 ◈ Prepara l ambiente Python del nodo edge\n'
+    @printf '  just edge                       ◈ Avvia il nodo edge con coda locale persistente\n'
+    @printf '  just edge-observe SESSIONE      ◈ Accoda un percorso osservato, anche a broker spento\n'
+    @printf '  just edge-queue                 ◈ Mostra il contenuto della coda locale\n'
+    @printf '  just edge-test                  ● Esegue i test dei componenti del nodo edge\n'
+    @printf '  just edge-status                ◈ Mostra lo stato tecnico del nodo edge\n'
+    @printf '  just check-offline SESSIONE     ● Scenario completo di disconnessione e recupero\n\n'
     @printf '\033[38;5;214m● TEST\033[0m\n'
     @printf '  just test                       ● Esegue i test automatici Maven\n'
     @printf '  just check                      ● Verifica il flusso end-to-end; richiede il backend attivo\n\n'
@@ -43,6 +67,7 @@ help:
     @printf '  just enable-table N [MINUTI]    ◇ Abilita temporaneamente il tavolo N\n'
     @printf '  just disable-table N            ◇ Revoca l avvio su un tavolo non occupato\n'
     @printf '  just venue-close-table N        ◇ Chiude dal locale la sessione del tavolo N\n'
+    @printf '  just close-all                  ◇ Chiude tutte le partite e libera tutti i tavoli\n'
     @printf '  just table-status QR            ◇ Mostra lo stato pubblico del tavolo\n'
     @printf '  just create-session ID          ◇ Crea una sessione D&D con griglia demo\n'
     @printf '  just create-trap-session ID     ◇ Crea una demo con trappola obbligata in C2\n'
@@ -121,45 +146,190 @@ help:
     @printf '  just dm-pieces session-demo-001\n'
     @printf '  just participants session-demo-001\n'
 
+# Prepara l ambiente Python del nodo edge
+edge-setup:
+    @printf '\033[38;5;208m[◈ EDGE]\033[0m Preparazione ambiente Python del nodo edge...\n'
+    python3 -m venv {{ edge_dir }}/.venv
+    {{ edge_dir }}/.venv/bin/pip install --quiet --upgrade pip
+    {{ edge_dir }}/.venv/bin/pip install --quiet -r {{ edge_dir }}/requirements.txt
+    @printf 'Ambiente pronto. Avvia il nodo con: just edge\n'
+
+# Avvia il nodo edge con coda locale persistente
+edge:
+    @printf '\033[38;5;208m[◈ EDGE]\033[0m Avvio nodo edge; interrompi con Ctrl+C.\n'
+    cd {{ edge_dir }} && .venv/bin/python -m boardhub_edge run
+
+# Accoda osservazioni della plancia, anche a broker spento
+edge-observe session_id character_id="adv-01":
+    @printf '\033[38;5;208m[◈ EDGE]\033[0m Osservazioni accodate localmente prima di ogni invio.\n'
+    cd {{ edge_dir }} && .venv/bin/python -m boardhub_edge simulate --session {{ session_id }} --character {{ character_id }}
+
+# Esegue i test dei componenti del nodo edge
+edge-test:
+    @printf '\033[38;5;214m[● TEST]\033[0m Test dei componenti del nodo edge...\n'
+    cd {{ edge_dir }} && .venv/bin/python -m unittest discover -s tests -v
+
+# Mostra il contenuto della coda locale del nodo edge
+edge-queue:
+    cd {{ edge_dir }} && .venv/bin/python -m boardhub_edge list
+
+# Mostra lo stato tecnico del nodo edge
+edge-status:
+    cd {{ edge_dir }} && .venv/bin/python -m boardhub_edge status
+
+# Scenario completo di disconnessione dalla rete e recupero degli eventi
+check-offline session_id="session-offline-demo-001":
+    @printf '\033[38;5;214m[● TEST]\033[0m Scenario di disconnessione e recupero...\n'
+    @set -euo pipefail; \
+      SESSION_ID="{{ session_id }}"; \
+      if ! just health >/dev/null 2>&1; then \
+        printf '\033[1;31m[ERRORE]\033[0m Backend non raggiungibile. Esegui prima: just backend\n'; \
+        exit 1; \
+      fi; \
+      if [ ! -x "{{ edge_python }}" ]; then \
+        printf '\033[1;31m[ERRORE]\033[0m Ambiente edge assente. Esegui prima: just edge-setup\n'; \
+        exit 1; \
+      fi; \
+      printf '\033[2m1/6 Spegnimento del broker MQTT\033[0m\n'; \
+      docker compose -f {{ compose_file }} stop mosquitto >/dev/null 2>&1; \
+      printf '\033[2m2/6 Il sensore osserva la partita mentre la rete e assente\033[0m\n'; \
+      just edge-observe "$SESSION_ID" >/dev/null; \
+      just edge-queue; \
+      printf '\033[2m3/6 Riaccensione del broker MQTT\033[0m\n'; \
+      docker compose -f {{ compose_file }} start mosquitto >/dev/null 2>&1; \
+      sleep 4; \
+      printf '\033[2m4/6 Il nodo edge riconsegna la coda\033[0m\n'; \
+      (cd {{ edge_dir }} && .venv/bin/python -m boardhub_edge run >/dev/null 2>&1 &) ; \
+      sleep 12; \
+      pkill -f "boardhub_edge run" >/dev/null 2>&1 || true; \
+      printf '\033[2m5/6 Stato finale della coda locale\033[0m\n'; \
+      just edge-queue; \
+      printf '\033[2m6/6 Eventi persistiti nel backend\033[0m\n'; \
+      just events "$SESSION_ID"
+
+# Avvia il servizio statistiche su localhost:8083
+stats:
+    @printf '\033[38;5;42m[◆ STATISTICHE]\033[0m Avvio del servizio statistiche su {{ stats_url }}...\n'
+    cd {{ stats_dir }} && mvn spring-boot:run
+
+# Esegue i test del servizio statistiche
+stats-test:
+    @printf '\033[38;5;214m[● TEST]\033[0m Test del servizio statistiche...\n'
+    cd {{ stats_dir }} && mvn test
+
+# Controlla se il servizio statistiche e acceso
+stats-health:
+    @curl --fail-with-body -sS {{ stats_url }}/actuator/health | python3 {{ formatter }} stats-health
+
+# Elenca le partite concluse
+stats-sessions:
+    @printf '\033[38;5;141m[◇ API]\033[0m Sessioni concluse...\n'
+    @curl --fail-with-body -sS {{ stats_url }}/api/v1/stats/sessions | python3 {{ formatter }} session-results
+
+# Mostra il risultato di una partita conclusa
+stats-session session_id:
+    @printf '\033[38;5;141m[◇ API]\033[0m Risultato della sessione {{ session_id }}...\n'
+    @curl --fail-with-body -sS {{ stats_url }}/api/v1/stats/sessions/{{ session_id }} | python3 {{ formatter }} session-result
+
+# Mostra le statistiche complessive di un giocatore
+stats-player player_reference:
+    @printf '\033[38;5;141m[◇ API]\033[0m Statistiche di {{ player_reference }}...\n'
+    @curl --fail-with-body -sS {{ stats_url }}/api/v1/stats/players/{{ player_reference }} | python3 {{ formatter }} player-statistics
+
+# Crea un torneo sulle partite gia concluse
+create-tournament name="Coppa del Locale" game_type="DND" venue_id="venue-01":
+    @printf '\033[38;5;141m[◇ API]\033[0m Creazione torneo...\n'
+    @curl --fail-with-body -sS -X POST {{ stats_url }}/api/v1/tournaments \
+      -H 'Content-Type: application/json' \
+      -d '{"name":"{{ name }}","gameType":"{{ game_type }}","venueId":"{{ venue_id }}"}' \
+      | python3 {{ formatter }} tournament
+
+# Elenca i tornei creati
+tournaments:
+    @curl --fail-with-body -sS {{ stats_url }}/api/v1/tournaments | python3 {{ formatter }} tournaments
+
+# Mostra la classifica finale di un torneo
+leaderboard tournament_id:
+    @printf '\033[38;5;141m[◇ API]\033[0m Classifica del torneo...\n'
+    @curl --fail-with-body -sS {{ stats_url }}/api/v1/tournaments/{{ tournament_id }}/leaderboard | python3 {{ formatter }} leaderboard
+
+# ATTENZIONE: chiude TUTTE le partite in corso e libera tutti i tavoli del locale
+close-all:
+    @printf '\033[38;5;141m[◇ LOCALE]\033[0m Chiusura di tutte le partite e liberazione dei tavoli...\n'
+    @set -euo pipefail; \
+      if ! curl -sf {{ base_url }}/actuator/health >/dev/null 2>&1; then \
+        printf '\033[1;31m[ERRORE]\033[0m Backend non raggiungibile. Esegui prima: just backend\n'; \
+        exit 1; \
+      fi; \
+      TABLES="$(curl --fail-with-body -sS -H 'X-BoardHub-Venue-Key: {{ venue_key }}' {{ base_url }}/api/v1/admin/tables)"; \
+      CHIUSE=0; REVOCATE=0; \
+      for ROW in $(printf '%s' "$TABLES" | python3 -c "import json,sys; print(' '.join(f\"{t['tablePublicId']}:{t['status']}\" for t in json.load(sys.stdin)))"); do \
+        QR="${ROW%%:*}"; STATO="${ROW##*:}"; \
+        if [ "$STATO" = "IN_SESSION" ]; then \
+          curl --fail-with-body -sS -X POST -H 'X-BoardHub-Venue-Key: {{ venue_key }}' \
+            "{{ base_url }}/api/v1/admin/tables/$QR/close-session" >/dev/null; \
+          printf '  partita chiusa      %s\n' "$QR"; \
+          CHIUSE=$((CHIUSE+1)); \
+        elif [ "$STATO" = "CLAIMABLE" ]; then \
+          curl --fail-with-body -sS -X POST -H 'X-BoardHub-Venue-Key: {{ venue_key }}' \
+            "{{ base_url }}/api/v1/admin/tables/$QR/disable" >/dev/null; \
+          printf '  abilitazione revocata  %s\n' "$QR"; \
+          REVOCATE=$((REVOCATE+1)); \
+        fi; \
+      done; \
+      printf '\n  Partite chiuse: %s   Abilitazioni revocate: %s\n' "$CHIUSE" "$REVOCATE"; \
+      printf '\033[2m  Tutti i tavoli sono ora liberi.\033[0m\n'
+    @just venue-tables
+
+# Avvia PostgreSQL e Mosquitto in Docker
 up:
     @printf '\033[38;5;39m[▲ INFRA]\033[0m Avvio PostgreSQL e Mosquitto...\n'
     docker compose -f {{ compose_file }} up -d
 
+# Spegne PostgreSQL e Mosquitto senza cancellare i dati
 down:
     @printf '\033[38;5;208m[▼ INFRA]\033[0m Spegnimento container BoardHub...\n'
     docker compose -f {{ compose_file }} down
 
+# Mostra lo stato dei container del progetto
 ps:
     @printf '\033[38;5;39m[▲ INFRA]\033[0m Stato container BoardHub:\n'
     docker compose -f {{ compose_file }} ps
 
+# Elenca le tabelle presenti nel database
 db-tables:
     @printf '\033[38;5;39m[▲ INFRA]\033[0m Tabelle PostgreSQL nello schema game_schema:\n'
     docker exec boardhub_db psql -U boardhub_user -d boardhub_db -c '\dt game_schema.*'
 
+# Avvia il servizio di gioco su localhost:8082
 backend:
     @printf '\033[38;5;42m[◆ BACKEND]\033[0m Avvio event-service su {{ base_url }}...\n'
     cd {{ service_dir }} && mvn spring-boot:run
 
+# Avvia il sito su localhost:5173
 frontend:
     @printf '\033[38;5;42m[◆ FRONTEND]\033[0m Avvio sito BoardHub su http://localhost:5173...\n'
     npm --prefix {{ frontend_dir }} run dev
 
+# Esegue i test automatici del servizio di gioco
 test:
     @printf '\033[38;5;214m[● TEST]\033[0m Esecuzione test automatici Maven...\n'
     cd {{ service_dir }} && mvn test
 
+# Controlla se il servizio di gioco e acceso
 health:
     @printf '\033[38;5;141m[◇ API]\033[0m Health check event-service:\n'
     @set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/actuator/health \
       | python3 {{ formatter }} health
 
+# Elenca tutti i tavoli per il personale del locale
 venue-tables:
     @printf '\033[38;5;141m[◇ LOCALE]\033[0m Stato amministrativo dei tavoli:\n'
     @set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/api/v1/admin/tables \
       -H 'X-BoardHub-Venue-Key: {{ venue_key }}' \
       | python3 {{ formatter }} venue-tables
 
+# Abilita temporaneamente un tavolo per avviare una partita
 enable-table table_number="1" minutes="10":
     @set -euo pipefail; \
       TABLE_NUMBER="{{ table_number }}"; \
@@ -177,6 +347,7 @@ enable-table table_number="1" minutes="10":
         -d '{"durationMinutes":{{ minutes }}}' \
         | python3 {{ formatter }} table-status
 
+# Revoca l abilitazione di un tavolo non occupato
 disable-table table_number="1":
     @set -euo pipefail; \
       TABLE_NUMBER="{{ table_number }}"; \
@@ -192,6 +363,7 @@ disable-table table_number="1":
         -H 'X-BoardHub-Venue-Key: {{ venue_key }}' \
         | python3 {{ formatter }} table-status
 
+# Chiude dal locale la partita di un singolo tavolo
 venue-close-table table_number="1":
     @set -euo pipefail; \
       TABLE_NUMBER="{{ table_number }}"; \
@@ -207,6 +379,7 @@ venue-close-table table_number="1":
         -H 'X-BoardHub-Venue-Key: {{ venue_key }}' \
         | python3 {{ formatter }} table-status
 
+# Mostra il QR da inquadrare per un tavolo
 qr table_number="1" public_host="":
     @set -euo pipefail; \
       if ! command -v qrencode >/dev/null 2>&1; then \
@@ -263,6 +436,7 @@ qr table_number="1" public_host="":
       qrencode -t ANSIUTF8 -l M -m 4 "$URL"; \
       printf '\n\033[2mRichiede just frontend attivo e un telefono sulla stessa rete del Mac.\033[0m\n'
 
+# Crea una partita con griglia dimostrativa
 create-session session_id table_id="table-04" table_public_id="qr-table-04" table_display_name="Tavolo 4":
     @printf '\033[38;5;141m[◇ API]\033[0m Creazione sessione %s...\n' "{{ session_id }}"
     @set -o pipefail; curl --fail-with-body --silent --show-error -X POST {{ base_url }}/api/v1/sessions \
@@ -270,6 +444,7 @@ create-session session_id table_id="table-04" table_public_id="qr-table-04" tabl
       -d '{"sessionId":"{{ session_id }}","venueId":"venue-01","tableId":"{{ table_id }}","tablePublicId":"{{ table_public_id }}","tableDisplayName":"{{ table_display_name }}","title":"Cripta del Re Caduto","gameType":"DND","publicSummary":"Avventura dimostrativa per personaggi di livello 3.","acceptingJoinRequests":true,"grid":{"width":3,"height":3,"difficultCells":["C1"],"blockedCells":["A2"],"obstacleCells":[],"occupiedCells":["A1"],"walls":[{"cell":"B1","direction":"SOUTH"}],"traps":[{"trapId":"trap-01","cell":"B1","visibility":"HIDDEN","armed":true}]}}' \
       | python3 {{ formatter }} created-session
 
+# Crea una partita con trappola obbligata in C2
 create-trap-session session_id table_id="table-08" table_public_id="qr-table-08" table_display_name="Tavolo 8":
     @printf '\033[38;5;141m[◇ API]\033[0m Creazione demo trappola %s...\n' "{{ session_id }}"
     @set -o pipefail; curl --fail-with-body --silent --show-error -X POST {{ base_url }}/api/v1/sessions \
@@ -277,16 +452,19 @@ create-trap-session session_id table_id="table-08" table_public_id="qr-table-08"
       -d '{"sessionId":"{{ session_id }}","venueId":"venue-01","tableId":"{{ table_id }}","tablePublicId":"{{ table_public_id }}","tableDisplayName":"{{ table_display_name }}","title":"Corridoio delle Lame","gameType":"DND","publicSummary":"Demo tecnica della risoluzione autorevole delle trappole.","acceptingJoinRequests":true,"grid":{"width":4,"height":3,"difficultCells":[],"blockedCells":[],"obstacleCells":["C1","C3"],"occupiedCells":[],"walls":[],"traps":[{"trapId":"trap-c2","cell":"C2","visibility":"HIDDEN","armed":true,"lifecyclePolicy":"PERSISTENT","saveAbility":"DEXTERITY","saveDc":12,"rollMode":"NORMAL","damageExpression":"1d6","successDamage":"NONE","successMovement":"CONTINUE","failureDamage":"FULL","failureMovement":"STOP"}]}}' \
       | python3 {{ formatter }} created-session
 
+# Mostra lo stato pubblico di un tavolo
 table-status table_public_id="qr-table-04":
     @printf '\033[38;5;141m[◇ API]\033[0m Stato pubblico di %s...\n' "{{ table_public_id }}"
     @set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/api/v1/public/tables/{{ table_public_id }} \
       | python3 {{ formatter }} table-status
 
+# Risolve il QR nella partita attiva del tavolo
 table-session table_public_id="qr-table-04":
     @printf '\033[38;5;141m[◇ API]\033[0m Risoluzione QR %s...\n' "{{ table_public_id }}"
     @set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/api/v1/public/tables/{{ table_public_id }}/active-session \
       | python3 {{ formatter }} active-session
 
+# Invia la richiesta di ingresso di un giocatore
 request-join session_id player_reference="player-device-01" display_name="Giocatore":
     @IDEMPOTENCY_KEY="$(uuidgen | tr '[:upper:]' '[:lower:]')"; \
       printf '\033[38;5;141m[◇ API]\033[0m Richiesta di ingresso per %s...\n' "{{ player_reference }}"; \
@@ -296,6 +474,7 @@ request-join session_id player_reference="player-device-01" display_name="Giocat
         -d '{"playerReference":"{{ player_reference }}","displayName":"{{ display_name }}"}' \
         | python3 {{ formatter }} join-request
 
+# Elenca le richieste di ingresso in attesa del DM
 pending-joins session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Richieste in attesa per %s...\n' "{{ session_id }}"; \
@@ -303,6 +482,7 @@ pending-joins session_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} join-requests
 
+# Accetta una richiesta di ingresso e crea il giocatore
 accept-join session_id request_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Accettazione richiesta %s...\n' "{{ request_id }}"; \
@@ -310,6 +490,7 @@ accept-join session_id request_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} join-resolution
 
+# Rifiuta una richiesta di ingresso
 reject-join session_id request_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Rifiuto richiesta %s...\n' "{{ request_id }}"; \
@@ -317,6 +498,7 @@ reject-join session_id request_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} join-request
 
+# Elenca i partecipanti attivi della partita
 participants session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Partecipanti attivi di %s...\n' "{{ session_id }}"; \
@@ -324,6 +506,7 @@ participants session_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} participants
 
+# Crea un personaggio per il giocatore autenticato
 create-character session_id:
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -339,6 +522,7 @@ create-character session_id:
         -d '{"name":"Elaria","species":"Elfa","age":120,"className":"Maga","level":3,"speedCells":6,"hpMax":18,"armorClass":12,"partyVisibility":"OWNER_ONLY"}' \
         | python3 {{ formatter }} character
 
+# Elenca i personaggi del giocatore autenticato
 my-characters session_id:
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -352,6 +536,7 @@ my-characters session_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} characters
 
+# Elenca al DM tutti i personaggi della partita
 dm-characters session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Personaggi visibili al DM nella sessione %s...\n' "{{ session_id }}"; \
@@ -359,6 +544,7 @@ dm-characters session_id:
         -H "Authorization: Bearer $TOKEN" \
       | python3 {{ formatter }} characters
 
+# Associa un personaggio a una pedina e la posiziona
 create-piece session_id character_id start_cell="B2":
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -374,6 +560,7 @@ create-piece session_id character_id start_cell="B2":
         -d '{"characterId":"{{ character_id }}","representationMode":"VIRTUAL","startCell":"{{ start_cell }}"}' \
         | python3 {{ formatter }} piece
 
+# Elenca le pedine del giocatore autenticato
 my-pieces session_id:
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -387,6 +574,7 @@ my-pieces session_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} pieces
 
+# Elenca al DM tutte le pedine della partita
 dm-pieces session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Pedine visibili al DM nella sessione %s...\n' "{{ session_id }}"; \
@@ -394,6 +582,7 @@ dm-pieces session_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} pieces
 
+# Mostra le celle dove la pedina puo arrivare
 piece-reachable session_id session_piece_id:
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -408,6 +597,7 @@ piece-reachable session_id session_piece_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} piece-reachability
 
+# Sposta la pedina e registra il movimento confermato
 move-piece session_id session_piece_id destination expected_version="0" command_id="":
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -427,6 +617,7 @@ move-piece session_id session_piece_id destination expected_version="0" command_
         -d "{\"destination\":\"{{ destination }}\",\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
         | python3 {{ formatter }} piece-move
 
+# Mostra la trappola in attesa di risoluzione
 trap-status session_id resolution_id:
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -437,6 +628,7 @@ trap-status session_id resolution_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} trap-resolution
 
+# Esegue sul server il tiro salvezza della trappola
 roll-trap session_id resolution_id expected_version command_id="":
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -449,6 +641,7 @@ roll-trap session_id resolution_id expected_version command_id="":
         -d "{\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
         | python3 {{ formatter }} trap-roll
 
+# Prosegue il movimento residuo dopo la trappola
 continue-trap session_id resolution_id expected_version command_id="":
     @set -euo pipefail; \
       TOKEN="{{ player_token }}"; \
@@ -461,6 +654,7 @@ continue-trap session_id resolution_id expected_version command_id="":
         -d "{\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
         | python3 {{ formatter }} piece-move
 
+# Elenca al DM le trappole ancora da risolvere
 pending-traps session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Risoluzioni di trappole in attesa per %s...\n' "{{ session_id }}"; \
@@ -469,6 +663,7 @@ pending-traps session_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} trap-resolutions
 
+# Il DM assume il controllo di un personaggio
 assume-character session_id character_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Assunzione del controllo del personaggio %s...\n' "{{ character_id }}"; \
@@ -477,6 +672,7 @@ assume-character session_id character_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} character-control
 
+# Il DM restituisce il controllo al giocatore
 release-character session_id character_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Restituzione del controllo del personaggio %s...\n' "{{ character_id }}"; \
@@ -485,6 +681,7 @@ release-character session_id character_id:
         -H "Authorization: Bearer $TOKEN"; \
       printf '\033[38;5;42m● Controllo restituito al giocatore\033[0m\n'
 
+# Sposta una pedina controllata dal DM
 dm-move-piece session_id session_piece_id destination expected_version="0" command_id="":
     @set -euo pipefail; \
       TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
@@ -496,6 +693,7 @@ dm-move-piece session_id session_piece_id destination expected_version="0" comma
         -d "{\"destination\":\"{{ destination }}\",\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
         | python3 {{ formatter }} piece-move
 
+# Mostra dove puo arrivare una pedina controllata dal DM
 dm-piece-reachable session_id session_piece_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Celle raggiungibili dal personaggio controllato dal DM...\n'; \
@@ -504,6 +702,7 @@ dm-piece-reachable session_id session_piece_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} piece-reachability
 
+# Tiro salvezza per un personaggio controllato dal DM
 dm-roll-trap session_id resolution_id expected_version command_id="":
     @set -euo pipefail; \
       TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
@@ -515,6 +714,7 @@ dm-roll-trap session_id resolution_id expected_version command_id="":
         -d "{\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
         | python3 {{ formatter }} trap-roll
 
+# Prosegue il movimento del personaggio controllato dal DM
 dm-continue-trap session_id resolution_id expected_version command_id="":
     @set -euo pipefail; \
       TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
@@ -526,6 +726,7 @@ dm-continue-trap session_id resolution_id expected_version command_id="":
         -d "{\"expectedVersion\":{{ expected_version }},\"commandId\":\"$COMMAND_ID\"}" \
         | python3 {{ formatter }} piece-move
 
+# Mostra gli eventi filtrati del giocatore autenticato
 player-events session_id:
     @TOKEN="{{ player_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token giocatore assente. Esporta BOARDHUB_PLAYER_TOKEN.\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Eventi visibili al giocatore...\n'; \
@@ -533,6 +734,7 @@ player-events session_id:
         {{ base_url }}/api/v1/player/sessions/{{ session_id }}/events \
         -H "Authorization: Bearer $TOKEN" | python3 {{ formatter }} events
 
+# Mostra gli eventi completi visibili al DM
 dm-events session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esporta BOARDHUB_DM_TOKEN.\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Eventi completi visibili al DM...\n'; \
@@ -540,6 +742,7 @@ dm-events session_id:
         {{ base_url }}/api/v1/dm/sessions/{{ session_id }}/events \
         -H "Authorization: Bearer $TOKEN" | python3 {{ formatter }} events
 
+# Conclude una partita e libera il suo tavolo
 close-session session_id:
     @TOKEN="{{ dm_token }}"; if [ -z "$TOKEN" ]; then printf '\033[1;31m[ERRORE]\033[0m Token DM assente. Esegui: export BOARDHUB_DM_TOKEN='\''bhd1...'\''\n'; exit 1; fi; \
       printf '\033[38;5;141m[◇ API]\033[0m Chiusura sessione %s...\n' "{{ session_id }}"; \
@@ -547,6 +750,7 @@ close-session session_id:
         -H "Authorization: Bearer $TOKEN" \
         | python3 {{ formatter }} closed-session
 
+# Calcola il movimento usando la griglia salvata
 move-session session_id:
     @printf '\033[38;5;141m[◇ API]\033[0m Calcolo movimento sulla sessione %s...\n' "{{ session_id }}"
     @set -o pipefail; curl --fail-with-body --silent --show-error -X POST {{ base_url }}/api/v1/sessions/{{ session_id }}/movement/reachable-cells \
@@ -554,6 +758,7 @@ move-session session_id:
       -d '{"characterId":"adv-01","start":"A1","movementPoints":2}' \
       | python3 {{ formatter }} movement
 
+# Calcola il movimento su una griglia passata nella richiesta
 move-stateless:
     @printf '\033[38;5;141m[◇ API]\033[0m Calcolo movimento stateless con griglia nel body...\n'
     @set -o pipefail; curl --fail-with-body --silent --show-error -X POST {{ base_url }}/api/v1/movement/reachable-cells \
@@ -561,6 +766,7 @@ move-stateless:
       -d '{"characterId":"adv-01","start":"A3","movementPoints":3,"grid":{"width":6,"height":6,"difficultCells":["B3"],"blockedCells":["D3"],"obstacleCells":["C4"],"occupiedCells":[],"walls":[{"cell":"A3","direction":"EAST"}],"traps":[{"trapId":"trap-01","cell":"B4","visibility":"HIDDEN","armed":true}]}}' \
       | python3 {{ formatter }} movement
 
+# Pubblica un evento MOVE sul broker MQTT
 publish-event session_id event_id="" table_id="table-04":
     @EVENT_ID="{{ event_id }}"; \
       if [ -z "$EVENT_ID" ]; then EVENT_ID="evt-$(uuidgen | tr '[:upper:]' '[:lower:]')"; fi; \
@@ -571,11 +777,13 @@ publish-event session_id event_id="" table_id="table-04":
       docker exec boardhub_mqtt mosquitto_pub -h localhost -t "$MQTT_TOPIC" \
         -m "{\"eventId\":\"$EVENT_ID\",\"eventType\":\"MOVE\",\"venueId\":\"venue-01\",\"tableId\":\"{{ table_id }}\",\"sessionId\":\"{{ session_id }}\",\"source\":\"SIMULATOR\",\"occurredAt\":\"$OCCURRED_AT\",\"sequenceNumber\":$SEQUENCE_NUMBER,\"payload\":{\"characterId\":\"adv-01\",\"from\":\"A1\",\"to\":\"B1\"}}"
 
+# Legge gli eventi salvati di una partita
 events session_id:
     @printf '\033[38;5;141m[◇ API]\033[0m Lettura eventi della sessione %s...\n' "{{ session_id }}"
     @set -o pipefail; curl --fail-with-body --silent --show-error {{ base_url }}/api/v1/sessions/{{ session_id }}/events \
       | python3 {{ formatter }} events
 
+# Verifica il flusso end-to-end; richiede il backend attivo
 check:
     @printf '\033[38;5;214m[● TEST]\033[0m Verifica rapida del flusso principale...\n'
     @set -euo pipefail; \

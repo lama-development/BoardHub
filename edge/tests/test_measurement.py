@@ -9,12 +9,16 @@ from boardhub_edge.measurement import (
     MeasurementRow,
     _cleanup_table,
     build_report,
+    measurement_sequences,
     percentile_nearest_rank,
     summarize,
 )
 
 
 class MeasurementStatisticsTest(unittest.TestCase):
+    def test_measurement_sequences_start_at_one_and_include_warmup(self) -> None:
+        self.assertEqual(list(measurement_sequences(10)), list(range(1, 12)))
+
     def test_nearest_rank_p95(self) -> None:
         self.assertEqual(percentile_nearest_rank(range(1, 21), 0.95), 19)
 

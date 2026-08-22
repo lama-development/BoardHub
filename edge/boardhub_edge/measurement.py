@@ -83,6 +83,11 @@ def summarize(values: Iterable[float]) -> dict[str, float]:
     }
 
 
+def measurement_sequences(samples: int) -> range:
+    """Return protocol-valid sequences, including one warm-up sample."""
+    return range(1, samples + 2)
+
+
 def _http_json(
     method: str,
     path: str,
@@ -408,7 +413,7 @@ def run_measurement(samples: int, table_number: int, output_root: Path) -> Path:
         online_source = "MEASURE_ONLINE"
         publisher = MqttPublisher("localhost", 1883)
         try:
-            for sequence in range(samples + 1):
+            for sequence in measurement_sequences(samples):
                 publisher.publish(topic, _event(session_id, table_id, online_source, sequence), qos=1)
         finally:
             publisher.close()

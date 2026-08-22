@@ -30,6 +30,8 @@ Ambito: Classi di traffico MQTT e baseline sperimentale
 
 - La procedura di misura rifiuta tavoli gia occupati e ripristina broker,
   risorse edge e stato amministrativo del tavolo anche in caso di errore.
+- Il campione di warm-up online usa ora una sequenza valida a partire da `1`,
+  evitando che il backend scarti uno degli eventi della baseline.
 
 ---
 

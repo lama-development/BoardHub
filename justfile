@@ -55,6 +55,8 @@ help:
     @printf '  just edge-queue                 ◈ Mostra il contenuto della coda locale\n'
     @printf '  just edge-test                  ● Esegue i test dei componenti del nodo edge\n'
     @printf '  just edge-status                ◈ Mostra lo stato tecnico del nodo edge\n'
+    @printf '  just measure [CAMPIONI] [TAVOLO]\n'
+    @printf '                                  ● Misura latenza online e recupero offline\n'
     @printf '  just check-offline SESSIONE     ● Scenario completo di disconnessione e recupero\n\n'
     @printf '\033[38;5;214m● TEST\033[0m\n'
     @printf '  just test                       ● Esegue i test automatici Maven\n'
@@ -168,6 +170,17 @@ edge-observe session_id character_id="adv-01":
 edge-test:
     @printf '\033[38;5;214m[● TEST]\033[0m Test dei componenti del nodo edge...\n'
     cd {{ edge_dir }} && .venv/bin/python -m unittest discover -s tests -v
+
+# Misura latenza online e recupero offline con campioni grezzi e report
+measure samples="10" table_number="7":
+    @printf '\033[38;5;214m[● TEST]\033[0m Baseline prestazioni online e recupero offline...\n'
+    @if [ ! -x "{{ edge_python }}" ]; then \
+      printf '\033[1;31m[ERRORE]\033[0m Ambiente edge assente. Esegui prima: just edge-setup\n'; \
+      exit 1; \
+    fi
+    cd {{ edge_dir }} && .venv/bin/python -m boardhub_edge.measurement \
+      --samples {{ samples }} --table {{ table_number }} \
+      --output ../artifacts/measurements
 
 # Mostra il contenuto della coda locale del nodo edge
 edge-queue:

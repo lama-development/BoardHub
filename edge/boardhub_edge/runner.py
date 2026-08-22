@@ -174,7 +174,12 @@ class EdgeNode:
             return
         payload = json.dumps(self.status_snapshot(), ensure_ascii=False)
         try:
-            self._client.publish(self._config.status_topic, payload, qos=self._config.qos, retain=True)
+            self._client.publish(
+                self._config.status_topic,
+                payload,
+                qos=self._config.status_qos,
+                retain=True,
+            )
         except Exception as error:  # pragma: no cover
             log.debug("Stato tecnico non pubblicato: %s", error)
 

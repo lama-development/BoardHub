@@ -55,3 +55,6 @@ edge/.venv/
 edge/**/__pycache__/
 edge/*.sqlite3
 edge/*.sqlite3-*
+
+# Risultati locali delle misurazioni riproducibili
+artifacts/measurements/

@@ -59,8 +59,9 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | Secondo microservizio | Implementato in `services/stats-service/` su porta 8083, con schema proprio e comunicazione solo via MQTT. |
 | Statistiche e torneo | Implementati con risultato di sessione, statistiche per giocatore, torneo e classifica finale. |
 | Acknowledgement applicativi | Implementati: il backend conferma la persistenza di ogni evento MQTT, cosi l'edge chiude un elemento solo a salvataggio avvenuto. |
+| Validazione prestazionale | Implementato un comando riproducibile per misurare latenza online, recupero offline e acknowledgement applicativi, con campioni CSV e report Markdown. |
 | Dashboard web | Implementata con pagina QR, flussi DM/giocatore persistenti, personaggi, pedine, raggiungibilita, movimento e viste operative della sessione. La risoluzione delle trappole e gli stream SSE non sono ancora collegati all'interfaccia. |
-| App mobile | Da implementare. |
+| App mobile | Esclusa dall'MVP d'esame; resta una possibile estensione futura. |
 
 ## Struttura del repository
 
@@ -72,7 +73,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | `services/event-service/` | Microservizio Java/Spring Boot per ricezione, salvataggio e lettura degli eventi. |
 | `services/stats-service/` | Secondo microservizio: risultati di sessione, statistiche e tornei. |
 | `edge/` | Nodo edge Python con coda offline persistente. |
-| `frontend/` | Dashboard React per monitorare eventi e stato minimo di una sessione. |
+| `frontend/` | Client React per QR del tavolo, console DM e giocatore, personaggi, pedine e movimento. |
 | `simulator/` | Script Python per pubblicare e leggere eventi MQTT dimostrativi. |
 
 ## Handoff frontend
@@ -472,6 +473,23 @@ mvn test
 ```
 
 Nella risposta REST, `trapsOnPath` contiene solo le trappole gia rivelate ai giocatori. Le trappole nascoste restano gestite internamente dal backend e non vengono esposte al client; se vengono attraversate, il backend interrompe comunque il movimento in modo autorevole.
+
+## Validazione prestazionale
+
+Con infrastruttura e `event-service` attivi, e con un tavolo disabilitato,
+la baseline locale si esegue dalla radice del repository:
+
+```bash
+just edge-setup
+just measure 10 7
+```
+
+Il comando raccoglie dieci campioni utili piu un warm-up per due scenari:
+pubblicazione online fino alla persistenza PostgreSQL e recupero della coda
+SQLite dopo una disconnessione del broker. Produce `measurements.csv` e
+`report.md` sotto `artifacts/measurements/`; questi risultati locali sono
+ignorati da Git. Il tavolo scelto deve essere nello stato `DISABLED` e viene
+ripristinato automaticamente al termine della prova.
 
 ## Documentazione
 

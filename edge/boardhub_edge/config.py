@@ -14,6 +14,7 @@ class EdgeConfig:
     database_path: str = "edge_outbox.sqlite3"
     source: str = "EDGE"
     qos: int = 1
+    status_qos: int = 0
     batch_size: int = 25
     backoff_base_seconds: float = 1.0
     backoff_max_seconds: float = 30.0
@@ -33,6 +34,7 @@ class EdgeConfig:
             database_path=os.getenv("BOARDHUB_EDGE_DB", "edge_outbox.sqlite3"),
             source=os.getenv("BOARDHUB_EDGE_SOURCE", "EDGE"),
             qos=int(os.getenv("BOARDHUB_EDGE_QOS", "1")),
+            status_qos=int(os.getenv("BOARDHUB_EDGE_STATUS_QOS", "0")),
             batch_size=int(os.getenv("BOARDHUB_EDGE_BATCH", "25")),
             backoff_base_seconds=float(os.getenv("BOARDHUB_EDGE_BACKOFF_BASE", "1.0")),
             backoff_max_seconds=float(os.getenv("BOARDHUB_EDGE_BACKOFF_MAX", "30.0")),

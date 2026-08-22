@@ -170,6 +170,14 @@ docs/openapi/stats-service.openapi.yml
 | `POST` | `/api/v1/admin/tables/{tablePublicId}/disable` | Revoca una finestra non ancora consumata. |
 | `POST` | `/api/v1/admin/tables/{tablePublicId}/close-session` | Conclude dal locale una sessione rimasta attiva. |
 
+La proiezione giocatore corrente restituisce sempre e soltanto i personaggi
+posseduti dal chiamante, mentre il DM vede tutte le schede. Di conseguenza
+`OWNER_ONLY` e `DM_ONLY` producono oggi lo stesso risultato nelle API di
+lettura del giocatore e `PARTY` non espone ancora una vista aggiuntiva ai
+compagni. La futura semplificazione dell'enum richiedera un aggiornamento
+coordinato di contratto, persistenza e frontend; fino ad allora i client non
+devono reinterpretare o rimuovere autonomamente questi valori.
+
 L'endpoint stateless `reachable-cells` e implementato come operazione `POST` perche riceve una griglia completa: dimensioni, terreno, celle occupate, muri e trappole.
 
 L'endpoint storico legato direttamente a `sessionId` ricostruisce la griglia
@@ -665,9 +673,16 @@ Topic MQTT attualmente utilizzato:
 | `boardhub/v1/venues/{venueId}/tables/{tableId}/status` | Edge -> Backend | Stato tecnico del nodo edge, a bassa frequenza. |
 | `boardhub/v1/venues/{venueId}/session-results` | event-service -> stats-service | Risultato di una sessione conclusa. |
 
-Tutti i topic usano QoS 1. Solo `status` viene pubblicato con flag `retained`,
-perche rappresenta l'ultimo stato noto di un nodo e deve essere disponibile a
-chi si collega dopo. Eventi, acknowledgement e comandi non sono mai `retained`.
+`events`, `event-acks`, `commands` e `session-results` usano QoS 1. Lo
+`status` tecnico usa invece QoS 0 con flag `retained`: un aggiornamento perso
+viene sostituito dal successivo e l'ultimo stato noto resta disponibile a chi
+si collega dopo. Eventi, acknowledgement e comandi non sono mai `retained`.
+
+Il nodo edge mantiene due impostazioni distinte: `BOARDHUB_EDGE_QOS` (valore
+predefinito `1`) per il traffico affidabile e `BOARDHUB_EDGE_STATUS_QOS`
+(valore predefinito `0`) per lo stato tecnico. Questa separazione evita di
+pagare il costo del QoS 1 su informazioni periodiche e sostituibili senza
+indebolire la consegna degli eventi di gioco.
 
 Esempio topic reale:
 

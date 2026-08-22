@@ -8,7 +8,8 @@ Il progetto immagina un locale ludico con piu tavoli. Ogni tavolo puo ospitare u
 
 L'MVP attuale simula plancia e sensori in software. Broker, nodo edge con coda
 offline, due microservizi backend, database, contratti e algoritmo di movimento
-sono operativi. App mobile e rilevamento fisico restano fasi successive.
+sono operativi. Per l'esame si usa il client web; app mobile e rilevamento
+fisico restano possibili estensioni successive, fuori dall'MVP.
 
 L'obiettivo per PISSIR non e realizzare un gestionale commerciale del locale, ma dimostrare un sistema distribuito che collega un oggetto fisico a servizi di rete.
 
@@ -273,7 +274,7 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | Controllo temporaneo DM | Implementato | Consente al DM di operare per un giocatore indisponibile e poi restituire il controllo. |
 | Frontend web | Implementato in parte | Pagina QR, console giocatore/DM, personaggi, pedine e movimento usano le API autorevoli; trappole, takeover completo e SSE restano da integrare. |
 | Limiti di elaborazione | Implementati | Proteggono il servizio da griglie oltre 2.500 celle e budget di movimento oltre 100. |
-| App mobile | Da implementare | Interfaccia giocatore/DM. |
+| App mobile | Esclusa dall'MVP d'esame | Possibile estensione futura del client web giocatore/DM. |
 | Nodo edge offline | Implementato | Coda SQLite persistente, backoff, acknowledgement applicativi e riallineamento dopo la disconnessione. |
 | `stats-service` | Implementato | Secondo microservizio su porta 8083: risultati, statistiche, tornei e classifica, con schema proprio. |
 | Consegna risultati | Implementata | Outbox transazionale nell'`event-service`, retry MQTT e consumo idempotente nello `stats-service`. |
@@ -338,6 +339,8 @@ Gia realizzato:
 - nodo edge con coda SQLite persistente, backoff, deduplica end-to-end e
   riallineamento verificato dopo una disconnessione del broker;
 - acknowledgement applicativi che confermano all'edge l'avvenuta persistenza;
+- baseline riproducibile per latenza online, recupero offline e tempo fino
+  all'acknowledgement applicativo, con campioni grezzi e report;
 - frontend web integrato con accesso, personaggi, pedine e movimento
   autorevole, oltre al monitor storico degli eventi;
 - test automatici;
@@ -345,15 +348,18 @@ Gia realizzato:
 - specifiche OpenAPI delle API implementate dai due servizi.
 
 Rispetto alla consegna PISSIR restano ancora aperti: le interfacce web per
-storico, statistiche e classifica, i diagrammi UML e le misure della
-validazione. Edge offline, secondo microservizio, statistiche e torneo sono
-stati realizzati e verificati. L'app Android e l'hardware
+storico, statistiche e classifica e i diagrammi UML. Lo strumento per le misure
+di validazione e implementato; resta da eseguire la baseline finale
+nell'ambiente usato per la relazione e conservarne i risultati. Edge offline,
+secondo microservizio, statistiche e torneo sono stati realizzati e verificati.
+L'app Android e l'hardware
 fisico possono valorizzare la demo, ma non sostituiscono i requisiti residui.
 
 Prossimi passi consigliati:
 
-1. produrre diagrammi UML, diagrammi di sequenza e misure di latenza,
-   disconnessione e recupero, raccogliendo le misure con `just check-offline`;
+1. produrre diagrammi UML e diagrammi di sequenza, quindi eseguire la baseline
+   finale con `just measure 10 7` e riportarne risultati e condizioni nella
+   relazione;
 2. aggiungere nel frontend le viste di storico, statistiche e classifica, che
    sono requisito esplicito della traccia;
 3. chiudere la verifica reale dell'incremento trappole con concorrenza
@@ -370,6 +376,6 @@ QR code e NFC identificano tavolo, pedina o personaggio, ma non misurano in modo
 
 Nel locale il nodo edge deve aprire connessioni in uscita verso il broker, evitando configurazioni manuali del router. In produzione MQTT deve usare autenticazione e TLS; le porte Docker attuali sono invece limitate a `localhost` per lo sviluppo.
 
-La perdita temporanea della rete e gestita da una coda persistente sul nodo edge. Ogni evento conserva `eventId`, `sessionId` e `sequenceNumber`; al ripristino della connessione l'edge lo ritrasmette e il backend ignora i duplicati, confermando l'esito con un acknowledgement applicativo. Lo scenario e riproducibile con `just check-offline`.
+La perdita temporanea della rete e gestita da una coda persistente sul nodo edge. Ogni evento conserva `eventId`, `sessionId` e `sequenceNumber`; al ripristino della connessione l'edge lo ritrasmette e il backend ignora i duplicati, confermando l'esito con un acknowledgement applicativo. Lo scenario funzionale e riproducibile con `just check-offline`; latenza e recupero sono misurabili con `just measure`.
 
-Il carico previsto e ridotto: gli eventi sono piccoli messaggi JSON generati alla velocita delle azioni umane. Il requisito e di tipo soft real-time: un aggiornamento entro poche centinaia di millisecondi rende la plancia reattiva, senza richiedere garanzie temporali hard real-time. La validazione sperimentale dovra comunque misurare dimensione dei messaggi, latenza, perdita e tempi di recupero.
+Il carico previsto e ridotto: gli eventi sono piccoli messaggi JSON generati alla velocita delle azioni umane. Il requisito e di tipo soft real-time: un aggiornamento entro poche centinaia di millisecondi rende la plancia reattiva, senza richiedere garanzie temporali hard real-time. La validazione sperimentale misura dimensione dei messaggi, latenza e tempi di recupero; la prova funzionale verifica inoltre assenza di perdite e duplicati.

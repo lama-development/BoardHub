@@ -5,6 +5,34 @@
 
 ---
 
+## [0.27.0] - 2026-08-22
+
+Autore: Andrea Perini
+Ambito: Classi di traffico MQTT e baseline sperimentale
+
+## Added
+
+- Aggiunto `just measure`, che raccoglie campioni riproducibili di latenza
+  online, recupero offline e tempo fino all'acknowledgement applicativo.
+- Aggiunti report Markdown, dati grezzi CSV e metadati dell'ambiente; gli
+  artefatti locali di misura sono esclusi da Git.
+- Aggiunti test unitari per configurazione QoS, pubblicazione dello stato,
+  calcolo statistico e ripristino sicuro del tavolo usato dalla misura.
+
+## Changed
+
+- Eventi, acknowledgement e comandi mantengono QoS 1; lo stato tecnico
+  retained usa QoS 0 perche rappresenta soltanto l'ultimo valore disponibile.
+- I timestamp prodotti dall'outbox edge includono i millisecondi, necessari
+  per una baseline locale significativa.
+
+## Fixed
+
+- La procedura di misura rifiuta tavoli gia occupati e ripristina broker,
+  risorse edge e stato amministrativo del tavolo anche in caso di errore.
+
+---
+
 ## [0.26.3] - 2026-08-20
 
 Autore: Andrea Perini

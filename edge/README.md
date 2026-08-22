@@ -58,6 +58,27 @@ just check-offline session-offline-demo-001
 Spegne il broker, fa osservare la partita al sensore, riaccende il broker e
 verifica che gli eventi vengano riallineati una sola volta.
 
+## Baseline riproducibile
+
+Con Docker e `event-service` attivi, scegliere un tavolo nello stato
+`DISABLED` ed eseguire dalla radice del repository:
+
+```bash
+just edge-setup
+just measure 10 7
+```
+
+Il comando usa undici eventi per scenario: uno di warm-up escluso dalle
+statistiche e dieci campioni effettivi. Misura prima la persistenza PostgreSQL
+con broker disponibile, poi ferma Mosquitto, accoda gli eventi in SQLite,
+riavvia il broker e misura il tempo fino agli acknowledgement applicativi.
+
+I risultati vengono salvati in una nuova cartella sotto
+`artifacts/measurements/`: `measurements.csv` contiene i campioni grezzi e
+`report.md` riporta minimo, mediana, p95 e massimo. La cartella e ignorata da
+Git. La misura rifiuta tavoli gia abilitati o occupati e ripristina il tavolo
+tecnico al termine, anche in caso di errore.
+
 ## Configurazione
 
 Tutto e sovrascrivibile da ambiente; i valori predefiniti servono allo sviluppo.
@@ -69,6 +90,8 @@ Tutto e sovrascrivibile da ambiente; i valori predefiniti servono allo sviluppo.
 | `BOARDHUB_EDGE_VENUE_ID` | `venue-01` | Locale di appartenenza. |
 | `BOARDHUB_EDGE_TABLE_ID` | `table-04` | Tavolo servito dal nodo. |
 | `BOARDHUB_EDGE_DB` | `edge_outbox.sqlite3` | File della coda locale. |
+| `BOARDHUB_EDGE_QOS` | `1` | QoS affidabile per eventi, acknowledgement e comandi. |
+| `BOARDHUB_EDGE_STATUS_QOS` | `0` | QoS leggero per lo stato tecnico retained. |
 | `BOARDHUB_EDGE_BACKOFF_MAX` | `30.0` | Attesa massima tra due tentativi. |
 
 ## Topic usati

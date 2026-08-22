@@ -493,6 +493,7 @@ ripristinato automaticamente al termine della prova.
 
 ## Documentazione
 
+- [Guida completa ai comandi da terminale](docs/GUIDA_COMANDI_TERMINALE.md)
 - [Project Scope](PROJECT_SCOPE.md)
 - [Contratti di comunicazione](docs/CONTRATTI_DI_COMUNICAZIONE.md)
 - [Specifica OpenAPI event-service](docs/openapi/event-service.openapi.yml)

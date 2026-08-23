@@ -6,24 +6,54 @@ const rows = [5, 4, 3, 2, 1];
 
 type BoardGridProps = {
   tokens: BoardToken[];
+  selectedCell?: string | null;
+  onSelectCell?: (cell: string) => void;
+  selectableCells?: Iterable<string>;
+  disabledCells?: Iterable<string>;
+  selectionHint?: string;
 };
 
-export function BoardGrid({ tokens }: BoardGridProps) {
-  const [selectedCell, setSelectedCell] = React.useState<string | null>(null);
+export function BoardGrid({
+  tokens,
+  selectedCell: controlledSelectedCell,
+  onSelectCell,
+  selectableCells,
+  disabledCells,
+  selectionHint,
+}: BoardGridProps) {
+  const [uncontrolledSelectedCell, setUncontrolledSelectedCell] =
+    React.useState<string | null>(null);
+  const selectedCell = controlledSelectedCell ?? uncontrolledSelectedCell;
+  const selectableCellSet = React.useMemo(
+    () => (selectableCells ? new Set(selectableCells) : null),
+    [selectableCells],
+  );
+  const disabledCellSet = React.useMemo(
+    () => new Set(disabledCells),
+    [disabledCells],
+  );
   const tokensByCell = new Map<string, BoardToken[]>();
 
   for (const token of tokens) {
-    tokensByCell.set(token.cell, [...(tokensByCell.get(token.cell) ?? []), token]);
+    tokensByCell.set(token.cell, [
+      ...(tokensByCell.get(token.cell) ?? []),
+      token,
+    ]);
   }
 
-  const selectedTokens = selectedCell ? (tokensByCell.get(selectedCell) ?? []) : [];
+  const selectedTokens = selectedCell
+    ? (tokensByCell.get(selectedCell) ?? [])
+    : [];
 
   return (
     <div className="p-3 sm:p-4">
       <div className="mx-auto grid max-w-90 grid-cols-[20px_repeat(5,minmax(30px,1fr))] gap-1 sm:max-w-105 sm:grid-cols-[22px_repeat(5,minmax(38px,1fr))]">
         <div />
         {columns.map((column) => (
-          <div className="text-center text-xs font-normal text-slate-500" key={column}>
+          <div
+            className="text-center text-xs font-normal text-slate-500"
+            key={column}
+          >
             {column}
           </div>
         ))}
@@ -31,9 +61,17 @@ export function BoardGrid({ tokens }: BoardGridProps) {
         {rows.map((row) => (
           <GridRow
             key={row}
-            onSelectCell={setSelectedCell}
+            onSelectCell={(cell) => {
+              if (onSelectCell) {
+                onSelectCell(cell);
+              } else {
+                setUncontrolledSelectedCell(cell);
+              }
+            }}
             row={row}
             selectedCell={selectedCell}
+            selectableCells={selectableCellSet}
+            disabledCells={disabledCellSet}
             tokensByCell={tokensByCell}
           />
         ))}
@@ -45,14 +83,19 @@ export function BoardGrid({ tokens }: BoardGridProps) {
           <LegendToken kind="monster" label="Mostro" />
         </div>
         <div className="text-xs text-slate-500">
-          {selectedCell ? (
-            <span>
-              <span className="font-medium text-slate-800">{selectedCell}</span>
-              {selectedTokens.length > 0 ? ` - ${selectedTokens.map((token) => token.id).join(", ")}` : " - vuota"}
-            </span>
-          ) : (
-            <span>Seleziona una cella</span>
-          )}
+          {selectionHint ??
+            (selectedCell ? (
+              <span>
+                <span className="font-medium text-slate-800">
+                  {selectedCell}
+                </span>
+                {selectedTokens.length > 0
+                  ? ` - ${selectedTokens.map((token) => token.id).join(", ")}`
+                  : " - vuota"}
+              </span>
+            ) : (
+              <span>Seleziona una cella</span>
+            ))}
         </div>
       </div>
     </div>
@@ -63,27 +106,40 @@ function GridRow({
   onSelectCell,
   row,
   selectedCell,
+  selectableCells,
+  disabledCells,
   tokensByCell,
 }: {
   onSelectCell: (cell: string) => void;
   row: number;
   selectedCell: string | null;
+  selectableCells: Set<string> | null;
+  disabledCells: Set<string>;
   tokensByCell: Map<string, BoardToken[]>;
 }) {
   return (
     <>
-      <div className="flex items-center justify-center text-xs font-normal text-slate-500">{row}</div>
+      <div className="flex items-center justify-center text-xs font-normal text-slate-500">
+        {row}
+      </div>
       {columns.map((column) => {
         const cell = `${column}${row}`;
         const tokens = tokensByCell.get(cell) ?? [];
+        const isSelectable =
+          selectableCells?.has(cell) ?? !disabledCells.has(cell);
 
         return (
           <button
-            className={`flex aspect-square min-h-8 cursor-pointer items-center justify-center rounded-[2px] border-2 border-[#111111] p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] sm:min-h-10 sm:p-1 ${
+            aria-label={`Cella ${cell}${isSelectable ? "" : ", non disponibile"}`}
+            aria-pressed={selectedCell === cell}
+            className={`flex aspect-square min-h-8 items-center justify-center rounded-xs border-2 border-[#111111] p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] sm:min-h-10 sm:p-1 ${
               selectedCell === cell
                 ? "-translate-y-0.5 bg-[#ffd400] shadow-[3px_3px_0_#111111]"
-                : "bg-[#fbfaf6] hover:bg-[#d8f7fb] hover:shadow-[2px_2px_0_#111111]"
+                : isSelectable
+                  ? "cursor-pointer bg-[#fbfaf6] hover:bg-[#d8f7fb] hover:shadow-[2px_2px_0_#111111]"
+                  : "cursor-not-allowed bg-slate-100 opacity-45"
             }`}
+            disabled={!isSelectable}
             key={cell}
             onClick={() => onSelectCell(cell)}
             title={cell}
@@ -112,7 +168,13 @@ function BoardPiece({ cell, token }: { cell: string; token: BoardToken }) {
   );
 }
 
-function LegendToken({ kind, label }: { kind: BoardToken["kind"]; label: string }) {
+function LegendToken({
+  kind,
+  label,
+}: {
+  kind: BoardToken["kind"];
+  label: string;
+}) {
   return (
     <span className="inline-flex items-center gap-2">
       {kind === "character" ? (

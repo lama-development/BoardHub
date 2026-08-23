@@ -5,6 +5,29 @@
 
 ---
 
+## [0.27.1] - 2026-08-23
+
+Autore: Davide La Marca
+Ambito: Selezione visuale delle celle nella console giocatore
+
+## Changed
+
+- La posizione iniziale di una pedina si sceglie ora cliccando direttamente la
+  plancia, senza inserire manualmente coordinate come `B2` o `C3`.
+- Le destinazioni raggiungibili vengono evidenziate sulla plancia e il giocatore
+  conferma il movimento selezionando la relativa cella invece di usare un
+  elenco di pulsanti.
+- La griglia riutilizzabile supporta selezione controllata, celle non
+  disponibili e indicazioni contestuali, migliorando anche accessibilita e
+  chiarezza dell'interazione.
+
+## Fixed
+
+- Le celle gia occupate dalle pedine del giocatore non sono selezionabili come
+  posizione iniziale nella relativa console.
+
+---
+
 ## [0.27.0] - 2026-08-22
 
 Autore: Andrea Perini

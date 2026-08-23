@@ -44,7 +44,14 @@ import {
 } from "../domain/dndCharacterRules";
 import type { DefenseProfile } from "../domain/dndCharacterRules";
 import { createUuid } from "../utils/uuid";
-import { AlertBanner, Button, PageHeaderIdentity, StatusChip, SummaryCard } from "./ui";
+import { BoardGrid } from "./BoardGrid";
+import {
+  AlertBanner,
+  Button,
+  PageHeaderIdentity,
+  StatusChip,
+  SummaryCard,
+} from "./ui";
 
 type PlayerSessionPanelProps = {
   sessionId: string;
@@ -94,12 +101,20 @@ const VISIBILITY_LABELS: Record<CharacterPartyVisibility, string> = {
   DM_ONLY: "Io e il DM",
 };
 
-function SpeciesAvatar({ species, size = "medium" }: { species: string; size?: "medium" | "large" }) {
+function SpeciesAvatar({
+  species,
+  size = "medium",
+}: {
+  species: string;
+  size?: "medium" | "large";
+}) {
   const rule = findSpeciesRule(species);
   const dimensions = size === "large" ? "h-14 w-14" : "h-10 w-10";
 
   return (
-    <span className={`grid ${dimensions} shrink-0 place-items-center overflow-hidden border-2 border-[#111111] bg-[#c8b1ff] shadow-[2px_2px_0_#111111]`}>
+    <span
+      className={`grid ${dimensions} shrink-0 place-items-center overflow-hidden border-2 border-[#111111] bg-[#c8b1ff] shadow-[2px_2px_0_#111111]`}
+    >
       {rule ? (
         <img
           alt={`Specie ${rule.label}`}
@@ -113,7 +128,9 @@ function SpeciesAvatar({ species, size = "medium" }: { species: string; size?: "
   );
 }
 
-function toCharacterInput(form: CharacterFormState): CreatePlayerCharacterInput {
+function toCharacterInput(
+  form: CharacterFormState,
+): CreatePlayerCharacterInput {
   return {
     name: form.name.trim(),
     species: form.species.trim(),
@@ -144,7 +161,8 @@ export function PlayerSessionPanel({
   const [startCell, setStartCell] = React.useState("B2");
   const [isCreatingPiece, setIsCreatingPiece] = React.useState(false);
   const [busyPieceId, setBusyPieceId] = React.useState<string | null>(null);
-  const [reachability, setReachability] = React.useState<PieceReachability | null>(null);
+  const [reachability, setReachability] =
+    React.useState<PieceReachability | null>(null);
   const [lastMove, setLastMove] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -188,8 +206,14 @@ export function PlayerSessionPanel({
   ) {
     setForm((current) => {
       const next = { ...current, [field]: value };
-      const selectedClass = field === "className" ? findClassRule(String(value)) : findClassRule(next.className);
-      const selectedSpecies = field === "species" ? findSpeciesRule(String(value)) : findSpeciesRule(next.species);
+      const selectedClass =
+        field === "className"
+          ? findClassRule(String(value))
+          : findClassRule(next.className);
+      const selectedSpecies =
+        field === "species"
+          ? findSpeciesRule(String(value))
+          : findSpeciesRule(next.species);
 
       if (field === "className" && selectedClass) {
         next.defenseProfile = selectedClass.defaultDefense;
@@ -199,18 +223,22 @@ export function PlayerSessionPanel({
         next.speedFeet = String(selectedSpecies.speedFeet);
       }
 
-      next.hpMax = String(calculateHitPointMaximum(
-        next.className,
-        Number(next.level),
-        Number(next.constitution),
-      ));
-      next.armorClass = String(calculateArmorClass(
-        next.defenseProfile,
-        Number(next.dexterity),
-        Number(next.constitution),
-        Number(next.wisdom),
-        next.hasShield,
-      ));
+      next.hpMax = String(
+        calculateHitPointMaximum(
+          next.className,
+          Number(next.level),
+          Number(next.constitution),
+        ),
+      );
+      next.armorClass = String(
+        calculateArmorClass(
+          next.defenseProfile,
+          Number(next.dexterity),
+          Number(next.constitution),
+          Number(next.wisdom),
+          next.hasShield,
+        ),
+      );
       return next;
     });
   }
@@ -277,7 +305,11 @@ export function PlayerSessionPanel({
     setLastMove(null);
     try {
       setReachability(
-        await fetchPieceReachability(sessionId, piece.sessionPieceId, playerToken),
+        await fetchPieceReachability(
+          sessionId,
+          piece.sessionPieceId,
+          playerToken,
+        ),
       );
     } catch (reachabilityError) {
       setError(
@@ -326,21 +358,32 @@ export function PlayerSessionPanel({
     }
   }
 
-  const assignedCharacterIds = new Set(pieces.map((piece) => piece.characterId));
+  const assignedCharacterIds = new Set(
+    pieces.map((piece) => piece.characterId),
+  );
   const availableCharacters = characters.filter(
     (character) => !assignedCharacterIds.has(character.characterId),
   );
 
   function characterName(characterId: string) {
-    return characters.find((character) => character.characterId === characterId)?.name
-      ?? "Personaggio";
+    return (
+      characters.find((character) => character.characterId === characterId)
+        ?.name ?? "Personaggio"
+    );
   }
+
+  const boardTokens = pieces.map((piece) => ({
+    id: characterName(piece.characterId),
+    cell: piece.currentCell,
+    kind: "character" as const,
+  }));
+  const reachableCells = reachability?.reachableCells.map((cell) => cell.cell);
 
   const previewSpeedCells = Number(form.speedFeet || 0) / 5;
 
   return (
     <main className="min-h-screen bg-transparent px-4 py-5 text-[#111111] sm:px-6 sm:py-8">
-      <header className="bh-surface mx-auto flex w-full max-w-320 flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <header className="bh-surface mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <PageHeaderIdentity
           accentClassName="bg-[#04c8e8]"
           eyebrow="BoardHub · Area giocatore"
@@ -351,7 +394,13 @@ export function PlayerSessionPanel({
           <Button
             size="compact"
             variant="secondary"
-            icon={<RefreshCw className={isLoading ? "animate-spin" : ""} size={17} aria-hidden="true" />}
+            icon={
+              <RefreshCw
+                className={isLoading ? "animate-spin" : ""}
+                size={17}
+                aria-hidden="true"
+              />
+            }
             onClick={() => void refresh()}
             disabled={isLoading}
           >
@@ -368,32 +417,54 @@ export function PlayerSessionPanel({
         </div>
       </header>
 
-      <section className="mx-auto mt-4 grid w-full max-w-320 gap-3 sm:grid-cols-3">
-        <SummaryCard accent="cyan" icon={<UserRound size={18} />} label="Giocatore">
+      <section className="mx-auto mt-4 grid w-full max-w-7xl gap-3 sm:grid-cols-3">
+        <SummaryCard
+          accent="cyan"
+          icon={<UserRound size={18} />}
+          label="Giocatore"
+        >
           <strong className="truncate text-xl font-extrabold leading-tight">
             {identity?.displayName ?? "Verifica in corso"}
           </strong>
         </SummaryCard>
         <SummaryCard accent="lime" icon={<Check size={18} />} label="Stato">
-          <StatusChip tone={identity?.status === "ACTIVE" ? "success" : "neutral"} dot>
-            {identity?.status === "ACTIVE" ? "Accesso attivo" : "Verifica in corso"}
+          <StatusChip
+            tone={identity?.status === "ACTIVE" ? "success" : "neutral"}
+            dot
+          >
+            {identity?.status === "ACTIVE"
+              ? "Accesso attivo"
+              : "Verifica in corso"}
           </StatusChip>
         </SummaryCard>
-        <SummaryCard accent="yellow" icon={<BookOpen size={18} />} label="Personaggi">
-          <strong className="text-xl font-extrabold leading-tight">{characters.length}</strong>
+        <SummaryCard
+          accent="yellow"
+          icon={<BookOpen size={18} />}
+          label="Personaggi"
+        >
+          <strong className="text-xl font-extrabold leading-tight">
+            {characters.length}
+          </strong>
         </SummaryCard>
       </section>
 
       {error ? (
-        <AlertBanner className="mx-auto mt-4 w-full max-w-320" tone="danger" icon={<AlertCircle size={18} />} role="alert">
+        <AlertBanner
+          className="mx-auto mt-4 w-full max-w-7xl"
+          tone="danger"
+          icon={<AlertCircle size={18} />}
+          role="alert"
+        >
           <span>{error}</span>
         </AlertBanner>
       ) : null}
 
-      <section className="bh-surface mx-auto mt-4 w-full max-w-320 p-4 sm:p-5">
+      <section className="bh-surface mx-auto mt-4 w-full max-w-7xl p-4 sm:p-5">
         <div className="-mx-4 -mt-4 flex flex-col gap-3 border-b-2 border-[#111111] bg-[#ff8bc7] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center gap-3">
-            <span className="bh-card-icon"><BookOpen size={18} /></span>
+            <span className="bh-card-icon">
+              <BookOpen size={18} />
+            </span>
             <div>
               <h2 className="text-xl">I miei personaggi</h2>
               <p className="mt-1 text-sm font-medium text-slate-800">
@@ -403,7 +474,13 @@ export function PlayerSessionPanel({
           </div>
           <Button
             variant={showForm ? "secondary" : "primary"}
-            icon={showForm ? <X size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
+            icon={
+              showForm ? (
+                <X size={18} aria-hidden="true" />
+              ) : (
+                <Plus size={18} aria-hidden="true" />
+              )
+            }
             onClick={() => setShowForm((current) => !current)}
           >
             {showForm ? "Chiudi modulo" : "Nuovo personaggio"}
@@ -413,7 +490,9 @@ export function PlayerSessionPanel({
         {showForm ? (
           <form className="mt-5 grid gap-4" onSubmit={submitCharacter}>
             <fieldset className="bh-form-group">
-              <legend className="bh-form-legend bg-[#ff8bc7]">01 · Identità del personaggio</legend>
+              <legend className="bh-form-legend bg-[#ff8bc7]">
+                01 · Identità del personaggio
+              </legend>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <CharacterTextField
                   label="Nome"
@@ -431,8 +510,14 @@ export function PlayerSessionPanel({
                   required={false}
                 />
                 <div className="sm:col-span-2 lg:col-span-3">
-                  <span className="text-sm font-bold text-[#111111]">Specie</span>
-                  <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" role="group" aria-label="Specie del personaggio">
+                  <span className="text-sm font-bold text-[#111111]">
+                    Specie
+                  </span>
+                  <div
+                    className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
+                    role="group"
+                    aria-label="Specie del personaggio"
+                  >
                     {DND_SPECIES.map((entry) => {
                       const selected = form.species === entry.label;
                       return (
@@ -441,7 +526,9 @@ export function PlayerSessionPanel({
                           key={entry.label}
                           type="button"
                           aria-pressed={selected}
-                          onClick={() => updateRulesField("species", entry.label)}
+                          onClick={() =>
+                            updateRulesField("species", entry.label)
+                          }
                         >
                           <span className="grid h-13 w-13 shrink-0 place-items-center overflow-hidden border-2 border-[#111111] bg-[#c8b1ff]">
                             <img
@@ -451,20 +538,31 @@ export function PlayerSessionPanel({
                             />
                           </span>
                           <span className="min-w-0">
-                            <strong className="block truncate text-sm leading-tight">{entry.label}</strong>
-                            <span className="mt-1 block text-[11px] font-bold text-slate-600">{entry.speedFeet} piedi</span>
+                            <strong className="block truncate text-sm leading-tight">
+                              {entry.label}
+                            </strong>
+                            <span className="mt-1 block text-[11px] font-bold text-slate-600">
+                              {entry.speedFeet} piedi
+                            </span>
                           </span>
                         </button>
                       );
                     })}
                   </div>
                   <span className="mt-1.5 block text-xs font-normal leading-4 text-slate-500">
-                    La specie imposta la velocità iniziale e identifica visivamente il personaggio.
+                    La specie imposta la velocità iniziale e identifica
+                    visivamente il personaggio.
                   </span>
                 </div>
                 <div className="sm:col-span-2 lg:col-span-3">
-                  <span className="text-sm font-bold text-[#111111]">Classe</span>
-                  <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6" role="group" aria-label="Classe del personaggio">
+                  <span className="text-sm font-bold text-[#111111]">
+                    Classe
+                  </span>
+                  <div
+                    className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+                    role="group"
+                    aria-label="Classe del personaggio"
+                  >
                     {DND_CLASSES.map((entry) => {
                       const selected = form.className === entry.label;
                       return (
@@ -473,23 +571,32 @@ export function PlayerSessionPanel({
                           key={entry.label}
                           type="button"
                           aria-pressed={selected}
-                          onClick={() => updateRulesField("className", entry.label)}
+                          onClick={() =>
+                            updateRulesField("className", entry.label)
+                          }
                         >
-                          <strong className="block truncate text-sm leading-tight">{entry.label}</strong>
-                          <span className="mt-1 block text-[11px] font-bold text-slate-600">D{entry.hitDie} PF</span>
+                          <strong className="block truncate text-sm leading-tight">
+                            {entry.label}
+                          </strong>
+                          <span className="mt-1 block text-[11px] font-bold text-slate-600">
+                            D{entry.hitDie} PF
+                          </span>
                         </button>
                       );
                     })}
                   </div>
                   <span className="mt-1.5 block text-xs font-normal leading-4 text-slate-500">
-                    La classe imposta dado vita e profilo difensivo iniziale; puoi correggere l'equipaggiamento sotto.
+                    La classe imposta dado vita e profilo difensivo iniziale;
+                    puoi correggere l'equipaggiamento sotto.
                   </span>
                 </div>
               </div>
             </fieldset>
 
             <fieldset className="bh-form-group bg-[#fffdf2]">
-              <legend className="bh-form-legend bg-[#ffd400]">02 · Valori tattici</legend>
+              <legend className="bh-form-legend bg-[#ffd400]">
+                02 · Valori tattici
+              </legend>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <NumberStepper
                   label="Livello"
@@ -530,7 +637,9 @@ export function PlayerSessionPanel({
                   value={form.defenseProfile}
                   options={DEFENSE_PROFILES}
                   description="Formula proposta dalla classe; cambiala se usi un'altra armatura."
-                  onChange={(value) => updateRulesField("defenseProfile", value)}
+                  onChange={(value) =>
+                    updateRulesField("defenseProfile", value)
+                  }
                 />
                 <label className="flex flex-col gap-1.5 text-sm font-bold text-[#111111]">
                   Scudo
@@ -539,12 +648,20 @@ export function PlayerSessionPanel({
                     type="button"
                     role="switch"
                     aria-checked={form.hasShield}
-                    onClick={() => updateRulesField("hasShield", !form.hasShield)}
+                    onClick={() =>
+                      updateRulesField("hasShield", !form.hasShield)
+                    }
                   >
-                    <span>{form.hasShield ? "Equipaggiato (+2 CA)" : "Non equipaggiato"}</span>
+                    <span>
+                      {form.hasShield
+                        ? "Equipaggiato (+2 CA)"
+                        : "Non equipaggiato"}
+                    </span>
                     <Shield size={17} aria-hidden="true" />
                   </button>
-                  <span className="text-xs font-normal leading-4 text-slate-500">Disponibile solo se la scheda prevede competenza.</span>
+                  <span className="text-xs font-normal leading-4 text-slate-500">
+                    Disponibile solo se la scheda prevede competenza.
+                  </span>
                 </label>
                 <NumberStepper
                   label="Punti ferita massimi"
@@ -575,20 +692,26 @@ export function PlayerSessionPanel({
             </fieldset>
 
             <details className="bh-form-group group">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-extrabold uppercase tracking-[0.05em] text-[#111111] marker:content-none">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-extrabold uppercase tracking-wider text-[#111111] marker:content-none">
                 <span>03 · Dettagli facoltativi e privacy</span>
                 <span className="grid h-7 w-7 place-items-center border-2 border-[#111111] bg-[#c8b1ff] leading-none group-open:bg-[#ff8bc7]">
-                  <Plus className="transition-transform group-open:rotate-45" size={16} aria-hidden="true" />
+                  <Plus
+                    className="transition-transform group-open:rotate-45"
+                    size={16}
+                    aria-hidden="true"
+                  />
                 </span>
               </summary>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <CustomSelect
+                <CustomSelect
                   label="Visibilità nel gruppo"
                   value={form.partyVisibility}
-                  options={Object.entries(VISIBILITY_LABELS).map(([value, label]) => ({
-                    value: value as CharacterPartyVisibility,
-                    label,
-                  }))}
+                  options={Object.entries(VISIBILITY_LABELS).map(
+                    ([value, label]) => ({
+                      value: value as CharacterPartyVisibility,
+                      label,
+                    }),
+                  )}
                   description="Il DM può sempre vedere la scheda completa."
                   onChange={(value) => updateField("partyVisibility", value)}
                 />
@@ -601,18 +724,35 @@ export function PlayerSessionPanel({
                   <span className="bh-kicker">Anteprima scheda</span>
                   <div className="mt-3 flex items-center gap-3">
                     <SpeciesAvatar species={form.species} size="large" />
-                    <h3 className="text-2xl">{form.name || "Nome del personaggio"}</h3>
+                    <h3 className="text-2xl">
+                      {form.name || "Nome del personaggio"}
+                    </h3>
                   </div>
                   <p className="mt-1 text-sm font-bold text-slate-700">
-                    {form.species || "Specie"} · {form.className || "Classe"} · Livello {form.level}
+                    {form.species || "Specie"} · {form.className || "Classe"} ·
+                    Livello {form.level}
                   </p>
                 </div>
-                <StatusChip tone="info">{VISIBILITY_LABELS[form.partyVisibility]}</StatusChip>
+                <StatusChip tone="info">
+                  {VISIBILITY_LABELS[form.partyVisibility]}
+                </StatusChip>
               </div>
               <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <PreviewStat icon={<HeartPulse size={16} />} label="Punti ferita" value={`${form.hpMax || "-"}/${form.hpMax || "-"}`} />
-                <PreviewStat icon={<Shield size={16} />} label="Classe armatura" value={form.armorClass || "-"} />
-                <PreviewStat icon={<Footprints size={16} />} label="Movimento" value={`${previewSpeedCells} celle`} />
+                <PreviewStat
+                  icon={<HeartPulse size={16} />}
+                  label="Punti ferita"
+                  value={`${form.hpMax || "-"}/${form.hpMax || "-"}`}
+                />
+                <PreviewStat
+                  icon={<Shield size={16} />}
+                  label="Classe armatura"
+                  value={form.armorClass || "-"}
+                />
+                <PreviewStat
+                  icon={<Footprints size={16} />}
+                  label="Movimento"
+                  value={`${previewSpeedCells} celle`}
+                />
               </div>
             </div>
 
@@ -621,14 +761,17 @@ export function PlayerSessionPanel({
                 variant="primary"
                 type="submit"
                 disabled={isCreating}
-                icon={isCreating ? <LoaderCircle className="animate-spin" size={18} /> : <Plus size={18} />}
+                icon={
+                  isCreating ? (
+                    <LoaderCircle className="animate-spin" size={18} />
+                  ) : (
+                    <Plus size={18} />
+                  )
+                }
               >
                 Crea personaggio
               </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setShowForm(false)}
-              >
+              <Button variant="secondary" onClick={() => setShowForm(false)}>
                 Annulla
               </Button>
             </div>
@@ -642,30 +785,56 @@ export function PlayerSessionPanel({
           </div>
         ) : characters.length === 0 ? (
           <div className="bh-empty-state mt-6 px-4 py-8 text-center">
-            <span className="bh-empty-icon bg-[#ff8bc7]"><UserRound size={22} /></span>
-            <p className="mt-3 font-medium text-slate-700">Nessun personaggio creato</p>
-            <p className="mt-1 text-sm text-slate-500">Crea il primo personaggio per poter generare una pedina.</p>
+            <span className="bh-empty-icon bg-[#ff8bc7]">
+              <UserRound size={22} />
+            </span>
+            <p className="mt-3 font-medium text-slate-700">
+              Nessun personaggio creato
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Crea il primo personaggio per poter generare una pedina.
+            </p>
           </div>
         ) : (
           <ul className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {characters.map((character) => (
-              <li className="bh-surface bh-surface--cream p-4" key={character.characterId}>
+              <li
+                className="bh-surface bh-surface--cream p-4"
+                key={character.characterId}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
                     <SpeciesAvatar species={character.species} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-950">{character.name}</p>
+                      <p className="font-semibold text-slate-950">
+                        {character.name}
+                      </p>
                       <p className="mt-1 text-sm text-slate-500">
-                        {character.species} · {character.className} · Livello {character.level}
+                        {character.species} · {character.className} · Livello{" "}
+                        {character.level}
                       </p>
                     </div>
                   </div>
-                  <StatusChip tone="neutral">{VISIBILITY_LABELS[character.partyVisibility]}</StatusChip>
+                  <StatusChip tone="neutral">
+                    {VISIBILITY_LABELS[character.partyVisibility]}
+                  </StatusChip>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-                  <CharacterStat icon={<HeartPulse size={16} />} label="PF" value={`${character.hpCurrent}/${character.hpMax}`} />
-                  <CharacterStat icon={<Shield size={16} />} label="CA" value={String(character.armorClass)} />
-                  <CharacterStat icon={<Footprints size={16} />} label="Movimento" value={`${character.speedCells} celle`} />
+                  <CharacterStat
+                    icon={<HeartPulse size={16} />}
+                    label="PF"
+                    value={`${character.hpCurrent}/${character.hpMax}`}
+                  />
+                  <CharacterStat
+                    icon={<Shield size={16} />}
+                    label="CA"
+                    value={String(character.armorClass)}
+                  />
+                  <CharacterStat
+                    icon={<Footprints size={16} />}
+                    label="Movimento"
+                    value={`${character.speedCells} celle`}
+                  />
                 </div>
               </li>
             ))}
@@ -673,19 +842,25 @@ export function PlayerSessionPanel({
         )}
       </section>
 
-      <section className="bh-surface mx-auto mb-8 mt-4 w-full max-w-320 p-4 sm:p-5">
+      <section className="bh-surface mx-auto mb-8 mt-4 w-full max-w-7xl p-4 sm:p-5">
         <div className="-mx-4 -mt-4 flex items-center gap-3 border-b-2 border-[#111111] bg-[#ffd400] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
-          <span className="bh-card-icon"><MapPin size={18} /></span>
+          <span className="bh-card-icon">
+            <MapPin size={18} />
+          </span>
           <div>
             <h2 className="text-xl">Le mie pedine</h2>
             <p className="mt-1 text-sm font-medium text-slate-800">
-              Associa un personaggio alla griglia, calcola le destinazioni e conferma il movimento.
+              Associa un personaggio alla griglia, calcola le destinazioni e
+              conferma il movimento.
             </p>
           </div>
         </div>
 
         {availableCharacters.length > 0 ? (
-          <form className="bh-surface-flat mt-5 grid gap-3 bg-[#fbfaf6] p-4 sm:grid-cols-[minmax(220px,1fr)_150px_auto] sm:items-end" onSubmit={submitPiece}>
+          <form
+            className="bh-surface-flat mt-5 grid gap-3 bg-[#fbfaf6] p-4 sm:grid-cols-[minmax(220px,1fr)_auto] sm:items-end"
+            onSubmit={submitPiece}
+          >
             <CustomSelect
               label="Personaggio senza pedina"
               value={pieceCharacterId}
@@ -698,25 +873,33 @@ export function PlayerSessionPanel({
               ]}
               onChange={setPieceCharacterId}
             />
-            <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
-              Cella iniziale
-              <input
-                className="bh-input h-10 px-3 uppercase"
-                value={startCell}
-                onChange={(event) => setStartCell(event.target.value.toUpperCase())}
-                pattern="[A-Za-z]+[1-9][0-9]*"
-                placeholder="B2"
-                required
-              />
-            </label>
             <Button
               variant="primary"
               type="submit"
               disabled={isCreatingPiece || !pieceCharacterId}
-              icon={isCreatingPiece ? <LoaderCircle className="animate-spin" size={18} /> : <Plus size={18} />}
+              icon={
+                isCreatingPiece ? (
+                  <LoaderCircle className="animate-spin" size={18} />
+                ) : (
+                  <Plus size={18} />
+                )
+              }
             >
               Genera pedina
             </Button>
+            <div className="sm:col-span-2">
+              <p className="mb-2 text-sm font-medium text-slate-700">
+                Cella iniziale:{" "}
+                <span className="text-slate-950">{startCell}</span>
+              </p>
+              <BoardGrid
+                tokens={boardTokens}
+                selectedCell={startCell}
+                onSelectCell={setStartCell}
+                disabledCells={pieces.map((piece) => piece.currentCell)}
+                selectionHint="Clicca una cella libera sulla plancia per scegliere la posizione iniziale."
+              />
+            </div>
           </form>
         ) : characters.length > 0 ? (
           <p className="bh-empty-state mt-5 px-4 py-4 text-sm text-slate-700">
@@ -725,34 +908,88 @@ export function PlayerSessionPanel({
         ) : null}
 
         {lastMove ? (
-          <AlertBanner className="mt-4" tone="success" icon={<Check size={18} />}>
+          <AlertBanner
+            className="mt-4"
+            tone="success"
+            icon={<Check size={18} />}
+          >
             Movimento confermato: {lastMove}
           </AlertBanner>
         ) : null}
 
+        {reachability ? (
+          <div className="bh-surface-flat mt-5 bg-[#fbfaf6] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-slate-950">
+                  Scegli la destinazione sulla plancia
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {reachability.movementPoints} punti movimento disponibili. Le
+                  celle evidenziate sono raggiungibili.
+                </p>
+              </div>
+              <button
+                className="cursor-pointer rounded-[1px] border-2 border-transparent px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-600 hover:border-[#111111] hover:bg-[#fff2a7] hover:text-[#111111]"
+                type="button"
+                onClick={() => setReachability(null)}
+              >
+                Chiudi
+              </button>
+            </div>
+            <BoardGrid
+              tokens={boardTokens}
+              selectableCells={reachableCells}
+              selectionHint="Clicca una cella evidenziata per confermare il movimento."
+              onSelectCell={(cell) => void moveTo(cell)}
+            />
+          </div>
+        ) : null}
+
         {pieces.length === 0 ? (
           <div className="bh-empty-state mt-6 px-4 py-8 text-center">
-            <span className="bh-empty-icon bg-[#ffd400]"><MapPin size={22} /></span>
-            <p className="mt-3 font-medium text-slate-700">Nessuna pedina sulla griglia</p>
-            <p className="mt-1 text-sm text-slate-500">Prima crea un personaggio, poi scegli una cella libera.</p>
+            <span className="bh-empty-icon bg-[#ffd400]">
+              <MapPin size={22} />
+            </span>
+            <p className="mt-3 font-medium text-slate-700">
+              Nessuna pedina sulla griglia
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              Prima crea un personaggio, poi scegli una cella libera.
+            </p>
           </div>
         ) : (
           <ul className="mt-6 grid gap-3 md:grid-cols-2">
             {pieces.map((piece) => (
-              <li className="bh-surface bh-surface--cyan p-4" key={piece.sessionPieceId}>
+              <li
+                className="bh-surface bh-surface--cyan p-4"
+                key={piece.sessionPieceId}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-slate-950">{characterName(piece.characterId)}</p>
-                    <p className="mt-1 text-sm text-slate-500">Pedina {piece.representationMode.toLowerCase()}</p>
+                    <p className="font-semibold text-slate-950">
+                      {characterName(piece.characterId)}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Pedina {piece.representationMode.toLowerCase()}
+                    </p>
                   </div>
                   <StatusChip tone="info">Cella {piece.currentCell}</StatusChip>
                 </div>
                 <div className="mt-4 flex items-center justify-between border-t-2 border-[#111111] pt-4">
-                  <span className="text-xs text-slate-500">Versione {piece.version}</span>
+                  <span className="text-xs text-slate-500">
+                    Versione {piece.version}
+                  </span>
                   <Button
                     size="compact"
                     variant="secondary"
-                    icon={busyPieceId === piece.sessionPieceId ? <LoaderCircle className="animate-spin" size={17} /> : <MapPin size={17} />}
+                    icon={
+                      busyPieceId === piece.sessionPieceId ? (
+                        <LoaderCircle className="animate-spin" size={17} />
+                      ) : (
+                        <MapPin size={17} />
+                      )
+                    }
                     disabled={busyPieceId === piece.sessionPieceId}
                     onClick={() => void showReachableCells(piece)}
                   >
@@ -761,10 +998,16 @@ export function PlayerSessionPanel({
                 </div>
 
                 {reachability?.sessionPieceId === piece.sessionPieceId ? (
-                  <div className="mt-4 border-t border-slate-100 pt-4">
+                  <div className="hidden mt-4 border-t border-slate-100 pt-4">
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="font-medium text-slate-700">Celle raggiungibili</span>
-                      <button className="cursor-pointer rounded-[1px] border-2 border-transparent px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-600 hover:border-[#111111] hover:bg-[#fff2a7] hover:text-[#111111]" type="button" onClick={() => setReachability(null)}>
+                      <span className="font-medium text-slate-700">
+                        Celle raggiungibili
+                      </span>
+                      <button
+                        className="cursor-pointer rounded-[1px] border-2 border-transparent px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-600 hover:border-[#111111] hover:bg-[#fff2a7] hover:text-[#111111]"
+                        type="button"
+                        onClick={() => setReachability(null)}
+                      >
                         Chiudi
                       </button>
                     </div>
@@ -774,7 +1017,7 @@ export function PlayerSessionPanel({
                     <div className="mt-3 flex flex-wrap gap-2">
                       {reachability.reachableCells.map((cell) => (
                         <button
-                          className="cursor-pointer rounded-[2px] border-2 border-[#111111] bg-[#d8f7fb] px-3 py-2 text-left text-sm font-bold text-[#111111] shadow-[2px_2px_0_#111111] transition hover:bg-[#8fe8f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="cursor-pointer rounded-xs border-2 border-[#111111] bg-[#d8f7fb] px-3 py-2 text-left text-sm font-bold text-[#111111] shadow-[2px_2px_0_#111111] transition hover:bg-[#8fe8f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] disabled:cursor-not-allowed disabled:opacity-50"
                           key={cell.cell}
                           type="button"
                           title={`Percorso: ${cell.path.join(" → ")}`}
@@ -782,7 +1025,9 @@ export function PlayerSessionPanel({
                           onClick={() => void moveTo(cell.cell)}
                         >
                           <span className="font-semibold">{cell.cell}</span>
-                          <span className="ml-2 text-xs">costo {cell.cost}</span>
+                          <span className="ml-2 text-xs">
+                            costo {cell.cost}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -823,7 +1068,11 @@ function CharacterTextField({
         required
         maxLength={80}
       />
-      {description ? <span className="text-xs font-normal leading-4 text-slate-500">{description}</span> : null}
+      {description ? (
+        <span className="text-xs font-normal leading-4 text-slate-500">
+          {description}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -886,7 +1135,11 @@ function NumberStepper({
           <Plus size={15} aria-hidden="true" />
         </button>
       </span>
-      {description ? <span className="text-xs font-normal leading-4 text-slate-500">{description}</span> : null}
+      {description ? (
+        <span className="text-xs font-normal leading-4 text-slate-500">
+          {description}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -908,18 +1161,24 @@ function CustomSelect<Value extends string>({
 }: CustomSelectProps<Value>) {
   const [isOpen, setIsOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const selectedLabel = options.find((option) => option.value === value)?.label ?? value;
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label ?? value;
 
   React.useEffect(() => {
     function closeOnOutsideClick(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false);
+      if (!containerRef.current?.contains(event.target as Node))
+        setIsOpen(false);
     }
     document.addEventListener("pointerdown", closeOnOutsideClick);
-    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+    return () =>
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
   }, []);
 
   return (
-    <div className="relative flex flex-col gap-1.5 text-sm font-bold text-[#111111]" ref={containerRef}>
+    <div
+      className="relative flex flex-col gap-1.5 text-sm font-bold text-[#111111]"
+      ref={containerRef}
+    >
       <span>{label}</span>
       <button
         className={`bh-input flex h-10 w-full cursor-pointer items-center justify-between px-3 text-left font-normal ${isOpen ? "bg-[#fff8cc]" : ""}`}
@@ -929,11 +1188,22 @@ function CustomSelect<Value extends string>({
         onClick={() => setIsOpen((current) => !current)}
       >
         {selectedLabel}
-        <ChevronDown className={isOpen ? "rotate-180" : ""} size={17} aria-hidden="true" />
+        <ChevronDown
+          className={isOpen ? "rotate-180" : ""}
+          size={17}
+          aria-hidden="true"
+        />
       </button>
-      {description ? <span className="text-xs font-normal leading-4 text-slate-500">{description}</span> : null}
+      {description ? (
+        <span className="text-xs font-normal leading-4 text-slate-500">
+          {description}
+        </span>
+      ) : null}
       {isOpen ? (
-        <ul className="absolute inset-x-0 top-[66px] z-20 rounded-[2px] border-2 border-[#111111] bg-white p-1.5 shadow-[4px_4px_0_#111111]" role="listbox">
+        <ul
+          className="absolute inset-x-0 top-16.5 z-20 rounded-xs border-2 border-[#111111] bg-white p-1.5 shadow-[4px_4px_0_#111111]"
+          role="listbox"
+        >
           {options.map((option) => (
             <li key={option.value}>
               <button
@@ -947,7 +1217,9 @@ function CustomSelect<Value extends string>({
                 }}
               >
                 {option.label}
-                {option.value === value ? <Check size={16} aria-hidden="true" /> : null}
+                {option.value === value ? (
+                  <Check size={16} aria-hidden="true" />
+                ) : null}
               </button>
             </li>
           ))}
@@ -991,7 +1263,11 @@ function CharacterNumberField({
         required={required}
         onChange={(event) => onChange(event.target.value)}
       />
-      {description ? <span className="text-xs font-normal leading-4 text-slate-500">{description}</span> : null}
+      {description ? (
+        <span className="text-xs font-normal leading-4 text-slate-500">
+          {description}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -1005,17 +1281,33 @@ type CharacterStatProps = {
 function CharacterStat({ icon, label, value }: CharacterStatProps) {
   return (
     <div className="border-2 border-[#111111] bg-white p-2.5">
-      <span className="flex items-center gap-1 text-slate-500">{icon}{label}</span>
+      <span className="flex items-center gap-1 text-slate-500">
+        {icon}
+        {label}
+      </span>
       <p className="mt-1 font-semibold text-slate-950">{value}</p>
     </div>
   );
 }
 
-function PreviewStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function PreviewStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="border-2 border-[#111111] bg-white p-2.5 shadow-[2px_2px_0_#111111]">
-      <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase leading-[1.25] tracking-[0.03em] text-slate-700">{icon}{label}</span>
-      <strong className="mt-1 block text-base font-black text-[#111111]">{value}</strong>
+      <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase leading-tight tracking-[0.03em] text-slate-700">
+        {icon}
+        {label}
+      </span>
+      <strong className="mt-1 block text-base font-black text-[#111111]">
+        {value}
+      </strong>
     </div>
   );
 }

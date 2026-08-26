@@ -60,7 +60,7 @@ I dettagli di dominio, regole operative, dadi, movimento su griglia, ruolo del D
 | Statistiche e torneo | Implementati con risultato di sessione, statistiche per giocatore, torneo e classifica finale. |
 | Acknowledgement applicativi | Implementati: il backend conferma la persistenza di ogni evento MQTT, cosi l'edge chiude un elemento solo a salvataggio avvenuto. |
 | Validazione prestazionale | Implementato un comando riproducibile per misurare latenza online, recupero offline e acknowledgement applicativi, con campioni CSV e report Markdown. |
-| Dashboard web | Implementata con pagina QR, flussi DM/giocatore persistenti, personaggi, pedine, raggiungibilita, movimento e viste operative della sessione. La risoluzione delle trappole e gli stream SSE non sono ancora collegati all'interfaccia. |
+| Dashboard web | Implementata con pagina QR, flussi DM/giocatore persistenti, personaggi, pedine, raggiungibilita, movimento, risoluzione delle trappole e viste operative della sessione. Restano da collegare gli stream SSE. |
 | App mobile | Esclusa dall'MVP d'esame; resta una possibile estensione futura. |
 
 ## Struttura del repository
@@ -191,8 +191,8 @@ Le console dedicate usano invece le API autorevoli: il giocatore puo creare e
 leggere personaggi e pedine, calcolare le destinazioni e richiedere un
 movimento; il DM consulta partecipanti, personaggi e pedine della sessione.
 Gli eventi restano lo storico delle azioni, non lo stato corrente della
-plancia. Restano da integrare nel frontend gli stati `TRAP_PENDING`, il tiro e
-la prosecuzione, il takeover del DM dopo refresh e gli stream SSE.
+plancia. Il frontend gestisce gli stati `TRAP_PENDING`, il tiro e la
+prosecuzione autorevole; restano da integrare gli stream SSE.
 
 ### Verifica equivalente da terminale
 
@@ -298,7 +298,8 @@ Aprire `http://localhost:5173` per il monitor delle sessioni. Il percorso
 locale lo ha abilitato permette al primo dispositivo di avviare una sessione
 come DM; se e occupato permette al giocatore di chiedere l'ingresso; se e
 disabilitato resta in attesa del personale. Durante lo sviluppo Vite inoltra al
-backend locale le richieste `/api` e `/actuator`.
+backend locale le richieste `/api` e `/actuator`; inoltra inoltre `/stats-api`
+allo stats-service locale sulla porta 8083.
 
 Abilitare per dieci minuti il Tavolo 4 dalla macchina del locale:
 

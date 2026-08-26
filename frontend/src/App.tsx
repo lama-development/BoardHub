@@ -15,6 +15,7 @@ import { Metric } from "./components/Metric";
 import { SessionInspector } from "./components/SessionInspector";
 import { SessionTabs } from "./components/SessionTabs";
 import { PublicTablePage } from "./components/PublicTablePage";
+import { StatsDashboard } from "./components/StatsDashboard";
 import { AlertBanner, Button, PageHeaderIdentity } from "./components/ui";
 import { DEFAULT_SESSION_ID } from "./config";
 import type { GameEvent, HealthStatus } from "./types";
@@ -31,6 +32,10 @@ export function App() {
     return (
       <PublicTablePage tablePublicId={decodeURIComponent(tableRoute[1])} />
     );
+  }
+
+  if (window.location.pathname === "/stats" || window.location.pathname === "/stats/") {
+    return <StatsDashboard />;
   }
 
   return <SessionMonitor />;

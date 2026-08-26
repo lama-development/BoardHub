@@ -117,7 +117,7 @@ export type PieceReachability = {
 };
 
 export type PieceMoveResult = {
-  status: "CONFIRMED";
+  status: "CONFIRMED" | "TRAP_PENDING";
   commandId: string;
   eventId: string;
   sessionPieceId: string;
@@ -128,6 +128,44 @@ export type PieceMoveResult = {
   cost: number;
   version: number;
   visibleTrapsOnPath: string[];
+  resolutionId?: string | null;
+  requestedDestination?: string | null;
+  movementRemaining?: number | null;
+};
+
+export type TrapResolutionStatus =
+  | "AWAITING_ROLL"
+  | "AWAITING_CONTINUATION"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export type TrapResolution = {
+  resolutionId: string;
+  status: TrapResolutionStatus;
+  sessionPieceId: string;
+  characterId: string;
+  requestedDestination: string;
+  triggerCell: string;
+  movementRemaining: number;
+  version: number;
+};
+
+export type TrapRollResult = {
+  resolutionId: string;
+  status: TrapResolutionStatus;
+  d20First: number;
+  d20Second: number | null;
+  selectedD20: number;
+  saveBonus: number;
+  saveTotal: number;
+  success: boolean;
+  damageRolls: number[];
+  damageTotal: number;
+  hpCurrent: number;
+  tacticalStatus: "ACTIVE" | "DOWNED";
+  movementDecision: "CONTINUE" | "STOP";
+  movementRemaining: number;
+  version: number;
 };
 
 export type AcceptJoinRequestResult = {
@@ -155,4 +193,68 @@ export type ClosedSession = {
   sessionId: string;
   status: "ENDED";
   endedAt: string;
+};
+
+export type PlayerResult = {
+  sessionId: string;
+  playerReference: string;
+  displayName: string;
+  characterName: string | null;
+  className: string | null;
+  species: string | null;
+  level: number;
+  survived: boolean;
+  movesConfirmed: number;
+  cellsTravelled: number;
+  trapsTriggered: number;
+  savesSucceeded: number;
+  savesFailed: number;
+  damageTaken: number;
+  points: number;
+};
+
+export type SessionResult = {
+  sessionId: string;
+  venueId: string;
+  tableId: string;
+  title: string;
+  gameType: string;
+  startedAt: string;
+  endedAt: string;
+  durationMinutes: number;
+  participants: PlayerResult[];
+};
+
+export type PlayerStatistics = {
+  playerReference: string;
+  displayName: string;
+  sessionsPlayed: number;
+  sessionsSurvived: number;
+  survivalRate: number;
+  totalPoints: number;
+  totalMoves: number;
+  totalCellsTravelled: number;
+  totalTrapsTriggered: number;
+  totalSavesSucceeded: number;
+  totalSavesFailed: number;
+  totalDamageTaken: number;
+};
+
+export type Tournament = {
+  tournamentId: string;
+  name: string;
+  gameType: string;
+  venueId: string;
+  createdAt: string;
+};
+
+export type LeaderboardEntry = {
+  position: number;
+  playerReference: string;
+  displayName: string;
+  sessionsPlayed: number;
+  points: number;
+  savesSucceeded: number;
+  cellsTravelled: number;
+  timesDowned: number;
 };

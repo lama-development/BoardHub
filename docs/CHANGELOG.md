@@ -5,6 +5,26 @@
 
 ---
 
+## [0.27.2] - 2026-08-26
+
+Autore: Davide La Marca
+Ambito: Dashboard statistiche e risoluzione delle trappole nel frontend
+
+## Added
+
+- Aggiunto nel pannello giocatore il flusso autorevole `TRAP_PENDING`: lettura
+  della risoluzione, tiro salvezza sul server e prosecuzione del movimento.
+- La console DM mostra ora le trappole in attesa, con personaggio coinvolto,
+  cella di attivazione e stato del flusso.
+- Introdotti contratti TypeScript e chiamate API per le risoluzioni e gli esiti
+  delle trappole; il client conserva e invia la versione restituita dal server.
+- Aggiunta la pagina `/stats` con storico delle sessioni concluse, ricerca delle
+  statistiche aggregate di un giocatore e classifica dei tornei.
+- Il frontend usa ora un proxy dedicato per lo stats-service, separato dalle
+  API di gioco, e contratti TypeScript per risultati, statistiche e classifiche.
+
+---
+
 ## [0.27.1] - 2026-08-23
 
 Autore: Davide La Marca

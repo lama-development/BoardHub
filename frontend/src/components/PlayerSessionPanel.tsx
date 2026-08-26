@@ -19,11 +19,14 @@ import {
 import {
   createPlayerCharacter,
   createPlayerPiece,
+  continuePlayerTrapResolution,
   fetchPieceReachability,
   fetchPlayerCharacters,
   fetchPlayerIdentity,
   fetchPlayerPieces,
+  fetchPlayerTrapResolution,
   movePlayerPiece,
+  rollPlayerTrapResolution,
 } from "../api/boardhubApi";
 import type {
   CharacterPartyVisibility,
@@ -32,6 +35,8 @@ import type {
   PieceReachability,
   PlayerCharacter,
   SessionPiece,
+  TrapResolution,
+  TrapRollResult,
 } from "../types";
 import {
   calculateArmorClass,
@@ -45,6 +50,7 @@ import {
 import type { DefenseProfile } from "../domain/dndCharacterRules";
 import { createUuid } from "../utils/uuid";
 import { BoardGrid } from "./BoardGrid";
+import { TrapResolutionCard } from "./TrapResolutionCard";
 import {
   AlertBanner,
   Button,
@@ -164,6 +170,10 @@ export function PlayerSessionPanel({
   const [reachability, setReachability] =
     React.useState<PieceReachability | null>(null);
   const [lastMove, setLastMove] = React.useState<string | null>(null);
+  const [trapResolution, setTrapResolution] =
+    React.useState<TrapResolution | null>(null);
+  const [trapRoll, setTrapRoll] = React.useState<TrapRollResult | null>(null);
+  const [isResolvingTrap, setIsResolvingTrap] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const refresh = React.useCallback(async () => {
@@ -343,7 +353,19 @@ export function PlayerSessionPanel({
             : piece,
         ),
       );
-      setLastMove(`${result.from} → ${result.to} · costo ${result.cost}`);
+      if (result.status === "TRAP_PENDING" && result.resolutionId) {
+        setTrapResolution(
+          await fetchPlayerTrapResolution(
+            sessionId,
+            result.resolutionId,
+            playerToken,
+          ),
+        );
+        setTrapRoll(null);
+        setLastMove(null);
+      } else {
+        setLastMove(`${result.from} → ${result.to} · costo ${result.cost}`);
+      }
       setReachability(null);
     } catch (moveError) {
       setError(
@@ -355,6 +377,87 @@ export function PlayerSessionPanel({
       setReachability(null);
     } finally {
       setBusyPieceId(null);
+    }
+  }
+
+  async function rollTrapResolution() {
+    if (!trapResolution) return;
+    setIsResolvingTrap(true);
+    setError(null);
+    try {
+      const result = await rollPlayerTrapResolution(
+        sessionId,
+        trapResolution.resolutionId,
+        playerToken,
+        trapResolution.version,
+        createUuid(),
+      );
+      setTrapRoll(result);
+      setTrapResolution((current) =>
+        current
+          ? {
+              ...current,
+              status: result.status,
+              version: result.version,
+              movementRemaining: result.movementRemaining,
+            }
+          : current,
+      );
+      await refresh();
+    } catch (trapError) {
+      setError(
+        trapError instanceof Error
+          ? trapError.message
+          : "Tiro salvezza non riuscito.",
+      );
+      await refresh();
+    } finally {
+      setIsResolvingTrap(false);
+    }
+  }
+
+  async function continueTrapResolution() {
+    if (!trapResolution) return;
+    setIsResolvingTrap(true);
+    setError(null);
+    try {
+      const result = await continuePlayerTrapResolution(
+        sessionId,
+        trapResolution.resolutionId,
+        playerToken,
+        trapResolution.version,
+        createUuid(),
+      );
+      setPieces((current) =>
+        current.map((piece) =>
+          piece.sessionPieceId === result.sessionPieceId
+            ? { ...piece, currentCell: result.to, version: result.version }
+            : piece,
+        ),
+      );
+      if (result.status === "TRAP_PENDING" && result.resolutionId) {
+        setTrapResolution(
+          await fetchPlayerTrapResolution(
+            sessionId,
+            result.resolutionId,
+            playerToken,
+          ),
+        );
+        setTrapRoll(null);
+      } else {
+        setTrapResolution(null);
+        setTrapRoll(null);
+        setLastMove(`${result.from} → ${result.to} · costo ${result.cost}`);
+      }
+    } catch (trapError) {
+      setError(
+        trapError instanceof Error
+          ? trapError.message
+          : "Prosecuzione del movimento non riuscita.",
+      );
+      await refresh();
+    } finally {
+      setIsResolvingTrap(false);
     }
   }
 
@@ -915,6 +1018,16 @@ export function PlayerSessionPanel({
           >
             Movimento confermato: {lastMove}
           </AlertBanner>
+        ) : null}
+
+        {trapResolution ? (
+          <TrapResolutionCard
+            isBusy={isResolvingTrap}
+            resolution={trapResolution}
+            roll={trapRoll}
+            onRoll={() => void rollTrapResolution()}
+            onContinue={() => void continueTrapResolution()}
+          />
         ) : null}
 
         {reachability ? (

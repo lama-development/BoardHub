@@ -14,6 +14,8 @@ import type {
   PlayerJoinStatus,
   PublicTableStatus,
   SessionPiece,
+  TrapResolution,
+  TrapRollResult,
 } from "../types";
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -255,6 +257,54 @@ export async function movePlayerPiece(
   return readJson<PieceMoveResult>(response);
 }
 
+export async function fetchPlayerTrapResolution(
+  sessionId: string,
+  resolutionId: string,
+  playerToken: string,
+): Promise<TrapResolution> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/player/sessions/${encodeURIComponent(sessionId)}/trap-resolutions/${encodeURIComponent(resolutionId)}`,
+    { headers: playerHeaders(playerToken) },
+  );
+  return readJson<TrapResolution>(response);
+}
+
+export async function rollPlayerTrapResolution(
+  sessionId: string,
+  resolutionId: string,
+  playerToken: string,
+  expectedVersion: number,
+  commandId: string,
+): Promise<TrapRollResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/player/sessions/${encodeURIComponent(sessionId)}/trap-resolutions/${encodeURIComponent(resolutionId)}/roll`,
+    {
+      method: "POST",
+      headers: { ...playerHeaders(playerToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedVersion, commandId }),
+    },
+  );
+  return readJson<TrapRollResult>(response);
+}
+
+export async function continuePlayerTrapResolution(
+  sessionId: string,
+  resolutionId: string,
+  playerToken: string,
+  expectedVersion: number,
+  commandId: string,
+): Promise<PieceMoveResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/player/sessions/${encodeURIComponent(sessionId)}/trap-resolutions/${encodeURIComponent(resolutionId)}/continue`,
+    {
+      method: "POST",
+      headers: { ...playerHeaders(playerToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedVersion, commandId }),
+    },
+  );
+  return readJson<PieceMoveResult>(response);
+}
+
 export async function fetchDmCharacters(
   sessionId: string,
   dmToken: string,
@@ -297,6 +347,17 @@ export async function fetchDmParticipants(
     { headers: dmHeaders(dmToken) },
   );
   return readJson<Participant[]>(response);
+}
+
+export async function fetchDmPendingTrapResolutions(
+  sessionId: string,
+  dmToken: string,
+): Promise<TrapResolution[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/trap-resolutions`,
+    { headers: dmHeaders(dmToken) },
+  );
+  return readJson<TrapResolution[]>(response);
 }
 
 export async function acceptDmJoinRequest(

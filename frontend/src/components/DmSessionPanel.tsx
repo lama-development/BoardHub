@@ -19,6 +19,7 @@ import {
   fetchDmJoinRequests,
   fetchDmCharacters,
   fetchDmParticipants,
+  fetchDmPendingTrapResolutions,
   fetchDmPieces,
   rejectDmJoinRequest,
 } from "../api/boardhubApi";
@@ -27,6 +28,7 @@ import type {
   Participant,
   PlayerCharacter,
   SessionPiece,
+  TrapResolution,
 } from "../types";
 import {
   AlertBanner,
@@ -56,6 +58,9 @@ export function DmSessionPanel({
   const [participants, setParticipants] = React.useState<Participant[]>([]);
   const [characters, setCharacters] = React.useState<PlayerCharacter[]>([]);
   const [pieces, setPieces] = React.useState<SessionPiece[]>([]);
+  const [pendingTrapResolutions, setPendingTrapResolutions] = React.useState<
+    TrapResolution[]
+  >([]);
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [busyRequestId, setBusyRequestId] = React.useState<string | null>(null);
@@ -70,16 +75,19 @@ export function DmSessionPanel({
           activeParticipants,
           sessionCharacters,
           sessionPieces,
+          pendingTraps,
         ] = await Promise.all([
           fetchDmJoinRequests(sessionId, dmToken),
           fetchDmParticipants(sessionId, dmToken),
           fetchDmCharacters(sessionId, dmToken),
           fetchDmPieces(sessionId, dmToken),
+          fetchDmPendingTrapResolutions(sessionId, dmToken),
         ]);
         setRequests(pendingRequests);
         setParticipants(activeParticipants);
         setCharacters(sessionCharacters);
         setPieces(sessionPieces);
+        setPendingTrapResolutions(pendingTraps);
         setError(null);
       } catch (refreshError) {
         setError(
@@ -198,7 +206,7 @@ export function DmSessionPanel({
         </div>
       </header>
 
-      <section className="mx-auto mt-4 grid w-full max-w-7xl gap-3 sm:grid-cols-3">
+      <section className="mx-auto mt-4 grid w-full max-w-7xl gap-3 sm:grid-cols-4">
         <SummaryCard accent="lime" icon={<Shield size={18} />} label="Stato">
           <StatusChip tone="success" dot>
             Sessione attiva
@@ -220,6 +228,15 @@ export function DmSessionPanel({
         >
           <strong className="text-xl font-extrabold leading-tight">
             {players.length} / 8
+          </strong>
+        </SummaryCard>
+        <SummaryCard
+          accent="yellow"
+          icon={<AlertCircle size={18} />}
+          label="Trappole in attesa"
+        >
+          <strong className="text-xl font-extrabold leading-tight">
+            {pendingTrapResolutions.length}
           </strong>
         </SummaryCard>
       </section>
@@ -329,6 +346,49 @@ export function DmSessionPanel({
             </ul>
           )}
         </div>
+      </section>
+
+      <section className="bh-surface mx-auto mb-4 w-full max-w-7xl p-4 sm:p-5">
+        <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#fff2a7] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+          <span className="bh-card-icon bg-[#ffd400]">
+            <AlertCircle size={18} />
+          </span>
+          <div>
+            <h2 className="text-xl">Trappole in attesa</h2>
+            <p className="mt-1 text-sm text-slate-700">
+              Il giocatore proprietario risolve il tiro; questa lista viene aggiornata automaticamente.
+            </p>
+          </div>
+        </div>
+        {pendingTrapResolutions.length === 0 ? (
+          <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
+            Nessun movimento è fermo su una trappola.
+          </p>
+        ) : (
+          <ul className="mt-4 divide-y-2 divide-[#111111]">
+            {pendingTrapResolutions.map((resolution) => {
+              const character = characters.find(
+                (item) => item.characterId === resolution.characterId,
+              );
+              return (
+                <li
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                  key={resolution.resolutionId}
+                >
+                  <div>
+                    <p className="font-semibold">{character?.name ?? "Personaggio"}</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      Trappola in {resolution.triggerCell} · destinazione {resolution.requestedDestination}
+                    </p>
+                  </div>
+                  <StatusChip tone="warning">
+                    {resolution.status === "AWAITING_ROLL" ? "Tiro richiesto" : "Prosecuzione"}
+                  </StatusChip>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       <section className="mx-auto grid w-full max-w-7xl gap-4 pb-8 lg:grid-cols-2">

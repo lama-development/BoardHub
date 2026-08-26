@@ -22,6 +22,8 @@ export function BackendStatus({ status }: BackendStatusProps) {
   }[status];
 
   return (
-    <StatusChip tone={config.tone} dot>{config.label}</StatusChip>
+    <StatusChip tone={config.tone} dot>
+      {config.label}
+    </StatusChip>
   );
 }

@@ -28,16 +28,22 @@ async function readJson<T>(response: Response): Promise<T> {
       body && typeof body === "object" && "message" in body
         ? body.message
         : null;
-    throw new Error(message ?? `Il server ha risposto con stato ${response.status}.`);
+    throw new Error(
+      message ?? `Il server ha risposto con stato ${response.status}.`,
+    );
   }
   return body as T;
 }
 
 export async function fetchSessionEvents(sessionId: string) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/sessions/${encodeURIComponent(sessionId)}/events`);
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/sessions/${encodeURIComponent(sessionId)}/events`,
+  );
 
   if (!response.ok) {
-    throw new Error(`Backend non disponibile o risposta non valida (${response.status}).`);
+    throw new Error(
+      `Backend non disponibile o risposta non valida (${response.status}).`,
+    );
   }
 
   return (await response.json()) as GameEvent[];
@@ -57,7 +63,9 @@ export async function fetchBackendHealth(): Promise<HealthStatus> {
   }
 }
 
-export async function fetchPublicTable(tablePublicId: string): Promise<PublicTableStatus> {
+export async function fetchPublicTable(
+  tablePublicId: string,
+): Promise<PublicTableStatus> {
   const response = await fetch(
     `${API_BASE_URL}/api/v1/public/tables/${encodeURIComponent(tablePublicId)}`,
   );
@@ -280,7 +288,10 @@ export async function rollPlayerTrapResolution(
     `${API_BASE_URL}/api/v1/player/sessions/${encodeURIComponent(sessionId)}/trap-resolutions/${encodeURIComponent(resolutionId)}/roll`,
     {
       method: "POST",
-      headers: { ...playerHeaders(playerToken), "Content-Type": "application/json" },
+      headers: {
+        ...playerHeaders(playerToken),
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ expectedVersion, commandId }),
     },
   );
@@ -298,7 +309,10 @@ export async function continuePlayerTrapResolution(
     `${API_BASE_URL}/api/v1/player/sessions/${encodeURIComponent(sessionId)}/trap-resolutions/${encodeURIComponent(resolutionId)}/continue`,
     {
       method: "POST",
-      headers: { ...playerHeaders(playerToken), "Content-Type": "application/json" },
+      headers: {
+        ...playerHeaders(playerToken),
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ expectedVersion, commandId }),
     },
   );

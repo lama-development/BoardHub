@@ -79,28 +79,33 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
   const [dmSession, setDmSession] = React.useState<CreatedSession | null>(null);
   const [sessionTitle, setSessionTitle] = React.useState("Nuova avventura");
   const [playerName, setPlayerName] = React.useState("");
-  const [joinRequest, setJoinRequest] = React.useState<JoinRequest | null>(null);
+  const [joinRequest, setJoinRequest] = React.useState<JoinRequest | null>(
+    null,
+  );
   const [playerJoinAccess, setPlayerJoinAccess] =
     React.useState<PlayerJoinAccess | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const refreshPlayerJoin = React.useCallback(async (access: PlayerJoinAccess) => {
-    const result = await fetchPlayerJoinStatus(
-      access.sessionId,
-      access.request.requestId,
-      access.joinClaim,
-    );
-    const updated: PlayerJoinAccess = {
-      ...access,
-      request: result.request,
-      participant: result.participant,
-      accessToken: result.accessToken,
-    };
-    savePlayerJoinAccess(updated);
-    setPlayerJoinAccess(updated);
-    setJoinRequest(result.request);
-    return updated;
-  }, []);
+  const refreshPlayerJoin = React.useCallback(
+    async (access: PlayerJoinAccess) => {
+      const result = await fetchPlayerJoinStatus(
+        access.sessionId,
+        access.request.requestId,
+        access.joinClaim,
+      );
+      const updated: PlayerJoinAccess = {
+        ...access,
+        request: result.request,
+        participant: result.participant,
+        accessToken: result.accessToken,
+      };
+      savePlayerJoinAccess(updated);
+      setPlayerJoinAccess(updated);
+      setJoinRequest(result.request);
+      return updated;
+    },
+    [],
+  );
 
   const loadTable = React.useCallback(
     async (showLoading = true) => {
@@ -146,7 +151,10 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
           setJoinRequest(null);
           return;
         }
-        if (!activeSession || activeSession.sessionId !== storedJoin.sessionId) {
+        if (
+          !activeSession ||
+          activeSession.sessionId !== storedJoin.sessionId
+        ) {
           clearPlayerJoinAccess(tablePublicId);
           setPlayerJoinAccess(null);
           setJoinRequest(null);
@@ -201,7 +209,10 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
     setIsSubmitting(true);
     setError(null);
     try {
-      const createdSession = await createTableSession(table, sessionTitle.trim());
+      const createdSession = await createTableSession(
+        table,
+        sessionTitle.trim(),
+      );
       saveDmAccess(table.tablePublicId, createdSession);
       setDmToken(createdSession.dmAccessToken);
       setDmSession(createdSession);
@@ -328,7 +339,11 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
         {isLoading ? (
           <div className="flex min-h-56 flex-col items-center justify-center gap-4 bg-[#fff2a7] px-5 py-12 text-center">
             <span className="bh-card-icon bh-card-icon--yellow h-12 w-12">
-              <LoaderCircle className="animate-spin" size={23} aria-hidden="true" />
+              <LoaderCircle
+                className="animate-spin"
+                size={23}
+                aria-hidden="true"
+              />
             </span>
             <div>
               <h2 className="text-2xl">Controllo del tavolo</h2>
@@ -345,9 +360,13 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
               <span className="bh-card-icon bg-[#ff8bc7] h-12 w-12">
                 <AlertCircle size={23} aria-hidden="true" />
               </span>
-              <p className="bh-kicker mt-6 bg-[#ff8bc7]">Collegamento non riuscito</p>
+              <p className="bh-kicker mt-6 bg-[#ff8bc7]">
+                Collegamento non riuscito
+              </p>
               <h2 className="mt-4 text-3xl sm:text-4xl">QR non riconosciuto</h2>
-              <p className="mt-3 max-w-2xl text-base leading-7 text-slate-700">{error}</p>
+              <p className="mt-3 max-w-2xl text-base leading-7 text-slate-700">
+                {error}
+              </p>
             </div>
             <div className="flex items-end border-t-2 border-[#111111] bg-[#ffd3e9] p-5 sm:border-l-2 sm:border-t-0 sm:p-6">
               <Button
@@ -369,7 +388,9 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                 <div className="flex flex-wrap items-center gap-2 text-xs font-extrabold uppercase tracking-[0.045em] text-slate-600">
                   <span>Locale BoardHub</span>
                   <span aria-hidden="true">/</span>
-                  <span className="font-mono normal-case tracking-normal">{table.tablePublicId}</span>
+                  <span className="font-mono normal-case tracking-normal">
+                    {table.tablePublicId}
+                  </span>
                 </div>
                 <h2 className="mt-2 text-4xl sm:text-5xl">
                   {table.tableDisplayName}
@@ -378,7 +399,13 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
               <StatusChip
                 dot
                 className="shrink-0"
-                tone={table.status === "DISABLED" ? "warning" : table.status === "CLAIMABLE" ? "success" : "info"}
+                tone={
+                  table.status === "DISABLED"
+                    ? "warning"
+                    : table.status === "CLAIMABLE"
+                      ? "success"
+                      : "info"
+                }
               >
                 {table.status === "DISABLED"
                   ? "Tavolo non abilitato"
@@ -394,7 +421,9 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                   <span className="bh-card-icon bh-card-icon--yellow h-12 w-12">
                     <DoorClosed size={23} aria-hidden="true" />
                   </span>
-                  <p className="bh-kicker mt-6 bg-[#ffd400]">In attesa del locale</p>
+                  <p className="bh-kicker mt-6 bg-[#ffd400]">
+                    In attesa del locale
+                  </p>
                   <h3 className="mt-4 max-w-3xl text-3xl sm:text-4xl">
                     Tavolo non ancora abilitato
                   </h3>
@@ -424,24 +453,41 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                   <h3 className="mt-3 text-2xl">Cosa succede ora</h3>
                   <ol className="mt-6 space-y-5">
                     <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3">
-                      <span className="grid h-8 w-8 place-items-center border-2 border-[#111111] bg-white font-black shadow-[2px_2px_0_#111111]">1</span>
+                      <span className="grid h-8 w-8 place-items-center border-2 border-[#111111] bg-white font-black shadow-[2px_2px_0_#111111]">
+                        1
+                      </span>
                       <div>
-                        <p className="font-extrabold">Il locale abilita il tavolo</p>
-                        <p className="mt-1 text-sm leading-5 text-slate-700">L&apos;autorizzazione è temporanea e vale solo per l&apos;avvio.</p>
+                        <p className="font-extrabold">
+                          Il locale abilita il tavolo
+                        </p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                          L&apos;autorizzazione è temporanea e vale solo per
+                          l&apos;avvio.
+                        </p>
                       </div>
                     </li>
                     <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3">
-                      <span className="grid h-8 w-8 place-items-center border-2 border-[#111111] bg-white font-black shadow-[2px_2px_0_#111111]">2</span>
+                      <span className="grid h-8 w-8 place-items-center border-2 border-[#111111] bg-white font-black shadow-[2px_2px_0_#111111]">
+                        2
+                      </span>
                       <div>
                         <p className="font-extrabold">La pagina si aggiorna</p>
-                        <p className="mt-1 text-sm leading-5 text-slate-700">Non serve scansionare di nuovo il codice.</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                          Non serve scansionare di nuovo il codice.
+                        </p>
                       </div>
                     </li>
                     <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3">
-                      <span className="grid h-8 w-8 place-items-center border-2 border-[#111111] bg-white font-black shadow-[2px_2px_0_#111111]">3</span>
+                      <span className="grid h-8 w-8 place-items-center border-2 border-[#111111] bg-white font-black shadow-[2px_2px_0_#111111]">
+                        3
+                      </span>
                       <div>
-                        <p className="font-extrabold">Il primo dispositivo diventa DM</p>
-                        <p className="mt-1 text-sm leading-5 text-slate-700">Gli altri giocatori potranno poi chiedere di entrare.</p>
+                        <p className="font-extrabold">
+                          Il primo dispositivo diventa DM
+                        </p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                          Gli altri giocatori potranno poi chiedere di entrare.
+                        </p>
                       </div>
                     </li>
                   </ol>
@@ -455,82 +501,104 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                   <span className="bh-card-icon bh-card-icon--lime h-12 w-12">
                     <DoorOpen size={23} aria-hidden="true" />
                   </span>
-                  <p className="bh-kicker mt-6 bg-[#b8ee72]">Autorizzato dal locale</p>
+                  <p className="bh-kicker mt-6 bg-[#b8ee72]">
+                    Autorizzato dal locale
+                  </p>
                   <h3 className="mt-4 max-w-3xl text-3xl sm:text-4xl">
                     Apri una nuova avventura
                   </h3>
                   <p className="mt-4 max-w-2xl text-base leading-7 text-slate-700">
-                  Il locale ha autorizzato l&apos;avvio
-                  {expiryLabel ? ` fino alle ${expiryLabel}` : ""}. Chi crea ora la
-                  sessione diventa Dungeon Master su questo dispositivo.
+                    Il locale ha autorizzato l&apos;avvio
+                    {expiryLabel ? ` fino alle ${expiryLabel}` : ""}. Chi crea
+                    ora la sessione diventa Dungeon Master su questo
+                    dispositivo.
                   </p>
 
                   {!showDmForm ? (
                     <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                    <Button
-                      variant="primary"
-                      icon={<Shield size={18} aria-hidden="true" />}
-                      onClick={() => setShowDmForm(true)}
-                    >
-                      Diventa DM e avvia
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      icon={<ArrowLeft size={18} aria-hidden="true" />}
-                      onClick={leavePage}
-                    >
-                      Esci
-                    </Button>
-                    </div>
-                  ) : (
-                    <form className="mt-8 max-w-xl border-t-2 border-[#111111] pt-6" onSubmit={startSession}>
-                    <label
-                      className="block text-sm font-medium text-slate-700"
-                      htmlFor="sessionTitle"
-                    >
-                      Titolo della sessione
-                    </label>
-                    <input
-                      className="bh-input mt-2 h-10 w-full px-3"
-                      id="sessionTitle"
-                      value={sessionTitle}
-                      onChange={(event) => setSessionTitle(event.target.value)}
-                      required
-                      maxLength={120}
-                    />
-                    <p className="mt-3 text-sm leading-5 text-slate-600">
-                      L&apos;accesso DM viene associato a questo browser e resta
-                      disponibile dopo un aggiornamento della pagina.
-                    </p>
-                    <div className="mt-5 flex gap-2">
                       <Button
                         variant="primary"
-                        type="submit"
-                        disabled={isSubmitting}
-                        icon={isSubmitting ? <LoaderCircle className="animate-spin" size={18} /> : <Dices size={18} />}
+                        icon={<Shield size={18} aria-hidden="true" />}
+                        onClick={() => setShowDmForm(true)}
                       >
-                        Crea sessione
+                        Diventa DM e avvia
                       </Button>
                       <Button
                         variant="secondary"
-                        onClick={() => setShowDmForm(false)}
+                        icon={<ArrowLeft size={18} aria-hidden="true" />}
+                        onClick={leavePage}
                       >
-                        Annulla
+                        Esci
                       </Button>
                     </div>
+                  ) : (
+                    <form
+                      className="mt-8 max-w-xl border-t-2 border-[#111111] pt-6"
+                      onSubmit={startSession}
+                    >
+                      <label
+                        className="block text-sm font-medium text-slate-700"
+                        htmlFor="sessionTitle"
+                      >
+                        Titolo della sessione
+                      </label>
+                      <input
+                        className="bh-input mt-2 h-10 w-full px-3"
+                        id="sessionTitle"
+                        value={sessionTitle}
+                        onChange={(event) =>
+                          setSessionTitle(event.target.value)
+                        }
+                        required
+                        maxLength={120}
+                      />
+                      <p className="mt-3 text-sm leading-5 text-slate-600">
+                        L&apos;accesso DM viene associato a questo browser e
+                        resta disponibile dopo un aggiornamento della pagina.
+                      </p>
+                      <div className="mt-5 flex gap-2">
+                        <Button
+                          variant="primary"
+                          type="submit"
+                          disabled={isSubmitting}
+                          icon={
+                            isSubmitting ? (
+                              <LoaderCircle
+                                className="animate-spin"
+                                size={18}
+                              />
+                            ) : (
+                              <Dices size={18} />
+                            )
+                          }
+                        >
+                          Crea sessione
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => setShowDmForm(false)}
+                        >
+                          Annulla
+                        </Button>
+                      </div>
                     </form>
                   )}
                 </div>
 
                 <aside className="border-t-2 border-[#111111] bg-[#e2f9c5] p-5 sm:p-7 lg:border-l-2 lg:border-t-0 lg:p-8">
-                  <p className="text-xs font-extrabold uppercase tracking-[0.055em] text-slate-700">Ruolo iniziale</p>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.055em] text-slate-700">
+                    Ruolo iniziale
+                  </p>
                   <h3 className="mt-3 text-2xl">Il primo accesso è il DM</h3>
                   <p className="mt-4 text-sm leading-6 text-slate-700">
-                    La console del Dungeon Master resterà associata a questo browser anche dopo un aggiornamento della pagina.
+                    La console del Dungeon Master resterà associata a questo
+                    browser anche dopo un aggiornamento della pagina.
                   </p>
                   {expiryLabel ? (
                     <div className="mt-6 border-2 border-[#111111] bg-white p-4 shadow-[3px_3px_0_#111111]">
-                      <p className="text-xs font-extrabold uppercase tracking-[0.045em] text-slate-600">Avvio consentito entro</p>
+                      <p className="text-xs font-extrabold uppercase tracking-[0.045em] text-slate-600">
+                        Avvio consentito entro
+                      </p>
                       <p className="mt-2 text-2xl font-black">{expiryLabel}</p>
                     </div>
                   ) : null}
@@ -544,143 +612,166 @@ export function PublicTablePage({ tablePublicId }: PublicTablePageProps) {
                   <div className="flex items-center gap-2 font-extrabold uppercase tracking-[0.045em] text-[#00687a]">
                     <Users size={21} aria-hidden="true" />
                     <span className="text-sm">
-                    {table.activeSession.gameType}
-                  </span>
+                      {table.activeSession.gameType}
+                    </span>
                   </div>
                   <h3 className="mt-4 max-w-3xl text-3xl sm:text-4xl">
-                  {table.activeSession.title}
+                    {table.activeSession.title}
                   </h3>
                   <p className="mt-4 max-w-2xl text-base leading-7 text-slate-700">
-                  {table.activeSession.publicSummary ??
-                    "La sessione accetta richieste di ingresso."}
+                    {table.activeSession.publicSummary ??
+                      "La sessione accetta richieste di ingresso."}
                   </p>
 
                   {dmToken ? (
                     <Button
-                    className="mt-7"
-                    variant="primary"
-                    icon={<Shield size={18} aria-hidden="true" />}
-                    onClick={() => {
-                      const storedAccess = readDmAccess(tablePublicId);
-                      if (storedAccess) {
-                        setDmSession({
-                          ...storedAccess.session,
-                          dmAccessToken: storedAccess.dmToken,
-                        });
-                      }
-                    }}
-                  >
-                    Riapri console DM
+                      className="mt-7"
+                      variant="primary"
+                      icon={<Shield size={18} aria-hidden="true" />}
+                      onClick={() => {
+                        const storedAccess = readDmAccess(tablePublicId);
+                        if (storedAccess) {
+                          setDmSession({
+                            ...storedAccess.session,
+                            dmAccessToken: storedAccess.dmToken,
+                          });
+                        }
+                      }}
+                    >
+                      Riapri console DM
                     </Button>
                   ) : joinRequest ? (
-                  <div
-                    className={`mt-7 border-2 border-[#111111] px-5 py-5 shadow-[3px_3px_0_#111111] ${
-                      joinRequest.status === "ACCEPTED"
-                        ? "bg-[#e2f9c5]"
-                        : joinRequest.status === "PENDING"
-                          ? "bg-[#d8f7fb]"
-                          : joinRequest.status === "EXPIRED"
-                            ? "bg-[#fff2a7]"
-                            : "bg-[#ffd3e9]"
-                    }`}
-                  >
-                    <div className="flex gap-3">
-                      {joinRequest.status === "ACCEPTED" ? (
-                        <CheckCircle2
-                          className="shrink-0 text-emerald-600"
-                          size={22}
-                          aria-hidden="true"
-                        />
-                      ) : joinRequest.status === "PENDING" ? (
-                        <LoaderCircle
-                          className="shrink-0 animate-spin text-blue-600"
-                          size={22}
-                          aria-hidden="true"
-                        />
-                      ) : joinRequest.status === "EXPIRED" ? (
-                        <Clock3
-                          className="shrink-0 text-amber-600"
-                          size={22}
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <XCircle
-                          className="shrink-0 text-red-600"
-                          size={22}
-                          aria-hidden="true"
-                        />
-                      )}
-                      <div>
-                        <h4 className="font-semibold text-slate-950">
-                          {joinRequest.status === "ACCEPTED"
-                            ? "Ingresso accettato"
-                            : joinRequest.status === "PENDING"
-                              ? "Richiesta inviata al DM"
-                              : joinRequest.status === "EXPIRED"
-                                ? "Richiesta scaduta"
-                                : "Richiesta rifiutata"}
-                        </h4>
-                        <p className="mt-1 text-sm leading-6 text-slate-600">
-                          {joinRequest.status === "ACCEPTED"
-                            ? `Sei entrato come ${joinRequest.displayName}. Il dispositivo ha ricevuto la credenziale della sessione.`
-                            : joinRequest.status === "PENDING"
-                              ? "La pagina controlla automaticamente la decisione del Dungeon Master. Puoi ricaricarla senza perdere la richiesta."
-                              : joinRequest.status === "EXPIRED"
-                                ? "Il Dungeon Master non ha risposto in tempo. Puoi inviare una nuova richiesta."
-                                : "Il Dungeon Master non ha accettato questa richiesta."}
-                        </p>
-                        {joinRequest.status === "REJECTED" ||
-                        joinRequest.status === "EXPIRED" ? (
-                          <Button
-                            className="mt-4"
-                            size="compact"
-                            variant="secondary"
-                            icon={<RefreshCw size={16} aria-hidden="true" />}
-                            onClick={resetJoinRequest}
-                          >
-                            Invia una nuova richiesta
-                          </Button>
-                        ) : null}
+                    <div
+                      className={`mt-7 border-2 border-[#111111] px-5 py-5 shadow-[3px_3px_0_#111111] ${
+                        joinRequest.status === "ACCEPTED"
+                          ? "bg-[#e2f9c5]"
+                          : joinRequest.status === "PENDING"
+                            ? "bg-[#d8f7fb]"
+                            : joinRequest.status === "EXPIRED"
+                              ? "bg-[#fff2a7]"
+                              : "bg-[#ffd3e9]"
+                      }`}
+                    >
+                      <div className="flex gap-3">
+                        {joinRequest.status === "ACCEPTED" ? (
+                          <CheckCircle2
+                            className="shrink-0 text-emerald-600"
+                            size={22}
+                            aria-hidden="true"
+                          />
+                        ) : joinRequest.status === "PENDING" ? (
+                          <LoaderCircle
+                            className="shrink-0 animate-spin text-blue-600"
+                            size={22}
+                            aria-hidden="true"
+                          />
+                        ) : joinRequest.status === "EXPIRED" ? (
+                          <Clock3
+                            className="shrink-0 text-amber-600"
+                            size={22}
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <XCircle
+                            className="shrink-0 text-red-600"
+                            size={22}
+                            aria-hidden="true"
+                          />
+                        )}
+                        <div>
+                          <h4 className="font-semibold text-slate-950">
+                            {joinRequest.status === "ACCEPTED"
+                              ? "Ingresso accettato"
+                              : joinRequest.status === "PENDING"
+                                ? "Richiesta inviata al DM"
+                                : joinRequest.status === "EXPIRED"
+                                  ? "Richiesta scaduta"
+                                  : "Richiesta rifiutata"}
+                          </h4>
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            {joinRequest.status === "ACCEPTED"
+                              ? `Sei entrato come ${joinRequest.displayName}. Il dispositivo ha ricevuto la credenziale della sessione.`
+                              : joinRequest.status === "PENDING"
+                                ? "La pagina controlla automaticamente la decisione del Dungeon Master. Puoi ricaricarla senza perdere la richiesta."
+                                : joinRequest.status === "EXPIRED"
+                                  ? "Il Dungeon Master non ha risposto in tempo. Puoi inviare una nuova richiesta."
+                                  : "Il Dungeon Master non ha accettato questa richiesta."}
+                          </p>
+                          {joinRequest.status === "REJECTED" ||
+                          joinRequest.status === "EXPIRED" ? (
+                            <Button
+                              className="mt-4"
+                              size="compact"
+                              variant="secondary"
+                              icon={<RefreshCw size={16} aria-hidden="true" />}
+                              onClick={resetJoinRequest}
+                            >
+                              Invia una nuova richiesta
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
-                  </div>
                   ) : (
-                    <form className="mt-8 max-w-xl border-t-2 border-[#111111] pt-6" onSubmit={joinSession}>
-                    <label
-                      className="block text-sm font-medium text-slate-700"
-                      htmlFor="playerName"
+                    <form
+                      className="mt-8 max-w-xl border-t-2 border-[#111111] pt-6"
+                      onSubmit={joinSession}
                     >
-                      Il tuo nome
-                    </label>
-                    <input
-                      className="bh-input mt-2 h-10 w-full px-3"
-                      id="playerName"
-                      value={playerName}
-                      onChange={(event) => setPlayerName(event.target.value)}
-                      placeholder="Es. Andrea"
-                      required
-                      maxLength={80}
-                    />
-                    <Button
-                      className="mt-4"
-                      variant="primary"
-                      type="submit"
-                      disabled={isSubmitting}
-                      icon={isSubmitting ? <LoaderCircle className="animate-spin" size={18} /> : <Users size={18} />}
-                    >
-                      Richiedi di partecipare
-                    </Button>
+                      <label
+                        className="block text-sm font-medium text-slate-700"
+                        htmlFor="playerName"
+                      >
+                        Il tuo nome
+                      </label>
+                      <input
+                        className="bh-input mt-2 h-10 w-full px-3"
+                        id="playerName"
+                        value={playerName}
+                        onChange={(event) => setPlayerName(event.target.value)}
+                        placeholder="Es. Andrea"
+                        required
+                        maxLength={80}
+                      />
+                      <Button
+                        className="mt-4"
+                        variant="primary"
+                        type="submit"
+                        disabled={isSubmitting}
+                        icon={
+                          isSubmitting ? (
+                            <LoaderCircle className="animate-spin" size={18} />
+                          ) : (
+                            <Users size={18} />
+                          )
+                        }
+                      >
+                        Richiedi di partecipare
+                      </Button>
                     </form>
                   )}
                 </div>
 
                 <aside className="border-t-2 border-[#111111] bg-[#d8f7fb] p-5 sm:p-7 lg:border-l-2 lg:border-t-0 lg:p-8">
-                  <p className="text-xs font-extrabold uppercase tracking-[0.055em] text-slate-700">Ingresso giocatore</p>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.055em] text-slate-700">
+                    Ingresso giocatore
+                  </p>
                   <h3 className="mt-3 text-2xl">Chiedi di partecipare</h3>
                   <ol className="mt-6 space-y-4 text-sm leading-5 text-slate-700">
-                    <li className="flex gap-3"><strong className="text-[#111111]">01</strong><span>Inserisci il nome con cui il DM ti riconosce.</span></li>
-                    <li className="flex gap-3"><strong className="text-[#111111]">02</strong><span>Invia la richiesta e attendi la conferma.</span></li>
-                    <li className="flex gap-3"><strong className="text-[#111111]">03</strong><span>Dopo l&apos;accettazione potrai creare personaggio e pedina.</span></li>
+                    <li className="flex gap-3">
+                      <strong className="text-[#111111]">01</strong>
+                      <span>Inserisci il nome con cui il DM ti riconosce.</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <strong className="text-[#111111]">02</strong>
+                      <span>Invia la richiesta e attendi la conferma.</span>
+                    </li>
+                    <li className="flex gap-3">
+                      <strong className="text-[#111111]">03</strong>
+                      <span>
+                        Dopo l&apos;accettazione potrai creare personaggio e
+                        pedina.
+                      </span>
+                    </li>
                   </ol>
                 </aside>
               </div>

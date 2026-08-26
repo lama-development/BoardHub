@@ -11,7 +11,10 @@ type EventLogProps = {
 function describeEvent(event: GameEvent) {
   const payload = event.payload;
 
-  if (event.eventType === "SESSION_START" && typeof payload.title === "string") {
+  if (
+    event.eventType === "SESSION_START" &&
+    typeof payload.title === "string"
+  ) {
     return payload.title;
   }
   if (
@@ -22,13 +25,25 @@ function describeEvent(event: GameEvent) {
   ) {
     return `${payload.characterId}: ${payload.from} -> ${payload.to}`;
   }
-  if (event.eventType === "SPAWN_MONSTER" && typeof payload.monsterId === "string" && typeof payload.position === "string") {
+  if (
+    event.eventType === "SPAWN_MONSTER" &&
+    typeof payload.monsterId === "string" &&
+    typeof payload.position === "string"
+  ) {
     return `${payload.monsterId} in ${payload.position}`;
   }
-  if (event.eventType === "ATTACK" && typeof payload.attackerId === "string" && typeof payload.targetId === "string") {
+  if (
+    event.eventType === "ATTACK" &&
+    typeof payload.attackerId === "string" &&
+    typeof payload.targetId === "string"
+  ) {
     return `${payload.attackerId} attacca ${payload.targetId}`;
   }
-  if (event.eventType === "DAMAGE" && typeof payload.targetId === "string" && typeof payload.amount === "number") {
+  if (
+    event.eventType === "DAMAGE" &&
+    typeof payload.targetId === "string" &&
+    typeof payload.amount === "number"
+  ) {
     return `${payload.targetId} subisce ${payload.amount} danni`;
   }
   if (event.eventType === "ROUND_END" && typeof payload.round === "number") {
@@ -48,24 +63,37 @@ export function EventLog({ events, isLoading }: EventLogProps) {
   }
 
   return (
-    <div className="max-h-[360px] overflow-auto">
+    <div className="max-h-90 overflow-auto">
       <div className="grid gap-2 p-3 sm:hidden">
         {events.map((event) => (
-          <article className="rounded-[2px] border-2 border-[#111111] bg-white" key={event.eventId}>
+          <article
+            className="rounded-xs border-2 border-[#111111] bg-white"
+            key={event.eventId}
+          >
             <div className="flex items-start justify-between gap-3 p-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-500">#{event.sequenceNumber}</span>
+                  <span className="text-xs font-bold text-slate-500">
+                    #{event.sequenceNumber}
+                  </span>
                   <EventTypeChip type={event.eventType} />
                 </div>
-                <p className="mt-2 truncate text-sm font-medium text-slate-900">{describeEvent(event)}</p>
-                <p className="mt-1 text-xs text-slate-500">{formatDateTime(event.occurredAt)}</p>
+                <p className="mt-2 truncate text-sm font-medium text-slate-900">
+                  {describeEvent(event)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {formatDateTime(event.occurredAt)}
+                </p>
               </div>
-              <span className="shrink-0 text-xs text-slate-500">{event.source}</span>
+              <span className="shrink-0 text-xs text-slate-500">
+                {event.source}
+              </span>
             </div>
 
             <details className="border-t border-slate-100 px-3 py-2">
-              <summary className="cursor-pointer text-xs text-slate-500">Payload</summary>
+              <summary className="cursor-pointer text-xs text-slate-500">
+                Payload
+              </summary>
               <code className="bh-code-block mt-2 block max-h-24 overflow-auto p-2.5 text-xs leading-relaxed text-slate-700">
                 {readPayloadText(event.payload)}
               </code>
@@ -87,12 +115,16 @@ export function EventLog({ events, isLoading }: EventLogProps) {
         <tbody>
           {events.map((event) => (
             <tr key={event.eventId}>
-              <TableCell className="font-bold">{event.sequenceNumber}</TableCell>
+              <TableCell className="font-bold">
+                {event.sequenceNumber}
+              </TableCell>
               <TableCell>
                 <EventTypeChip type={event.eventType} />
               </TableCell>
               <TableCell>{event.source}</TableCell>
-              <TableCell className="hidden md:table-cell">{formatDateTime(event.occurredAt)}</TableCell>
+              <TableCell className="hidden md:table-cell">
+                {formatDateTime(event.occurredAt)}
+              </TableCell>
               <TableCell>
                 <code className="bh-code-block block max-h-24 overflow-auto p-2.5 text-xs leading-relaxed text-slate-700">
                   {readPayloadText(event.payload)}
@@ -129,5 +161,11 @@ function TableCell({
   children: ReactNode;
   className?: string;
 }) {
-  return <td className={`border-b border-[#111111] px-3 py-2 align-top text-sm text-slate-700 ${className}`}>{children}</td>;
+  return (
+    <td
+      className={`border-b border-[#111111] px-3 py-2 align-top text-sm text-slate-700 ${className}`}
+    >
+      {children}
+    </td>
+  );
 }

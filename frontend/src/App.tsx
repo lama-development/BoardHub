@@ -34,7 +34,10 @@ export function App() {
     );
   }
 
-  if (window.location.pathname === "/stats" || window.location.pathname === "/stats/") {
+  if (
+    window.location.pathname === "/stats" ||
+    window.location.pathname === "/stats/"
+  ) {
     return <StatsDashboard />;
   }
 

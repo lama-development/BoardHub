@@ -356,7 +356,8 @@ export function DmSessionPanel({
           <div>
             <h2 className="text-xl">Trappole in attesa</h2>
             <p className="mt-1 text-sm text-slate-700">
-              Il giocatore proprietario risolve il tiro; questa lista viene aggiornata automaticamente.
+              Il giocatore proprietario risolve il tiro; questa lista viene
+              aggiornata automaticamente.
             </p>
           </div>
         </div>
@@ -376,13 +377,18 @@ export function DmSessionPanel({
                   key={resolution.resolutionId}
                 >
                   <div>
-                    <p className="font-semibold">{character?.name ?? "Personaggio"}</p>
+                    <p className="font-semibold">
+                      {character?.name ?? "Personaggio"}
+                    </p>
                     <p className="mt-1 text-xs text-slate-600">
-                      Trappola in {resolution.triggerCell} · destinazione {resolution.requestedDestination}
+                      Trappola in {resolution.triggerCell} · destinazione{" "}
+                      {resolution.requestedDestination}
                     </p>
                   </div>
                   <StatusChip tone="warning">
-                    {resolution.status === "AWAITING_ROLL" ? "Tiro richiesto" : "Prosecuzione"}
+                    {resolution.status === "AWAITING_ROLL"
+                      ? "Tiro richiesto"
+                      : "Prosecuzione"}
                   </StatusChip>
                 </li>
               );

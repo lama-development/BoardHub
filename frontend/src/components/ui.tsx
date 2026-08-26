@@ -1,8 +1,4 @@
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  ReactNode,
-} from "react";
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 
 function joinClassNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -22,7 +18,8 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   secondary: "bg-white text-[#111111] hover:bg-[#ffd400]",
   danger: "bg-[#ff3b9d] text-[#111111] hover:bg-[#ff74b9]",
   success: "bg-[#9be33a] text-[#111111] hover:bg-[#b5ef69]",
-  ghost: "border-transparent bg-transparent text-[#111111] shadow-none hover:border-[#111111] hover:bg-white hover:shadow-[2px_2px_0_#111111]",
+  ghost:
+    "border-transparent bg-transparent text-[#111111] shadow-none hover:border-[#111111] hover:bg-white hover:shadow-[2px_2px_0_#111111]",
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
@@ -42,7 +39,7 @@ export function Button({
   return (
     <button
       className={joinClassNames(
-        "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[2px] border-2 border-[#111111] font-extrabold uppercase tracking-[0.045em] shadow-[3px_3px_0_#111111] transition-all duration-150 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0",
+        "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xs border-2 border-[#111111] font-extrabold uppercase tracking-[0.045em] shadow-[3px_3px_0_#111111] transition-all duration-150 hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0_#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0",
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
         className,
@@ -97,13 +94,18 @@ export function StatusChip({
   return (
     <span
       className={joinClassNames(
-        "inline-flex min-h-7 w-fit items-center gap-2 rounded-[2px] border-2 border-[#111111] px-2.5 py-1 text-[12px] font-extrabold uppercase leading-none tracking-[0.04em] shadow-[2px_2px_0_#111111]",
+        "inline-flex min-h-7 w-fit items-center gap-2 rounded-xs border-2 border-[#111111] px-2.5 py-1 text-[12px] font-extrabold uppercase leading-none tracking-[0.04em] shadow-[2px_2px_0_#111111]",
         config.container,
         className,
       )}
       {...props}
     >
-      {dot ? <span className={joinClassNames("h-1.5 w-1.5 rounded-full", config.dot)} aria-hidden="true" /> : null}
+      {dot ? (
+        <span
+          className={joinClassNames("h-1.5 w-1.5 rounded-full", config.dot)}
+          aria-hidden="true"
+        />
+      ) : null}
       {children}
     </span>
   );
@@ -131,13 +133,17 @@ export function AlertBanner({
   return (
     <div
       className={joinClassNames(
-        "flex items-start gap-2.5 rounded-[2px] border-2 border-[#111111] px-3.5 py-3 text-sm leading-5 shadow-[3px_3px_0_#111111]",
+        "flex items-start gap-2.5 rounded-xs border-2 border-[#111111] px-3.5 py-3 text-sm leading-5 shadow-[3px_3px_0_#111111]",
         ALERT_TONES[tone],
         className,
       )}
       {...props}
     >
-      {icon ? <span className="mt-0.5 shrink-0" aria-hidden="true">{icon}</span> : null}
+      {icon ? (
+        <span className="mt-0.5 shrink-0" aria-hidden="true">
+          {icon}
+        </span>
+      ) : null}
       <div className="min-w-0">{children}</div>
     </div>
   );
@@ -160,7 +166,7 @@ export function PageHeaderIdentity({
     <div className="flex min-w-0 items-center gap-3">
       <span
         className={joinClassNames(
-          "grid h-10 w-10 shrink-0 place-items-center rounded-[2px] border-2 border-[#111111] text-[#111111] shadow-[2px_2px_0_#111111]",
+          "grid h-10 w-10 shrink-0 place-items-center rounded-xs border-2 border-[#111111] text-[#111111] shadow-[2px_2px_0_#111111]",
           accentClassName,
         )}
         aria-hidden="true"
@@ -202,11 +208,14 @@ export function SummaryCard({
 }: SummaryCardProps) {
   return (
     <div className="bh-surface grid min-h-18 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 p-4">
-      <span className={joinClassNames("bh-card-icon", SUMMARY_ACCENTS[accent])} aria-hidden="true">
+      <span
+        className={joinClassNames("bh-card-icon", SUMMARY_ACCENTS[accent])}
+        aria-hidden="true"
+      >
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-[12px] font-bold uppercase leading-[1.25] tracking-[0.035em] text-slate-700">
+        <p className="text-[12px] font-bold uppercase leading-tight tracking-[0.035em] text-slate-700">
           {label}
         </p>
         <div className="mt-0.5 flex min-w-0 items-center">{children}</div>
@@ -227,7 +236,7 @@ export function Surface({
   return (
     <Element
       className={joinClassNames(
-        "rounded-[2px] border-2 border-[#111111] bg-white shadow-[4px_4px_0_#111111]",
+        "rounded-xs border-2 border-[#111111] bg-white shadow-[4px_4px_0_#111111]",
         className,
       )}
       {...props}

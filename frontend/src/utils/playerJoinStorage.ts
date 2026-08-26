@@ -16,7 +16,9 @@ function storageKey(tablePublicId: string) {
   return `${STORAGE_PREFIX}:${tablePublicId}`;
 }
 
-export function readPlayerJoinAccess(tablePublicId: string): PlayerJoinAccess | null {
+export function readPlayerJoinAccess(
+  tablePublicId: string,
+): PlayerJoinAccess | null {
   try {
     const raw = window.localStorage.getItem(storageKey(tablePublicId));
     if (!raw) return null;
@@ -40,7 +42,10 @@ export function readPlayerJoinAccess(tablePublicId: string): PlayerJoinAccess | 
 }
 
 export function savePlayerJoinAccess(access: PlayerJoinAccess) {
-  window.localStorage.setItem(storageKey(access.tablePublicId), JSON.stringify(access));
+  window.localStorage.setItem(
+    storageKey(access.tablePublicId),
+    JSON.stringify(access),
+  );
 }
 
 export function clearPlayerJoinAccess(tablePublicId: string) {

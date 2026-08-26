@@ -46,10 +46,7 @@ export function readDmAccess(tablePublicId: string): StoredDmAccess | null {
   }
 }
 
-export function saveDmAccess(
-  tablePublicId: string,
-  session: CreatedSession,
-) {
+export function saveDmAccess(tablePublicId: string, session: CreatedSession) {
   const { dmAccessToken, ...storedSession } = session;
   const value: StoredDmAccess = {
     version: 2,

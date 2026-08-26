@@ -18,10 +18,14 @@ export function eventTypeColor(eventType: string) {
   return EVENT_TYPE_COLORS[eventType] ?? "bg-[#f7f1e4]";
 }
 
-export function EventTypeChip({ type, count, className = "" }: EventTypeChipProps) {
+export function EventTypeChip({
+  type,
+  count,
+  className = "",
+}: EventTypeChipProps) {
   return (
     <span
-      className={`inline-flex min-h-7 w-fit items-center gap-2 rounded-[2px] border-2 border-[#111111] px-2.5 py-1 text-[12px] font-extrabold uppercase leading-none tracking-[0.035em] text-[#111111] ${eventTypeColor(type)} ${className}`}
+      className={`inline-flex min-h-7 w-fit items-center gap-2 rounded-xs border-2 border-[#111111] px-2.5 py-1 text-[12px] font-extrabold uppercase leading-none tracking-[0.035em] text-[#111111] ${eventTypeColor(type)} ${className}`}
     >
       <span className="wrap-break-word">{type}</span>
       {count === undefined ? null : (

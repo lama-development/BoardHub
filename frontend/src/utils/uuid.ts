@@ -4,7 +4,9 @@ export function createUuid(): string {
     return webCrypto.randomUUID();
   }
   if (typeof webCrypto?.getRandomValues !== "function") {
-    throw new Error("Il browser non supporta la generazione sicura degli identificatori.");
+    throw new Error(
+      "Il browser non supporta la generazione sicura degli identificatori.",
+    );
   }
 
   const bytes = webCrypto.getRandomValues(new Uint8Array(16));

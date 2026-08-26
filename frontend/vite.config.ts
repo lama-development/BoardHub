@@ -4,7 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "");
-  const backendTarget = env.BOARDHUB_VITE_PROXY_TARGET ?? "http://localhost:8082";
+  const backendTarget =
+    env.BOARDHUB_VITE_PROXY_TARGET ?? "http://localhost:8082";
 
   return {
     plugins: [react(), tailwindcss()],
@@ -12,7 +13,8 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         "/stats-api": {
-          target: env.BOARDHUB_VITE_STATS_PROXY_TARGET ?? "http://localhost:8083",
+          target:
+            env.BOARDHUB_VITE_STATS_PROXY_TARGET ?? "http://localhost:8083",
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/stats-api/, ""),
         },

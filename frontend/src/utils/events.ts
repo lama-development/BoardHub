@@ -18,7 +18,9 @@ export function readPayloadText(payload: Record<string, unknown>) {
 }
 
 export function sortEvents(events: GameEvent[]) {
-  return [...events].sort((left, right) => left.sequenceNumber - right.sequenceNumber);
+  return [...events].sort(
+    (left, right) => left.sequenceNumber - right.sequenceNumber,
+  );
 }
 
 export function getEventTypes(events: GameEvent[]) {
@@ -28,7 +30,9 @@ export function getEventTypes(events: GameEvent[]) {
     counts.set(event.eventType, (counts.get(event.eventType) ?? 0) + 1);
   }
 
-  return [...counts.entries()].sort(([left], [right]) => left.localeCompare(right));
+  return [...counts.entries()].sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
 }
 
 export function getBoardTokens(events: GameEvent[]): BoardToken[] {
@@ -46,7 +50,8 @@ export function getBoardTokens(events: GameEvent[]): BoardToken[] {
     }
 
     const monsterId = event.payload.monsterId;
-    const monsterCell = event.payload.position ?? event.payload.cell ?? event.payload.at;
+    const monsterCell =
+      event.payload.position ?? event.payload.cell ?? event.payload.at;
     if (typeof monsterId === "string" && typeof monsterCell === "string") {
       tokens.set(monsterId, {
         id: monsterId,
@@ -56,5 +61,7 @@ export function getBoardTokens(events: GameEvent[]): BoardToken[] {
     }
   }
 
-  return [...tokens.values()].sort((left, right) => left.id.localeCompare(right.id));
+  return [...tokens.values()].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
 }

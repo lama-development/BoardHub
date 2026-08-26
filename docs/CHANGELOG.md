@@ -5,6 +5,18 @@
 
 ---
 
+## [0.27.3] - 2026-08-26
+
+Autore: Davide La Marca
+Ambito: Formattazione e pulizia generale del codice
+
+## Changed
+
+- Uniformata la formattazione del codice frontend e riordinati dettagli di
+  manutenzione, senza modificare il comportamento funzionale dell'applicazione.
+
+---
+
 ## [0.27.2] - 2026-08-26
 
 Autore: Davide La Marca

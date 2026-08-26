@@ -17,7 +17,10 @@ async function readJson<T>(response: Response): Promise<T> {
       body && typeof body === "object" && "message" in body
         ? body.message
         : null;
-    throw new Error(message ?? `Il servizio statistiche ha risposto con stato ${response.status}.`);
+    throw new Error(
+      message ??
+        `Il servizio statistiche ha risposto con stato ${response.status}.`,
+    );
   }
 
   return body as T;

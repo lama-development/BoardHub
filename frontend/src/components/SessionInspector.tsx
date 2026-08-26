@@ -10,11 +10,17 @@ type SessionInspectorProps = {
   tokens: BoardToken[];
 };
 
-export function SessionInspector({ latestEvent, eventTypes, tokens }: SessionInspectorProps) {
+export function SessionInspector({
+  latestEvent,
+  eventTypes,
+  tokens,
+}: SessionInspectorProps) {
   return (
     <aside className="bh-surface overflow-hidden">
       <div className="flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#ffd400] px-4 py-3">
-        <span className="bh-card-icon"><Gauge size={18} /></span>
+        <span className="bh-card-icon">
+          <Gauge size={18} />
+        </span>
         <h2 className="text-xl">Riepilogo</h2>
       </div>
 
@@ -22,8 +28,12 @@ export function SessionInspector({ latestEvent, eventTypes, tokens }: SessionIns
         {latestEvent ? (
           <>
             <EventTypeChip className="mb-2" type={latestEvent.eventType} />
-            <span className="block wrap-break-word text-slate-600">{formatDateTime(latestEvent.occurredAt)}</span>
-            <code className="mt-2 block wrap-break-word font-[inherit] text-xs leading-relaxed text-slate-600">{latestEvent.eventId}</code>
+            <span className="block wrap-break-word text-slate-600">
+              {formatDateTime(latestEvent.occurredAt)}
+            </span>
+            <code className="mt-2 block wrap-break-word font-[inherit] text-xs leading-relaxed text-slate-600">
+              {latestEvent.eventId}
+            </code>
           </>
         ) : (
           <span>-</span>
@@ -47,11 +57,13 @@ export function SessionInspector({ latestEvent, eventTypes, tokens }: SessionIns
           <div className="grid gap-2">
             {tokens.map((token) => (
               <span
-                className="flex min-h-9 items-center justify-between gap-3 rounded-[2px] border-2 border-[#111111] bg-[#fbfaf6] px-3 py-2"
+                className="flex min-h-9 items-center justify-between gap-3 rounded-xs border-2 border-[#111111] bg-[#fbfaf6] px-3 py-2"
                 key={token.id}
               >
                 <b className="wrap-break-word font-medium">{token.id}</b>
-                <code className="font-[inherit] text-sm font-bold text-slate-950">{token.cell}</code>
+                <code className="font-[inherit] text-sm font-bold text-slate-950">
+                  {token.cell}
+                </code>
               </span>
             ))}
           </div>

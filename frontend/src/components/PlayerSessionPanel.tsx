@@ -49,6 +49,7 @@ import {
 } from "../domain/dndCharacterRules";
 import type { DefenseProfile } from "../domain/dndCharacterRules";
 import { createUuid } from "../utils/uuid";
+import { useAuthenticatedEventStream } from "../hooks/useAuthenticatedEventStream";
 import { BoardGrid } from "./BoardGrid";
 import { TrapResolutionCard } from "./TrapResolutionCard";
 import {
@@ -199,9 +200,32 @@ export function PlayerSessionPanel({
     }
   }, [playerToken, sessionId]);
 
+  const liveRefreshTimer = React.useRef<number | null>(null);
+  const scheduleLiveRefresh = React.useCallback(() => {
+    if (liveRefreshTimer.current !== null) return;
+    liveRefreshTimer.current = window.setTimeout(() => {
+      liveRefreshTimer.current = null;
+      void refresh();
+    }, 150);
+  }, [refresh]);
+  const liveState = useAuthenticatedEventStream({
+    url: `/api/v1/player/sessions/${encodeURIComponent(sessionId)}/events/stream`,
+    token: playerToken,
+    onEvent: scheduleLiveRefresh,
+  });
+
   React.useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  React.useEffect(
+    () => () => {
+      if (liveRefreshTimer.current !== null) {
+        window.clearTimeout(liveRefreshTimer.current);
+      }
+    },
+    [],
+  );
 
   function updateField<Key extends keyof CharacterFormState>(
     field: Key,
@@ -520,7 +544,7 @@ export function PlayerSessionPanel({
         </div>
       </header>
 
-      <section className="mx-auto mt-4 grid w-full max-w-7xl gap-3 sm:grid-cols-3">
+      <section className="mx-auto mt-4 grid w-full max-w-7xl gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           accent="cyan"
           icon={<UserRound size={18} />}
@@ -548,6 +572,18 @@ export function PlayerSessionPanel({
           <strong className="text-xl font-extrabold leading-tight">
             {characters.length}
           </strong>
+        </SummaryCard>
+        <SummaryCard
+          accent="purple"
+          icon={<RefreshCw size={18} />}
+          label="Aggiornamenti live"
+        >
+          <StatusChip
+            tone={liveState === "LIVE" ? "success" : "warning"}
+            dot={liveState === "LIVE"}
+          >
+            {liveState === "LIVE" ? "Connessi" : "Riconnessione"}
+          </StatusChip>
         </SummaryCard>
       </section>
 

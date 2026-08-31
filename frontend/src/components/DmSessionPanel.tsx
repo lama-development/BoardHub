@@ -30,6 +30,7 @@ import type {
   SessionPiece,
   TrapResolution,
 } from "../types";
+import { useAuthenticatedEventStream } from "../hooks/useAuthenticatedEventStream";
 import {
   AlertBanner,
   Button,
@@ -103,11 +104,32 @@ export function DmSessionPanel({
     [dmToken, sessionId],
   );
 
+  const liveRefreshTimer = React.useRef<number | null>(null);
+  const scheduleLiveRefresh = React.useCallback(() => {
+    if (liveRefreshTimer.current !== null) return;
+    liveRefreshTimer.current = window.setTimeout(() => {
+      liveRefreshTimer.current = null;
+      void refresh(false);
+    }, 150);
+  }, [refresh]);
+  const liveState = useAuthenticatedEventStream({
+    url: `/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/events/stream`,
+    token: dmToken,
+    onEvent: scheduleLiveRefresh,
+  });
+
   React.useEffect(() => {
     void refresh();
-    const intervalId = window.setInterval(() => void refresh(false), 4000);
-    return () => window.clearInterval(intervalId);
   }, [refresh]);
+
+  React.useEffect(
+    () => () => {
+      if (liveRefreshTimer.current !== null) {
+        window.clearTimeout(liveRefreshTimer.current);
+      }
+    },
+    [],
+  );
 
   async function resolveRequest(requestId: string, accepted: boolean) {
     setBusyRequestId(requestId);
@@ -207,7 +229,7 @@ export function DmSessionPanel({
         </div>
       </header>
 
-      <section className="mx-auto mt-4 grid w-full max-w-7xl gap-3 sm:grid-cols-4">
+      <section className="mx-auto mt-4 grid w-full max-w-7xl gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <SummaryCard accent="lime" icon={<Shield size={18} />} label="Stato">
           <StatusChip tone="success" dot>
             Sessione attiva
@@ -239,6 +261,18 @@ export function DmSessionPanel({
           <strong className="text-xl font-extrabold leading-tight">
             {pendingTrapResolutions.length}
           </strong>
+        </SummaryCard>
+        <SummaryCard
+          accent="purple"
+          icon={<RefreshCw size={18} />}
+          label="Aggiornamenti live"
+        >
+          <StatusChip
+            tone={liveState === "LIVE" ? "success" : "warning"}
+            dot={liveState === "LIVE"}
+          >
+            {liveState === "LIVE" ? "Connessi" : "Riconnessione"}
+          </StatusChip>
         </SummaryCard>
       </section>
 

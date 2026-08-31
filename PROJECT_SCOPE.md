@@ -272,7 +272,7 @@ Il simulatore e il backend gestiscono attualmente `SESSION_START`, `MOVE`, `SPAW
 | Aggiornamenti live | Implementati | SSE filtrato per giocatore e DM; gli eventi MQTT ricevuti aggiornano anche i client live. |
 | Comandi edge | Base implementata | Pubblica via MQTT percorso, correzione cella e cancellazione effetti senza segreti del DM. |
 | Controllo temporaneo DM | Implementato | Consente al DM di operare per un giocatore indisponibile e poi restituire il controllo. |
-| Frontend web | Implementato in parte | Pagina QR, console giocatore/DM, storico, statistiche, classifica, personaggi, pedine, movimento, trappole e takeover DM usano le API autorevoli; restano gli aggiornamenti SSE. |
+| Frontend web | Implementato | Pagina QR, console giocatore/DM, storico, statistiche, classifica, personaggi, pedine, movimento, trappole, takeover DM e aggiornamenti SSE usano le API autorevoli. |
 | Limiti di elaborazione | Implementati | Proteggono il servizio da griglie oltre 2.500 celle e budget di movimento oltre 100. |
 | App mobile | Esclusa dall'MVP d'esame | Possibile estensione futura del client web giocatore/DM. |
 | Nodo edge offline | Implementato | Coda SQLite persistente, backoff, acknowledgement applicativi e riallineamento dopo la disconnessione. |
@@ -347,23 +347,20 @@ Gia realizzato:
 - documentazione tecnica iniziale;
 - specifiche OpenAPI delle API implementate dai due servizi.
 
-Rispetto alla consegna PISSIR restano ancora aperti: gli aggiornamenti SSE nel
-frontend, i diagrammi UML e di sequenza, la verifica concorrente reale delle
-trappole e la baseline finale conservata nella relazione. Edge offline, secondo
-microservizio, statistiche, torneo e relative viste web sono realizzati. L'app
-Android e l'hardware fisico possono valorizzare la demo, ma non sostituiscono i
-requisiti residui.
+Rispetto alla consegna PISSIR restano ancora aperti: i diagrammi UML e di
+sequenza, la verifica concorrente reale delle trappole e la baseline finale
+conservata nella relazione. Edge offline, secondo microservizio, statistiche,
+torneo e relative viste web sono realizzati. L'app Android e l'hardware fisico
+possono valorizzare la demo, ma non sostituiscono i requisiti residui.
 
 Prossimi passi consigliati:
 
-1. completare nel frontend gli aggiornamenti SSE, mantenendo il backend come
-   unica fonte autorevole;
-2. chiudere la verifica reale dell'incremento trappole con concorrenza
+1. chiudere la verifica reale dell'incremento trappole con concorrenza
    PostgreSQL e osservazione REST/SSE/MQTT;
-3. produrre diagrammi UML e diagrammi di sequenza, quindi eseguire la baseline
+2. produrre diagrammi UML e diagrammi di sequenza, quindi eseguire la baseline
    finale con `just measure 10 7` e riportarne risultati e condizioni nella
    relazione;
-4. progettare app Android, inventario fisico e associazione QR/NFC soltanto
+3. progettare app Android, inventario fisico e associazione QR/NFC soltanto
    dopo la copertura dei requisiti obbligatori precedenti.
 
 ## 13. Fattibilita nel contesto reale

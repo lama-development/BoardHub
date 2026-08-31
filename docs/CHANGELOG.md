@@ -1,7 +1,24 @@
 # BoardHub
+
 > Changelog pubblico del repository GitHub.
 > Riassume le modifiche rilevanti al progetto per mantenere allineato il collaboratore.
 > I comandi dettagliati, i test eseguiti e le note personali restano nel diario di bordo privato.
+
+---
+
+## [0.27.5] - 2026-08-31
+
+Autore: Davide La Marca
+Ambito: Aggiornamenti live SSE nel frontend
+
+## Added
+
+- Console giocatore e DM collegate ai rispettivi stream SSE autenticati tramite
+  header Bearer, senza esporre credenziali negli URL.
+- Aggiunti stato di connessione, riconnessione automatica e sincronizzazione
+  REST al ripristino dello stream per recuperare eventuali eventi persi.
+- Rimossa l'interrogazione periodica della console DM: gli aggiornamenti degli
+  eventi vengono ora raggruppati e applicati in risposta allo stream live.
 
 ---
 
@@ -757,10 +774,10 @@ Ambito: Comandi rapidi di sviluppo e test
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
+| Area    | Elemento                           | Motivo                                                          |
+| :------ | :--------------------------------- | :-------------------------------------------------------------- |
 | Tooling | justfile alla radice del progetto. | Semplifica l'avvio dell'infrastruttura, del backend e dei test. |
-| README | Riferimento a just help. | Permette al collaboratore di scoprire i comandi disponibili. |
+| README  | Riferimento a just help.           | Permette al collaboratore di scoprire i comandi disponibili.    |
 
 ---
 
@@ -771,12 +788,12 @@ Ambito: Gestione errori REST
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| REST API | Risposte strutturate per errori applicativi. | Evita risposte generiche 500 quando l'errore e prevedibile. |
-| Sessioni | Gestione sessione duplicata con 409 Conflict. | Segnala correttamente un identificativo gia presente. |
-| Movimento | Gestione sessione inesistente con 404 Not Found. | Segnala che non esiste una griglia persistita. |
-| OpenAPI | Documentazione di 400, 404 e 409. | Allinea Apidog e collaboratore al comportamento reale dell'API. |
+| Area      | Elemento                                         | Motivo                                                          |
+| :-------- | :----------------------------------------------- | :-------------------------------------------------------------- |
+| REST API  | Risposte strutturate per errori applicativi.     | Evita risposte generiche 500 quando l'errore e prevedibile.     |
+| Sessioni  | Gestione sessione duplicata con 409 Conflict.    | Segnala correttamente un identificativo gia presente.           |
+| Movimento | Gestione sessione inesistente con 404 Not Found. | Segnala che non esiste una griglia persistita.                  |
+| OpenAPI   | Documentazione di 400, 404 e 409.                | Allinea Apidog e collaboratore al comportamento reale dell'API. |
 
 ---
 
@@ -787,12 +804,12 @@ Ambito: Creazione sessione con griglia iniziale
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| REST API | POST /api/v1/sessions. | Crea una sessione D&D e salva la griglia iniziale. |
-| Backend | Servizio di creazione sessione. | Salva sessione, terreno, celle occupate, muri e trappole. |
-| OpenAPI | Specifica per richiesta e risposta di creazione sessione. | Permette di utilizzare il flusso da Apidog. |
-| Test | Test controller e servizio di creazione sessione. | Copre il salvataggio e il successivo uso della sessione. |
+| Area     | Elemento                                                  | Motivo                                                    |
+| :------- | :-------------------------------------------------------- | :-------------------------------------------------------- |
+| REST API | POST /api/v1/sessions.                                    | Crea una sessione D&D e salva la griglia iniziale.        |
+| Backend  | Servizio di creazione sessione.                           | Salva sessione, terreno, celle occupate, muri e trappole. |
+| OpenAPI  | Specifica per richiesta e risposta di creazione sessione. | Permette di utilizzare il flusso da Apidog.               |
+| Test     | Test controller e servizio di creazione sessione.         | Copre il salvataggio e il successivo uso della sessione.  |
 
 ---
 
@@ -803,12 +820,12 @@ Ambito: API movimento da sessione salvata
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| REST API | POST /api/v1/sessions/{sessionId}/movement/reachable-cells. | Calcola il movimento usando la griglia persistita. |
-| Backend | Servizio applicativo per movimento da sessione. | Collega ricostruzione griglia e algoritmo di Dijkstra. |
-| OpenAPI | Specifica aggiornata con il nuovo endpoint. | Permette di testare la chiamata da client REST. |
-| Test | Test servizio e controller session movement. | Verifica il flusso sessione -> griglia -> celle raggiungibili. |
+| Area     | Elemento                                                    | Motivo                                                         |
+| :------- | :---------------------------------------------------------- | :------------------------------------------------------------- |
+| REST API | POST /api/v1/sessions/{sessionId}/movement/reachable-cells. | Calcola il movimento usando la griglia persistita.             |
+| Backend  | Servizio applicativo per movimento da sessione.             | Collega ricostruzione griglia e algoritmo di Dijkstra.         |
+| OpenAPI  | Specifica aggiornata con il nuovo endpoint.                 | Permette di testare la chiamata da client REST.                |
+| Test     | Test servizio e controller session movement.                | Verifica il flusso sessione -> griglia -> celle raggiungibili. |
 
 ---
 
@@ -819,11 +836,11 @@ Ambito: Ricostruzione griglia da sessione
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| Backend | Servizio di ricostruzione griglia da sessione persistita. | Collega il database al modello usato dal movimento. |
-| Movimento | Conversione di celle, muri e trappole persistite in GameGrid. | Prepara il calcolo da una sessione reale. |
-| Test | Verifica della ricostruzione completa della griglia. | Controlla dimensioni, terreno, occupazione, muri e trappole. |
+| Area      | Elemento                                                      | Motivo                                                       |
+| :-------- | :------------------------------------------------------------ | :----------------------------------------------------------- |
+| Backend   | Servizio di ricostruzione griglia da sessione persistita.     | Collega il database al modello usato dal movimento.          |
+| Movimento | Conversione di celle, muri e trappole persistite in GameGrid. | Prepara il calcolo da una sessione reale.                    |
+| Test      | Verifica della ricostruzione completa della griglia.          | Controlla dimensioni, terreno, occupazione, muri e trappole. |
 
 ---
 
@@ -834,12 +851,12 @@ Ambito: Persistenza sessione e plancia
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| Database | Tabelle per sessioni, celle, muri e trappole. | Salva la configurazione della plancia associata a una sessione. |
-| Backend | Modelli Java per sessione e stato griglia. | Separa stato persistito e griglia di movimento. |
-| Repository | Lettura e scrittura JDBC dello stato sessione. | Collega database e calcolo delle celle raggiungibili. |
-| Test | Test repository sessione e plancia. | Copre salvataggio e lettura dello stato. |
+| Area       | Elemento                                       | Motivo                                                          |
+| :--------- | :--------------------------------------------- | :-------------------------------------------------------------- |
+| Database   | Tabelle per sessioni, celle, muri e trappole.  | Salva la configurazione della plancia associata a una sessione. |
+| Backend    | Modelli Java per sessione e stato griglia.     | Separa stato persistito e griglia di movimento.                 |
+| Repository | Lettura e scrittura JDBC dello stato sessione. | Collega database e calcolo delle celle raggiungibili.           |
+| Test       | Test repository sessione e plancia.            | Copre salvataggio e lettura dello stato.                        |
 
 ---
 
@@ -850,11 +867,11 @@ Ambito: API REST movimento
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| REST API | POST /api/v1/movement/reachable-cells. | Rende invocabile dall'esterno il calcolo del movimento. |
-| Request | Griglia con dimensioni, terreno, celle, muri e trappole. | Permette di testare il movimento senza sessioni persistite. |
-| Response | Celle raggiungibili con costo, percorso e trappole attraversate. | Fornisce dati utilizzabili da app, dashboard e plancia. |
+| Area     | Elemento                                                         | Motivo                                                      |
+| :------- | :--------------------------------------------------------------- | :---------------------------------------------------------- |
+| REST API | POST /api/v1/movement/reachable-cells.                           | Rende invocabile dall'esterno il calcolo del movimento.     |
+| Request  | Griglia con dimensioni, terreno, celle, muri e trappole.         | Permette di testare il movimento senza sessioni persistite. |
+| Response | Celle raggiungibili con costo, percorso e trappole attraversate. | Fornisce dati utilizzabili da app, dashboard e plancia.     |
 
 ---
 
@@ -865,12 +882,12 @@ Ambito: Calcolo movimento su griglia
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| Movimento | MovementService con Dijkstra semplificato. | Calcola le celle raggiungibili in base ai punti movimento. |
-| Percorso | Ricostruzione del tragitto verso ogni cella raggiungibile. | Permette di sapere da quali caselle passa il personaggio. |
-| Trappole | Rilevamento delle trappole armate lungo il percorso. | Permette di gestire trappole attraversate. |
-| Diagonali | Movimento in 8 direzioni con regola anti-taglio angolo. | Evita il passaggio attraverso muri o angoli bloccati. |
+| Area      | Elemento                                                   | Motivo                                                     |
+| :-------- | :--------------------------------------------------------- | :--------------------------------------------------------- |
+| Movimento | MovementService con Dijkstra semplificato.                 | Calcola le celle raggiungibili in base ai punti movimento. |
+| Percorso  | Ricostruzione del tragitto verso ogni cella raggiungibile. | Permette di sapere da quali caselle passa il personaggio.  |
+| Trappole  | Rilevamento delle trappole armate lungo il percorso.       | Permette di gestire trappole attraversate.                 |
+| Diagonali | Movimento in 8 direzioni con regola anti-taglio angolo.    | Evita il passaggio attraverso muri o angoli bloccati.      |
 
 ---
 
@@ -881,15 +898,15 @@ Ambito: Modello logico della griglia D&D
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| Griglia | Posizioni convertibili da coordinate tipo A3 o B12. | Rappresenta le caselle in modo stabile. |
-| Terreno | Tipi NORMAL, DIFFICULT, OBSTACLE e BLOCKED. | Gestisce costi diversi e celle non attraversabili. |
-| Celle | Stato di posizione, terreno e occupazione. | Determina attraversabilita e costo. |
-| Muri | Segmenti sui bordi tra celle adiacenti. | Blocca il passaggio senza trasformare le celle in muri. |
-| Trappole | Stati HIDDEN, REVEALED e ALWAYS_HIDDEN. | Gestisce trappole e visibilita ai giocatori. |
-| Griglia di gioco | Modello rettangolare con celle e muri configurabili. | Fornisce la base all'algoritmo di movimento. |
-| Movimento | Richiesta e risultato delle celle raggiungibili. | Prepara l'esposizione del calcolo via API. |
+| Area             | Elemento                                             | Motivo                                                  |
+| :--------------- | :--------------------------------------------------- | :------------------------------------------------------ |
+| Griglia          | Posizioni convertibili da coordinate tipo A3 o B12.  | Rappresenta le caselle in modo stabile.                 |
+| Terreno          | Tipi NORMAL, DIFFICULT, OBSTACLE e BLOCKED.          | Gestisce costi diversi e celle non attraversabili.      |
+| Celle            | Stato di posizione, terreno e occupazione.           | Determina attraversabilita e costo.                     |
+| Muri             | Segmenti sui bordi tra celle adiacenti.              | Blocca il passaggio senza trasformare le celle in muri. |
+| Trappole         | Stati HIDDEN, REVEALED e ALWAYS_HIDDEN.              | Gestisce trappole e visibilita ai giocatori.            |
+| Griglia di gioco | Modello rettangolare con celle e muri configurabili. | Fornisce la base all'algoritmo di movimento.            |
+| Movimento        | Richiesta e risultato delle celle raggiungibili.     | Prepara l'esposizione del calcolo via API.              |
 
 ---
 
@@ -912,14 +929,15 @@ Ambito: Riallineamento idea progettuale
 
 Autore: Andrea Perini
 Ambito: Prima API REST per lettura eventi
+
 ## Added
 
-| Area | File | Motivo |
-| :--- | :--- | :--- |
-| REST API | GameEventController.java | Espone gli eventi salvati di una sessione. |
-| Repository | GameEventRepository.java | Legge gli eventi ordinati per sessionId. |
-| Test | GameEventControllerTest.java | Verifica la risposta JSON dell'endpoint. |
-| Contratto API | docs/openapi/event-service.openapi.yml | Definisce l'endpoint REST in OpenAPI. |
+| Area          | File                                   | Motivo                                     |
+| :------------ | :------------------------------------- | :----------------------------------------- |
+| REST API      | GameEventController.java               | Espone gli eventi salvati di una sessione. |
+| Repository    | GameEventRepository.java               | Legge gli eventi ordinati per sessionId.   |
+| Test          | GameEventControllerTest.java           | Verifica la risposta JSON dell'endpoint.   |
+| Contratto API | docs/openapi/event-service.openapi.yml | Definisce l'endpoint REST in OpenAPI.      |
 
 ## Changed
 
@@ -934,12 +952,12 @@ Ambito: Persistenza eventi di gioco
 
 ## Added
 
-| Area | File | Motivo |
-| :--- | :--- | :--- |
-| Database | docker/postgres/init.sql | Crea game_schema.game_events e l'indice per sessione. |
-| Backend | GameEventRepository.java | Salva gli eventi MQTT ricevuti. |
-| Test | GameEventRepositoryTest.java | Verifica inserimento e duplicati tramite eventId. |
-| Configurazione | application.yml | Configura la connessione PostgreSQL. |
+| Area           | File                         | Motivo                                                |
+| :------------- | :--------------------------- | :---------------------------------------------------- |
+| Database       | docker/postgres/init.sql     | Crea game_schema.game_events e l'indice per sessione. |
+| Backend        | GameEventRepository.java     | Salva gli eventi MQTT ricevuti.                       |
+| Test           | GameEventRepositoryTest.java | Verifica inserimento e duplicati tramite eventId.     |
+| Configurazione | application.yml              | Configura la connessione PostgreSQL.                  |
 
 ## Changed
 
@@ -955,14 +973,14 @@ Ambito: Primo microservizio Java/Spring Boot per ricezione MQTT
 
 ## Added
 
-| Area | File | Motivo |
-| :--- | :--- | :--- |
-| Backend | services/event-service/pom.xml | Definisce microservizio e dipendenze MQTT, Jackson e test. |
-| Backend | EventServiceApplication.java | Avvia il microservizio. |
-| Configurazione | application.yml | Configura porta HTTP 8082, Actuator e topic MQTT. |
-| MQTT | MqttEventSubscriber.java | Riceve gli eventi dal broker. |
-| Parsing | GameEventParser.java, GameEvent.java | Trasforma JSON MQTT in oggetti Java tipizzati. |
-| Test | GameEventParserTest.java | Verifica il parsing di un evento MOVE. |
+| Area           | File                                 | Motivo                                                     |
+| :------------- | :----------------------------------- | :--------------------------------------------------------- |
+| Backend        | services/event-service/pom.xml       | Definisce microservizio e dipendenze MQTT, Jackson e test. |
+| Backend        | EventServiceApplication.java         | Avvia il microservizio.                                    |
+| Configurazione | application.yml                      | Configura porta HTTP 8082, Actuator e topic MQTT.          |
+| MQTT           | MqttEventSubscriber.java             | Riceve gli eventi dal broker.                              |
+| Parsing        | GameEventParser.java, GameEvent.java | Trasforma JSON MQTT in oggetti Java tipizzati.             |
+| Test           | GameEventParserTest.java             | Verifica il parsing di un evento MOVE.                     |
 
 ## Changed
 
@@ -977,15 +995,15 @@ Ambito: Infrastruttura Docker, contratti REST/MQTT e simulatore MQTT
 
 ## Added
 
-| Area | Elemento | Motivo |
-| :--- | :--- | :--- |
-| Infrastruttura | docker/docker-compose.yml | Avvia PostgreSQL e Mosquitto con un comando. |
-| Database | docker/postgres/init.sql | Crea gli schemi iniziali del progetto. |
-| MQTT | docker/mosquitto/mosquitto.conf | Configura Mosquitto per i test locali. |
-| Contratti | Topic, payload JSON e API previste. | Definisce la comunicazione tra i componenti. |
-| Simulatore | simulator/publish_event.py | Pubblica una mini-sessione D&D su MQTT. |
-| Subscriber | simulator/subscribe_events.py | Riceve e stampa gli eventi MQTT. |
-| Dipendenze | simulator/requirements.txt | Definisce paho-mqtt. |
+| Area           | Elemento                            | Motivo                                       |
+| :------------- | :---------------------------------- | :------------------------------------------- |
+| Infrastruttura | docker/docker-compose.yml           | Avvia PostgreSQL e Mosquitto con un comando. |
+| Database       | docker/postgres/init.sql            | Crea gli schemi iniziali del progetto.       |
+| MQTT           | docker/mosquitto/mosquitto.conf     | Configura Mosquitto per i test locali.       |
+| Contratti      | Topic, payload JSON e API previste. | Definisce la comunicazione tra i componenti. |
+| Simulatore     | simulator/publish_event.py          | Pubblica una mini-sessione D&D su MQTT.      |
+| Subscriber     | simulator/subscribe_events.py       | Riceve e stampa gli eventi MQTT.             |
+| Dipendenze     | simulator/requirements.txt          | Definisce paho-mqtt.                         |
 
 ## Changed
 

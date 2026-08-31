@@ -37,6 +37,7 @@ import {
   StatusChip,
   SummaryCard,
 } from "./ui";
+import { DmControlPanel } from "./DmControlPanel";
 
 type DmSessionPanelProps = {
   sessionId: string;
@@ -356,8 +357,8 @@ export function DmSessionPanel({
           <div>
             <h2 className="text-xl">Trappole in attesa</h2>
             <p className="mt-1 text-sm text-slate-700">
-              Il giocatore proprietario risolve il tiro; questa lista viene
-              aggiornata automaticamente.
+              Il giocatore proprietario risolve il tiro, oppure il DM può
+              assumerne temporaneamente il controllo qui sotto.
             </p>
           </div>
         </div>
@@ -396,6 +397,15 @@ export function DmSessionPanel({
           </ul>
         )}
       </section>
+
+      <DmControlPanel
+        sessionId={sessionId}
+        dmToken={dmToken}
+        characters={characters}
+        pieces={pieces}
+        pendingTrapResolutions={pendingTrapResolutions}
+        onRefresh={() => refresh(false)}
+      />
 
       <section className="mx-auto grid w-full max-w-7xl gap-4 pb-8 lg:grid-cols-2">
         <div className="bh-surface p-4 sm:p-5">

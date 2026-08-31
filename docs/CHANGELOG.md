@@ -5,6 +5,21 @@
 
 ---
 
+## [0.27.4] - 2026-08-31
+
+Autore: Davide La Marca
+Ambito: Controllo temporaneo del Dungeon Master
+
+## Added
+
+- La console DM permette ora di assumere e restituire il controllo di un
+  personaggio, mantenendo il backend come fonte autorevole dello stato.
+- Il DM può calcolare le destinazioni e muovere soltanto le pedine assunte.
+- Per un personaggio sotto controllo DM, la console consente anche tiro
+  salvezza e prosecuzione autorevole di una trappola in attesa.
+
+---
+
 ## [0.27.3] - 2026-08-26
 
 Autore: Davide La Marca

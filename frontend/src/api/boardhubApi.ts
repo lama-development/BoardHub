@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "../config";
 import type {
   AcceptJoinRequestResult,
+  CharacterControl,
   CreatePlayerCharacterInput,
   ClosedSession,
   CreatedSession,
@@ -341,6 +342,63 @@ export async function fetchDmPieces(
   return readJson<SessionPiece[]>(response);
 }
 
+export async function assumeDmCharacterControl(
+  sessionId: string,
+  characterId: string,
+  dmToken: string,
+): Promise<CharacterControl> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/characters/${encodeURIComponent(characterId)}/control`,
+    { method: "POST", headers: dmHeaders(dmToken) },
+  );
+  return readJson<CharacterControl>(response);
+}
+
+export async function releaseDmCharacterControl(
+  sessionId: string,
+  characterId: string,
+  dmToken: string,
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/characters/${encodeURIComponent(characterId)}/control`,
+    { method: "DELETE", headers: dmHeaders(dmToken) },
+  );
+  if (!response.ok) {
+    await readJson<unknown>(response);
+  }
+}
+
+export async function fetchDmPieceReachability(
+  sessionId: string,
+  sessionPieceId: string,
+  dmToken: string,
+): Promise<PieceReachability> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/pieces/${encodeURIComponent(sessionPieceId)}/reachable-cells`,
+    { headers: dmHeaders(dmToken) },
+  );
+  return readJson<PieceReachability>(response);
+}
+
+export async function moveDmPiece(
+  sessionId: string,
+  sessionPieceId: string,
+  dmToken: string,
+  destination: string,
+  expectedVersion: number,
+  commandId: string,
+): Promise<PieceMoveResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/pieces/${encodeURIComponent(sessionPieceId)}/moves`,
+    {
+      method: "POST",
+      headers: { ...dmHeaders(dmToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ destination, expectedVersion, commandId }),
+    },
+  );
+  return readJson<PieceMoveResult>(response);
+}
+
 export async function fetchDmJoinRequests(
   sessionId: string,
   dmToken: string,
@@ -372,6 +430,54 @@ export async function fetchDmPendingTrapResolutions(
     { headers: dmHeaders(dmToken) },
   );
   return readJson<TrapResolution[]>(response);
+}
+
+export async function fetchDmTrapResolution(
+  sessionId: string,
+  resolutionId: string,
+  dmToken: string,
+): Promise<TrapResolution> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/trap-resolutions/${encodeURIComponent(resolutionId)}`,
+    { headers: dmHeaders(dmToken) },
+  );
+  return readJson<TrapResolution>(response);
+}
+
+export async function rollDmTrapResolution(
+  sessionId: string,
+  resolutionId: string,
+  dmToken: string,
+  expectedVersion: number,
+  commandId: string,
+): Promise<TrapRollResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/trap-resolutions/${encodeURIComponent(resolutionId)}/roll`,
+    {
+      method: "POST",
+      headers: { ...dmHeaders(dmToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedVersion, commandId }),
+    },
+  );
+  return readJson<TrapRollResult>(response);
+}
+
+export async function continueDmTrapResolution(
+  sessionId: string,
+  resolutionId: string,
+  dmToken: string,
+  expectedVersion: number,
+  commandId: string,
+): Promise<PieceMoveResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/trap-resolutions/${encodeURIComponent(resolutionId)}/continue`,
+    {
+      method: "POST",
+      headers: { ...dmHeaders(dmToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedVersion, commandId }),
+    },
+  );
+  return readJson<PieceMoveResult>(response);
 }
 
 export async function acceptDmJoinRequest(

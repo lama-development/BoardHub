@@ -167,6 +167,8 @@ La console DM usa il token `bhd1...` come Bearer e deve permettere di:
   `/api/v1/dm/sessions/{sessionId}/characters`;
 - vedere tutte le pedine persistite e la loro cella con
   `/api/v1/dm/sessions/{sessionId}/pieces`;
+- assumere temporaneamente il controllo di un personaggio indisponibile,
+  muoverne la pedina e restituirlo poi al giocatore;
 - concludere la sessione con
   `POST /api/v1/dm/sessions/{sessionId}/close`.
 

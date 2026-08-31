@@ -96,9 +96,18 @@ export type SessionPiece = {
   participantId: string;
   representationMode: "VIRTUAL" | "PHYSICAL";
   currentCell: string;
+  controlMode: "PLAYER_CONTROLLED" | "DM_CONTROLLED";
   version: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type CharacterControl = {
+  sessionId: string;
+  characterId: string;
+  dmParticipantId: string;
+  version: number;
+  assumedAt: string;
 };
 
 export type ReachableCell = {

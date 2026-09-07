@@ -1,4 +1,3 @@
-import * as React from "react";
 import {
   AlertCircle,
   Check,
@@ -13,24 +12,13 @@ import {
   Users,
   X,
 } from "lucide-react";
+import * as React from "react";
 import {
   acceptDmJoinRequest,
   closeDmSession,
-  fetchDmJoinRequests,
-  fetchDmCharacters,
-  fetchDmParticipants,
-  fetchDmPendingTrapResolutions,
-  fetchDmPieces,
   rejectDmJoinRequest,
 } from "../api/boardhubApi";
-import type {
-  JoinRequest,
-  Participant,
-  PlayerCharacter,
-  SessionPiece,
-  TrapResolution,
-} from "../types";
-import { useAuthenticatedEventStream } from "../hooks/useAuthenticatedEventStream";
+import { useDmSessionData } from "../hooks/useDmSessionData";
 import {
   AlertBanner,
   Button,
@@ -56,80 +44,20 @@ export function DmSessionPanel({
   onLeave,
   onSessionClosed,
 }: DmSessionPanelProps) {
-  const [requests, setRequests] = React.useState<JoinRequest[]>([]);
-  const [participants, setParticipants] = React.useState<Participant[]>([]);
-  const [characters, setCharacters] = React.useState<PlayerCharacter[]>([]);
-  const [pieces, setPieces] = React.useState<SessionPiece[]>([]);
-  const [pendingTrapResolutions, setPendingTrapResolutions] = React.useState<
-    TrapResolution[]
-  >([]);
-  const [error, setError] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const {
+    requests,
+    participants,
+    characters,
+    pieces,
+    pendingTrapResolutions,
+    error,
+    isLoading,
+    liveState,
+    setError,
+    refresh,
+  } = useDmSessionData(sessionId, dmToken);
   const [busyRequestId, setBusyRequestId] = React.useState<string | null>(null);
   const [isClosing, setIsClosing] = React.useState(false);
-
-  const refresh = React.useCallback(
-    async (showLoading = true) => {
-      if (showLoading) setIsLoading(true);
-      try {
-        const [
-          pendingRequests,
-          activeParticipants,
-          sessionCharacters,
-          sessionPieces,
-          pendingTraps,
-        ] = await Promise.all([
-          fetchDmJoinRequests(sessionId, dmToken),
-          fetchDmParticipants(sessionId, dmToken),
-          fetchDmCharacters(sessionId, dmToken),
-          fetchDmPieces(sessionId, dmToken),
-          fetchDmPendingTrapResolutions(sessionId, dmToken),
-        ]);
-        setRequests(pendingRequests);
-        setParticipants(activeParticipants);
-        setCharacters(sessionCharacters);
-        setPieces(sessionPieces);
-        setPendingTrapResolutions(pendingTraps);
-        setError(null);
-      } catch (refreshError) {
-        setError(
-          refreshError instanceof Error
-            ? refreshError.message
-            : "Impossibile aggiornare la console DM.",
-        );
-      } finally {
-        if (showLoading) setIsLoading(false);
-      }
-    },
-    [dmToken, sessionId],
-  );
-
-  const liveRefreshTimer = React.useRef<number | null>(null);
-  const scheduleLiveRefresh = React.useCallback(() => {
-    if (liveRefreshTimer.current !== null) return;
-    liveRefreshTimer.current = window.setTimeout(() => {
-      liveRefreshTimer.current = null;
-      void refresh(false);
-    }, 150);
-  }, [refresh]);
-  const liveState = useAuthenticatedEventStream({
-    url: `/api/v1/dm/sessions/${encodeURIComponent(sessionId)}/events/stream`,
-    token: dmToken,
-    onEvent: scheduleLiveRefresh,
-  });
-
-  React.useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  React.useEffect(
-    () => () => {
-      if (liveRefreshTimer.current !== null) {
-        window.clearTimeout(liveRefreshTimer.current);
-      }
-    },
-    [],
-  );
 
   async function resolveRequest(requestId: string, accepted: boolean) {
     setBusyRequestId(requestId);

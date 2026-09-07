@@ -21,9 +21,6 @@ import {
   createPlayerPiece,
   continuePlayerTrapResolution,
   fetchPieceReachability,
-  fetchPlayerCharacters,
-  fetchPlayerIdentity,
-  fetchPlayerPieces,
   fetchPlayerTrapResolution,
   movePlayerPiece,
   rollPlayerTrapResolution,
@@ -31,9 +28,7 @@ import {
 import type {
   CharacterPartyVisibility,
   CreatePlayerCharacterInput,
-  Participant,
   PieceReachability,
-  PlayerCharacter,
   SessionPiece,
   TrapResolution,
   TrapRollResult,
@@ -49,7 +44,7 @@ import {
 } from "../domain/dndCharacterRules";
 import type { DefenseProfile } from "../domain/dndCharacterRules";
 import { createUuid } from "../utils/uuid";
-import { useAuthenticatedEventStream } from "../hooks/useAuthenticatedEventStream";
+import { usePlayerSessionData } from "../hooks/usePlayerSessionData";
 import { BoardGrid } from "./BoardGrid";
 import { TrapResolutionCard } from "./TrapResolutionCard";
 import {
@@ -157,12 +152,20 @@ export function PlayerSessionPanel({
   playerToken,
   onLeave,
 }: PlayerSessionPanelProps) {
-  const [identity, setIdentity] = React.useState<Participant | null>(null);
-  const [characters, setCharacters] = React.useState<PlayerCharacter[]>([]);
-  const [pieces, setPieces] = React.useState<SessionPiece[]>([]);
+  const {
+    identity,
+    characters,
+    pieces,
+    error,
+    isLoading,
+    liveState,
+    setCharacters,
+    setPieces,
+    setError,
+    refresh,
+  } = usePlayerSessionData(sessionId, playerToken);
   const [form, setForm] = React.useState<CharacterFormState>(INITIAL_FORM);
   const [showForm, setShowForm] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
   const [isCreating, setIsCreating] = React.useState(false);
   const [pieceCharacterId, setPieceCharacterId] = React.useState("");
   const [startCell, setStartCell] = React.useState("B2");
@@ -175,57 +178,6 @@ export function PlayerSessionPanel({
     React.useState<TrapResolution | null>(null);
   const [trapRoll, setTrapRoll] = React.useState<TrapRollResult | null>(null);
   const [isResolvingTrap, setIsResolvingTrap] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  const refresh = React.useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [activeIdentity, ownedCharacters, ownedPieces] = await Promise.all([
-        fetchPlayerIdentity(sessionId, playerToken),
-        fetchPlayerCharacters(sessionId, playerToken),
-        fetchPlayerPieces(sessionId, playerToken),
-      ]);
-      setIdentity(activeIdentity);
-      setCharacters(ownedCharacters);
-      setPieces(ownedPieces);
-    } catch (refreshError) {
-      setError(
-        refreshError instanceof Error
-          ? refreshError.message
-          : "Impossibile caricare il profilo del giocatore.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [playerToken, sessionId]);
-
-  const liveRefreshTimer = React.useRef<number | null>(null);
-  const scheduleLiveRefresh = React.useCallback(() => {
-    if (liveRefreshTimer.current !== null) return;
-    liveRefreshTimer.current = window.setTimeout(() => {
-      liveRefreshTimer.current = null;
-      void refresh();
-    }, 150);
-  }, [refresh]);
-  const liveState = useAuthenticatedEventStream({
-    url: `/api/v1/player/sessions/${encodeURIComponent(sessionId)}/events/stream`,
-    token: playerToken,
-    onEvent: scheduleLiveRefresh,
-  });
-
-  React.useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  React.useEffect(
-    () => () => {
-      if (liveRefreshTimer.current !== null) {
-        window.clearTimeout(liveRefreshTimer.current);
-      }
-    },
-    [],
-  );
 
   function updateField<Key extends keyof CharacterFormState>(
     field: Key,

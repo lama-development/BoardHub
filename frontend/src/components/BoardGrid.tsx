@@ -51,7 +51,7 @@ export function BoardGrid({
         <div />
         {columns.map((column) => (
           <div
-            className="text-center text-xs font-normal text-slate-500"
+            className="text-center text-xs font-normal text-muted"
             key={column}
           >
             {column}
@@ -77,16 +77,16 @@ export function BoardGrid({
         ))}
       </div>
 
-      <div className="mt-3 flex flex-col gap-2 border-t-2 border-[#111111] pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-3 text-xs font-normal text-slate-500">
+      <div className="mt-3 flex flex-col gap-2 border-t-2 border-ink pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-3 text-xs font-normal text-muted">
           <LegendToken kind="character" label="Personaggio" />
           <LegendToken kind="monster" label="Mostro" />
         </div>
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-muted">
           {selectionHint ??
             (selectedCell ? (
               <span>
-                <span className="font-medium text-slate-800">
+                <span className="font-medium text-ink">
                   {selectedCell}
                 </span>
                 {selectedTokens.length > 0
@@ -119,7 +119,7 @@ function GridRow({
 }) {
   return (
     <>
-      <div className="flex items-center justify-center text-xs font-normal text-slate-500">
+      <div className="flex items-center justify-center text-xs font-normal text-muted">
         {row}
       </div>
       {columns.map((column) => {
@@ -132,12 +132,12 @@ function GridRow({
           <button
             aria-label={`Cella ${cell}${isSelectable ? "" : ", non disponibile"}`}
             aria-pressed={selectedCell === cell}
-            className={`flex aspect-square min-h-8 items-center justify-center rounded-xs border-2 border-[#111111] p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] sm:min-h-10 sm:p-1 ${
+            className={`flex aspect-square min-h-8 items-center justify-center rounded-xs border-2 border-ink p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:min-h-10 sm:p-1 ${
               selectedCell === cell
-                ? "-translate-y-0.5 bg-[#ffd400] shadow-[3px_3px_0_#111111]"
+                ? "-translate-y-0.5 bg-warning shadow-[3px_3px_0_var(--color-ink)]"
                 : isSelectable
-                  ? "cursor-pointer bg-[#fbfaf6] hover:bg-[#d8f7fb] hover:shadow-[2px_2px_0_#111111]"
-                  : "cursor-not-allowed bg-slate-100 opacity-45"
+                  ? "cursor-pointer bg-canvas hover:bg-info/20 hover:shadow-[2px_2px_0_var(--color-ink)]"
+                  : "cursor-not-allowed bg-muted/10 opacity-45"
             }`}
             disabled={!isSelectable}
             key={cell}
@@ -162,7 +162,7 @@ function BoardPiece({ cell, token }: { cell: string; token: BoardToken }) {
 
   return (
     <span
-      className={`h-4 w-4 rounded-full border border-[#111111] shadow-[1px_1px_0_#111111] sm:h-5 sm:w-5 ${token.kind === "character" ? "bg-[#04c8e8]" : "bg-[#ff3b9d]"}`}
+      className={`h-4 w-4 rounded-full border border-ink shadow-[1px_1px_0_var(--color-ink)] sm:h-5 sm:w-5 ${token.kind === "character" ? "bg-info" : "bg-primary"}`}
       title={title}
     />
   );
@@ -178,9 +178,9 @@ function LegendToken({
   return (
     <span className="inline-flex items-center gap-2">
       {kind === "character" ? (
-        <span className="h-2.5 w-2.5 rounded-full border border-[#111111] bg-[#04c8e8]" />
+        <span className="h-2.5 w-2.5 rounded-full border border-ink bg-info" />
       ) : (
-        <span className="h-2.5 w-2.5 rounded-full border border-[#111111] bg-[#ff3b9d]" />
+        <span className="h-2.5 w-2.5 rounded-full border border-ink bg-primary" />
       )}
       {label}
     </span>

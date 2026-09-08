@@ -116,10 +116,10 @@ function SessionMonitor() {
   }, [refreshHealth]);
 
   return (
-    <main className="min-h-screen bg-transparent px-4 py-5 text-[#111111] sm:px-6 sm:py-7">
+    <main className="min-h-screen bg-transparent px-4 py-5 text-ink sm:px-6 sm:py-7">
       <section className="bh-surface mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between sm:p-5">
         <PageHeaderIdentity
-          accentClassName="bg-[#ff3b9d]"
+          accentClassName="bg-primary"
           eyebrow="BoardHub · Panoramica"
           icon={<LayoutDashboard size={20} />}
           title="Dashboard di gioco"
@@ -139,12 +139,12 @@ function SessionMonitor() {
             </label>
             <div className="bh-input flex h-10 items-center gap-2 px-3">
               <Search
-                className="shrink-0 text-slate-500"
+                className="shrink-0 text-muted"
                 size={18}
                 aria-hidden="true"
               />
               <input
-                className="w-full min-w-0 border-0 bg-transparent text-slate-900 outline-none"
+                className="w-full min-w-0 border-0 bg-transparent text-ink outline-none"
                 id="sessionId"
                 value={sessionId}
                 onChange={(event) => setSessionId(event.target.value)}

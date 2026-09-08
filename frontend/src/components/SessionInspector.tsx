@@ -17,7 +17,7 @@ export function SessionInspector({
 }: SessionInspectorProps) {
   return (
     <aside className="bh-surface overflow-hidden">
-      <div className="flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#ffd400] px-4 py-3">
+      <div className="flex min-h-14 items-center gap-3 border-b-2 border-ink bg-warning px-4 py-3">
         <span className="bh-card-icon">
           <Gauge size={18} />
         </span>
@@ -28,10 +28,10 @@ export function SessionInspector({
         {latestEvent ? (
           <>
             <EventTypeChip className="mb-2" type={latestEvent.eventType} />
-            <span className="block wrap-break-word text-slate-600">
+            <span className="block wrap-break-word text-muted">
               {formatDateTime(latestEvent.occurredAt)}
             </span>
-            <code className="mt-2 block wrap-break-word font-[inherit] text-xs leading-relaxed text-slate-600">
+            <code className="mt-2 block wrap-break-word font-[inherit] text-xs leading-relaxed text-muted">
               {latestEvent.eventId}
             </code>
           </>
@@ -57,11 +57,11 @@ export function SessionInspector({
           <div className="grid gap-2">
             {tokens.map((token) => (
               <span
-                className="flex min-h-9 items-center justify-between gap-3 rounded-xs border-2 border-[#111111] bg-[#fbfaf6] px-3 py-2"
+                className="flex min-h-9 items-center justify-between gap-3 rounded-xs border-2 border-ink bg-canvas px-3 py-2"
                 key={token.id}
               >
                 <b className="wrap-break-word font-medium">{token.id}</b>
-                <code className="font-[inherit] text-sm font-bold text-slate-950">
+                <code className="font-[inherit] text-sm font-bold text-ink">
                   {token.cell}
                 </code>
               </span>

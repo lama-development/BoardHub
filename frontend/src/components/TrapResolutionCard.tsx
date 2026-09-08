@@ -24,13 +24,13 @@ export function TrapResolutionCard({
 
   return (
     <section className="bh-surface mt-5 overflow-hidden" aria-live="polite">
-      <div className="flex flex-col gap-3 border-b-2 border-[#111111] bg-[#fff2a7] p-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 border-b-2 border-ink bg-warning/40 p-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="bh-card-icon bg-[#ffd400]">
+          <span className="bh-card-icon">
             <AlertCircle size={19} aria-hidden="true" />
           </span>
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">
               Movimento interrotto
             </p>
             <h2 className="mt-1 text-xl">
@@ -44,7 +44,7 @@ export function TrapResolutionCard({
       </div>
       <div className="p-4">
         {canRoll ? (
-          <p className="text-sm leading-6 text-slate-700">
+          <p className="text-sm leading-6 text-muted">
             Il server deve eseguire il tiro salvezza prima che il movimento
             possa proseguire.
           </p>
@@ -67,7 +67,7 @@ export function TrapResolutionCard({
           </AlertBanner>
         ) : null}
         {roll?.movementDecision === "STOP" ? (
-          <p className="mt-3 text-sm font-semibold text-slate-700">
+          <p className="mt-3 text-sm font-semibold text-muted">
             Il movimento termina qui per l&apos;esito della trappola.
           </p>
         ) : null}

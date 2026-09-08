@@ -27,11 +27,11 @@ import {
   SummaryCard,
 } from "./ui";
 import { DmControlPanel } from "./DmControlPanel";
+import { TurnTracker } from "./TurnTracker";
 
 type DmSessionPanelProps = {
   sessionId: string;
   sessionTitle: string;
-  tableDisplayName: string;
   dmToken: string;
   onLeave: () => void;
   onSessionClosed: () => void;
@@ -103,10 +103,10 @@ export function DmSessionPanel({
   );
 
   return (
-    <main className="min-h-screen bg-transparent px-4 py-5 text-[#111111] sm:px-6 sm:py-8">
+    <main className="min-h-screen bg-transparent px-4 py-5 text-ink sm:px-6 sm:py-8">
       <header className="bh-surface mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <PageHeaderIdentity
-          accentClassName="bg-[#ffd400]"
+          accentClassName="bg-warning"
           eyebrow="BoardHub · Area Dungeon Master"
           icon={<Shield size={20} />}
           title={sessionTitle}
@@ -217,29 +217,29 @@ export function DmSessionPanel({
 
       <section className="mx-auto grid w-full max-w-7xl gap-4 py-4 lg:grid-cols-2">
         <div className="bh-surface p-4 sm:p-5">
-          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#ff8bc7] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-ink bg-primary/40 px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
             <span className="bh-card-icon">
               <Clock3 size={18} />
             </span>
             <h2 className="text-xl">Richieste di partecipazione</h2>
           </div>
           {requests.length === 0 ? (
-            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
+            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-muted">
               Nessuna richiesta in attesa. La lista viene aggiornata
               automaticamente.
             </p>
           ) : (
-            <ul className="mt-4 divide-y-2 divide-[#111111]">
+            <ul className="mt-4 divide-y-2 divide-ink">
               {requests.map((request) => (
                 <li
                   className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
                   key={request.requestId}
                 >
                   <div>
-                    <p className="font-medium text-slate-950">
+                    <p className="font-medium text-ink">
                       {request.displayName}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-muted">
                       {request.playerReference}
                     </p>
                   </div>
@@ -274,33 +274,33 @@ export function DmSessionPanel({
         </div>
 
         <div className="bh-surface p-4 sm:p-5">
-          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#8fe8f4] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-ink bg-info/40 px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
             <span className="bh-card-icon">
               <Users size={18} />
             </span>
             <h2 className="text-xl">Giocatori accettati</h2>
           </div>
           {players.length === 0 ? (
-            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
+            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-muted">
               Non ci sono ancora giocatori associati alla sessione.
             </p>
           ) : (
-            <ul className="mt-4 divide-y-2 divide-[#111111]">
+            <ul className="mt-4 divide-y-2 divide-ink">
               {players.map((participant) => (
                 <li
                   className="flex items-center gap-3 py-4"
                   key={participant.participantId}
                 >
                   <UserRoundCheck
-                    className="text-emerald-700"
+                    className="text-success"
                     size={20}
                     aria-hidden="true"
                   />
                   <div>
-                    <p className="font-medium text-slate-950">
+                    <p className="font-medium text-ink">
                       {participant.displayName}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-muted">
                       {participant.status}
                     </p>
                   </div>
@@ -312,24 +312,24 @@ export function DmSessionPanel({
       </section>
 
       <section className="bh-surface mx-auto mb-4 w-full max-w-7xl p-4 sm:p-5">
-        <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#fff2a7] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
-          <span className="bh-card-icon bg-[#ffd400]">
+        <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-ink bg-warning/40 px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+          <span className="bh-card-icon">
             <AlertCircle size={18} />
           </span>
           <div>
             <h2 className="text-xl">Trappole in attesa</h2>
-            <p className="mt-1 text-sm text-slate-700">
+            <p className="mt-0.5 text-sm leading-4 text-muted">
               Il giocatore proprietario risolve il tiro, oppure il DM può
               assumerne temporaneamente il controllo qui sotto.
             </p>
           </div>
         </div>
         {pendingTrapResolutions.length === 0 ? (
-          <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
+          <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-muted">
             Nessun movimento è fermo su una trappola.
           </p>
         ) : (
-          <ul className="mt-4 divide-y-2 divide-[#111111]">
+          <ul className="mt-4 divide-y-2 divide-ink">
             {pendingTrapResolutions.map((resolution) => {
               const character = characters.find(
                 (item) => item.characterId === resolution.characterId,
@@ -343,7 +343,7 @@ export function DmSessionPanel({
                     <p className="font-semibold">
                       {character?.name ?? "Personaggio"}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="mt-1 text-xs text-muted">
                       Trappola in {resolution.triggerCell} · destinazione{" "}
                       {resolution.requestedDestination}
                     </p>
@@ -369,35 +369,37 @@ export function DmSessionPanel({
         onRefresh={() => refresh(false)}
       />
 
+      <TurnTracker sessionId={sessionId} characters={characters} />
+
       <section className="mx-auto grid w-full max-w-7xl gap-4 pb-8 lg:grid-cols-2">
         <div className="bh-surface p-4 sm:p-5">
-          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#ffd400] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-ink bg-warning px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
             <span className="bh-card-icon">
               <Heart size={18} />
             </span>
             <h2 className="text-xl">Personaggi della sessione</h2>
           </div>
           {characters.length === 0 ? (
-            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
+            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-muted">
               I giocatori non hanno ancora creato personaggi.
             </p>
           ) : (
-            <ul className="mt-4 divide-y-2 divide-[#111111]">
+            <ul className="mt-4 divide-y-2 divide-ink">
               {characters.map((character) => (
                 <li
                   className="flex items-center justify-between gap-3 py-4"
                   key={character.characterId}
                 >
                   <div>
-                    <p className="font-medium text-slate-950">
+                    <p className="font-medium text-ink">
                       {character.name}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-muted">
                       {character.species} · {character.className} · Livello{" "}
                       {character.level}
                     </p>
                   </div>
-                  <div className="text-right text-xs text-slate-500">
+                  <div className="text-right text-xs text-muted">
                     <p>
                       PF {character.hpCurrent}/{character.hpMax}
                     </p>
@@ -410,18 +412,18 @@ export function DmSessionPanel({
         </div>
 
         <div className="bh-surface p-4 sm:p-5">
-          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#c8b1ff] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+          <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-ink bg-accent/40 px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
             <span className="bh-card-icon">
               <MapPin size={18} />
             </span>
             <h2 className="text-xl">Pedine sulla griglia</h2>
           </div>
           {pieces.length === 0 ? (
-            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">
+            <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-muted">
               Non ci sono ancora pedine associate alla griglia.
             </p>
           ) : (
-            <ul className="mt-4 divide-y-2 divide-[#111111]">
+            <ul className="mt-4 divide-y-2 divide-ink">
               {pieces.map((piece) => {
                 const character = characters.find(
                   (item) => item.characterId === piece.characterId,
@@ -432,10 +434,10 @@ export function DmSessionPanel({
                     key={piece.sessionPieceId}
                   >
                     <div>
-                      <p className="font-medium text-slate-950">
+                      <p className="font-medium text-ink">
                         {character?.name ?? "Personaggio"}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-muted">
                         {piece.representationMode.toLowerCase()} · versione{" "}
                         {piece.version}
                       </p>

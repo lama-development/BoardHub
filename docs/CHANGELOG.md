@@ -6,6 +6,55 @@
 
 ---
 
+## [0.28.0] - 2026-09-08
+
+Autore: Davide La Marca
+Ambito: Preparazione della plancia e gestione dei turni nel frontend
+
+## Added
+
+- Aggiunta una preparazione guidata per il DM in tre fasi: titolo
+  dell'avventura, configurazione visuale della plancia 5 x 5 e riepilogo prima
+  della creazione della sessione.
+- Il DM puo ora impostare dalla griglia celle difficili, bloccate e con
+  ostacoli, oltre a posizionare e configurare trappole con visibilita, tiro
+  salvezza, danno, durata e stato iniziale.
+- Aggiunto alla console DM un tracker locale per iniziativa, mostri e PNG,
+  avanzamento dei turni e dei round, pausa e preparazione di un nuovo
+  combattimento; lo stato resta associato alla sessione sul dispositivo DM.
+- Introdotti i contratti TypeScript della configurazione della plancia, ora
+  inviata alle API al momento della creazione della sessione.
+
+## Changed
+
+- Centralizzati colori semantici e componenti del design system tramite il
+  tema Tailwind, uniformando console, pagina pubblica, statistiche, eventi e
+  controlli condivisi.
+
+## Fixed
+
+- L'errore restituito durante la creazione di una sessione resta visibile anche
+  dopo l'aggiornamento dello stato del tavolo.
+
+---
+
+## [0.27.6] - 2026-09-07
+
+Autore: Davide La Marca
+Ambito: Gestione condivisa dei dati live delle sessioni
+
+## Changed
+
+- Estratta dai pannelli DM e giocatore la gestione di caricamento, errori e
+  aggiornamento dei dati in hook dedicati e riutilizzabili.
+- Centralizzato il raggruppamento degli eventi SSE in un singolo aggiornamento
+  REST, mantenendo il backend come fonte autorevole e ripulendo correttamente
+  i timer alla chiusura dei componenti.
+- Abilitati i controlli TypeScript per parametri e variabili locali non
+  utilizzati, così da intercettare prima il codice morto nel frontend.
+
+---
+
 ## [0.27.5] - 2026-08-31
 
 Autore: Davide La Marca

@@ -58,7 +58,6 @@ import {
 type PlayerSessionPanelProps = {
   sessionId: string;
   sessionTitle: string;
-  tableDisplayName: string;
   playerToken: string;
   onLeave: () => void;
 };
@@ -115,7 +114,7 @@ function SpeciesAvatar({
 
   return (
     <span
-      className={`grid ${dimensions} shrink-0 place-items-center overflow-hidden border-2 border-[#111111] bg-[#c8b1ff] shadow-[2px_2px_0_#111111]`}
+      className={`grid ${dimensions} shrink-0 place-items-center overflow-hidden border-2 border-ink bg-accent/40 shadow-[2px_2px_0_var(--color-ink)]`}
     >
       {rule ? (
         <img
@@ -461,10 +460,10 @@ export function PlayerSessionPanel({
   const previewSpeedCells = Number(form.speedFeet || 0) / 5;
 
   return (
-    <main className="min-h-screen bg-transparent px-4 py-5 text-[#111111] sm:px-6 sm:py-8">
+    <main className="min-h-screen bg-transparent px-4 py-5 text-ink sm:px-6 sm:py-8">
       <header className="bh-surface mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <PageHeaderIdentity
-          accentClassName="bg-[#04c8e8]"
+          accentClassName="bg-info"
           eyebrow="BoardHub · Area giocatore"
           icon={<UserRound size={20} />}
           title={sessionTitle}
@@ -551,14 +550,14 @@ export function PlayerSessionPanel({
       ) : null}
 
       <section className="bh-surface mx-auto mt-4 w-full max-w-7xl p-4 sm:p-5">
-        <div className="-mx-4 -mt-4 flex flex-col gap-3 border-b-2 border-[#111111] bg-[#ff8bc7] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="-mx-4 -mt-4 flex flex-col gap-3 border-b-2 border-ink bg-primary/40 px-4 py-3 sm:-mx-5 sm:-mt-5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center gap-3">
             <span className="bh-card-icon">
               <BookOpen size={18} />
             </span>
             <div>
               <h2 className="text-xl">I miei personaggi</h2>
-              <p className="mt-1 text-sm font-medium text-slate-800">
+              <p className="mt-0.5 text-sm font-medium leading-4 text-ink">
                 Crea la scheda tattica che userai per la tua pedina.
               </p>
             </div>
@@ -581,7 +580,7 @@ export function PlayerSessionPanel({
         {showForm ? (
           <form className="mt-5 grid gap-4" onSubmit={submitCharacter}>
             <fieldset className="bh-form-group">
-              <legend className="bh-form-legend bg-[#ff8bc7]">
+              <legend className="bh-form-legend bg-primary/40">
                 01 · Identità del personaggio
               </legend>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -601,9 +600,7 @@ export function PlayerSessionPanel({
                   required={false}
                 />
                 <div className="sm:col-span-2 lg:col-span-3">
-                  <span className="text-sm font-bold text-[#111111]">
-                    Specie
-                  </span>
+                  <span className="text-sm font-bold text-ink">Specie</span>
                   <div
                     className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
                     role="group"
@@ -613,7 +610,7 @@ export function PlayerSessionPanel({
                       const selected = form.species === entry.label;
                       return (
                         <button
-                          className={`flex min-h-20 cursor-pointer items-center gap-2.5 border-2 border-[#111111] p-2 text-left shadow-[2px_2px_0_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${selected ? "bg-[#04c8e8]" : "bg-white hover:bg-[#d8f7fb]"}`}
+                          className={`flex min-h-20 cursor-pointer items-center gap-2.5 border-2 border-ink p-2 text-left shadow-[2px_2px_0_var(--color-ink)] transition-transform active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${selected ? "bg-info" : "bg-surface hover:bg-info/20"}`}
                           key={entry.label}
                           type="button"
                           aria-pressed={selected}
@@ -621,7 +618,7 @@ export function PlayerSessionPanel({
                             updateRulesField("species", entry.label)
                           }
                         >
-                          <span className="grid h-13 w-13 shrink-0 place-items-center overflow-hidden border-2 border-[#111111] bg-[#c8b1ff]">
+                          <span className="grid h-13 w-13 shrink-0 place-items-center overflow-hidden border-2 border-ink bg-accent/40">
                             <img
                               alt=""
                               className="h-full w-full object-cover"
@@ -632,7 +629,7 @@ export function PlayerSessionPanel({
                             <strong className="block truncate text-sm leading-tight">
                               {entry.label}
                             </strong>
-                            <span className="mt-1 block text-[11px] font-bold text-slate-600">
+                            <span className="mt-1 block text-[11px] font-bold text-muted">
                               {entry.speedFeet} piedi
                             </span>
                           </span>
@@ -640,15 +637,13 @@ export function PlayerSessionPanel({
                       );
                     })}
                   </div>
-                  <span className="mt-1.5 block text-xs font-normal leading-4 text-slate-500">
+                  <span className="mt-1.5 block text-xs font-normal leading-4 text-muted">
                     La specie imposta la velocità iniziale e identifica
                     visivamente il personaggio.
                   </span>
                 </div>
                 <div className="sm:col-span-2 lg:col-span-3">
-                  <span className="text-sm font-bold text-[#111111]">
-                    Classe
-                  </span>
+                  <span className="text-sm font-bold text-ink">Classe</span>
                   <div
                     className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
                     role="group"
@@ -658,7 +653,7 @@ export function PlayerSessionPanel({
                       const selected = form.className === entry.label;
                       return (
                         <button
-                          className={`min-h-14 cursor-pointer border-2 border-[#111111] px-3 py-2 text-left shadow-[2px_2px_0_#111111] transition-transform active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${selected ? "bg-[#ffd400]" : "bg-white hover:bg-[#fff2a7]"}`}
+                          className={`min-h-14 cursor-pointer border-2 border-ink px-3 py-2 text-left shadow-[2px_2px_0_var(--color-ink)] transition-transform active:translate-x-0.5 active:translate-y-0.5 active:shadow-none ${selected ? "bg-warning" : "bg-surface hover:bg-warning/40"}`}
                           key={entry.label}
                           type="button"
                           aria-pressed={selected}
@@ -669,14 +664,14 @@ export function PlayerSessionPanel({
                           <strong className="block truncate text-sm leading-tight">
                             {entry.label}
                           </strong>
-                          <span className="mt-1 block text-[11px] font-bold text-slate-600">
+                          <span className="mt-1 block text-[11px] font-bold text-muted">
                             D{entry.hitDie} PF
                           </span>
                         </button>
                       );
                     })}
                   </div>
-                  <span className="mt-1.5 block text-xs font-normal leading-4 text-slate-500">
+                  <span className="mt-1.5 block text-xs font-normal leading-4 text-muted">
                     La classe imposta dado vita e profilo difensivo iniziale;
                     puoi correggere l'equipaggiamento sotto.
                   </span>
@@ -684,8 +679,8 @@ export function PlayerSessionPanel({
               </div>
             </fieldset>
 
-            <fieldset className="bh-form-group bg-[#fffdf2]">
-              <legend className="bh-form-legend bg-[#ffd400]">
+            <fieldset className="bh-form-group bg-warning/20">
+              <legend className="bh-form-legend bg-warning">
                 02 · Valori tattici
               </legend>
               <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -722,7 +717,7 @@ export function PlayerSessionPanel({
                   onChange={(value) => updateRulesField("wisdom", value)}
                 />
               </div>
-              <div className="mt-4 grid gap-3 border-t-2 border-[#111111] pt-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid gap-3 border-t-2 border-ink pt-4 sm:grid-cols-2 lg:grid-cols-4">
                 <CustomSelect
                   label="Profilo difensivo"
                   value={form.defenseProfile}
@@ -732,10 +727,10 @@ export function PlayerSessionPanel({
                     updateRulesField("defenseProfile", value)
                   }
                 />
-                <label className="flex flex-col gap-1.5 text-sm font-bold text-[#111111]">
+                <label className="flex flex-col gap-1.5 text-sm font-bold text-ink">
                   Scudo
                   <button
-                    className={`bh-input flex h-10 cursor-pointer items-center justify-between px-3 text-left ${form.hasShield ? "bg-[#b8ee72]" : "bg-white"}`}
+                    className={`bh-input flex h-10 cursor-pointer items-center justify-between px-3 text-left ${form.hasShield ? "bg-success/40" : "bg-surface"}`}
                     type="button"
                     role="switch"
                     aria-checked={form.hasShield}
@@ -750,7 +745,7 @@ export function PlayerSessionPanel({
                     </span>
                     <Shield size={17} aria-hidden="true" />
                   </button>
-                  <span className="text-xs font-normal leading-4 text-slate-500">
+                  <span className="text-xs font-normal leading-4 text-muted">
                     Disponibile solo se la scheda prevede competenza.
                   </span>
                 </label>
@@ -783,9 +778,9 @@ export function PlayerSessionPanel({
             </fieldset>
 
             <details className="bh-form-group group">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-extrabold uppercase tracking-wider text-[#111111] marker:content-none">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-extrabold uppercase tracking-wider text-ink marker:content-none">
                 <span>03 · Dettagli facoltativi e privacy</span>
-                <span className="grid h-7 w-7 place-items-center border-2 border-[#111111] bg-[#c8b1ff] leading-none group-open:bg-[#ff8bc7]">
+                <span className="grid h-7 w-7 place-items-center border-2 border-ink bg-accent/40 leading-none group-open:bg-primary/40">
                   <Plus
                     className="transition-transform group-open:rotate-45"
                     size={16}
@@ -809,7 +804,7 @@ export function PlayerSessionPanel({
               </div>
             </details>
 
-            <div className="bh-form-preview">
+            <div className="rounded-xs border-2 border-ink bg-info/20 p-4 shadow-[4px_4px_0_var(--color-ink)]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <span className="bh-kicker">Anteprima scheda</span>
@@ -819,7 +814,7 @@ export function PlayerSessionPanel({
                       {form.name || "Nome del personaggio"}
                     </h3>
                   </div>
-                  <p className="mt-1 text-sm font-bold text-slate-700">
+                  <p className="mt-1 text-sm font-bold text-muted">
                     {form.species || "Specie"} · {form.className || "Classe"} ·
                     Livello {form.level}
                   </p>
@@ -847,7 +842,7 @@ export function PlayerSessionPanel({
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 border-t-2 border-[#111111] pt-4 sm:flex-row">
+            <div className="flex flex-col gap-2 border-t-2 border-ink pt-4 sm:flex-row">
               <Button
                 variant="primary"
                 type="submit"
@@ -870,19 +865,19 @@ export function PlayerSessionPanel({
         ) : null}
 
         {isLoading && characters.length === 0 ? (
-          <div className="mt-6 flex min-h-36 items-center justify-center gap-2 text-sm text-slate-500">
+          <div className="mt-6 flex min-h-36 items-center justify-center gap-2 text-sm text-muted">
             <LoaderCircle className="animate-spin" size={19} />
             Caricamento personaggi
           </div>
         ) : characters.length === 0 ? (
           <div className="bh-empty-state mt-6 px-4 py-8 text-center">
-            <span className="bh-empty-icon bg-[#ff8bc7]">
+            <span className="bh-empty-icon bg-primary/40">
               <UserRound size={22} />
             </span>
-            <p className="mt-3 font-medium text-slate-700">
+            <p className="mt-3 font-medium text-muted">
               Nessun personaggio creato
             </p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted">
               Crea il primo personaggio per poter generare una pedina.
             </p>
           </div>
@@ -890,17 +885,15 @@ export function PlayerSessionPanel({
           <ul className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {characters.map((character) => (
               <li
-                className="bh-surface bh-surface--cream p-4"
+                className="bh-surface bg-warning/20 p-4"
                 key={character.characterId}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
                     <SpeciesAvatar species={character.species} />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-950">
-                        {character.name}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="font-semibold text-ink">{character.name}</p>
+                      <p className="mt-1 text-sm text-muted">
                         {character.species} · {character.className} · Livello{" "}
                         {character.level}
                       </p>
@@ -934,13 +927,13 @@ export function PlayerSessionPanel({
       </section>
 
       <section className="bh-surface mx-auto mb-8 mt-4 w-full max-w-7xl p-4 sm:p-5">
-        <div className="-mx-4 -mt-4 flex items-center gap-3 border-b-2 border-[#111111] bg-[#ffd400] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+        <div className="-mx-4 -mt-4 flex items-center gap-3 border-b-2 border-ink bg-warning px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
           <span className="bh-card-icon">
             <MapPin size={18} />
           </span>
           <div>
             <h2 className="text-xl">Le mie pedine</h2>
-            <p className="mt-1 text-sm font-medium text-slate-800">
+            <p className="mt-0.5 text-sm font-medium leading-4 text-ink">
               Associa un personaggio alla griglia, calcola le destinazioni e
               conferma il movimento.
             </p>
@@ -949,7 +942,7 @@ export function PlayerSessionPanel({
 
         {availableCharacters.length > 0 ? (
           <form
-            className="bh-surface-flat mt-5 grid gap-3 bg-[#fbfaf6] p-4 sm:grid-cols-[minmax(220px,1fr)_auto] sm:items-end"
+            className="bh-surface-flat mt-5 grid gap-3 bg-canvas p-4 sm:grid-cols-[minmax(220px,1fr)_auto] sm:items-end"
             onSubmit={submitPiece}
           >
             <CustomSelect
@@ -979,9 +972,8 @@ export function PlayerSessionPanel({
               Genera pedina
             </Button>
             <div className="sm:col-span-2">
-              <p className="mb-2 text-sm font-medium text-slate-700">
-                Cella iniziale:{" "}
-                <span className="text-slate-950">{startCell}</span>
+              <p className="mb-2 text-sm font-medium text-muted">
+                Cella iniziale: <span className="text-ink">{startCell}</span>
               </p>
               <BoardGrid
                 tokens={boardTokens}
@@ -993,7 +985,7 @@ export function PlayerSessionPanel({
             </div>
           </form>
         ) : characters.length > 0 ? (
-          <p className="bh-empty-state mt-5 px-4 py-4 text-sm text-slate-700">
+          <p className="bh-empty-state mt-5 px-4 py-4 text-sm text-muted">
             Ogni personaggio disponibile ha già una pedina.
           </p>
         ) : null}
@@ -1019,19 +1011,19 @@ export function PlayerSessionPanel({
         ) : null}
 
         {reachability ? (
-          <div className="bh-surface-flat mt-5 bg-[#fbfaf6] p-4">
+          <div className="bh-surface-flat mt-5 bg-canvas p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="font-semibold text-slate-950">
+                <p className="font-semibold text-ink">
                   Scegli la destinazione sulla plancia
                 </p>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-muted">
                   {reachability.movementPoints} punti movimento disponibili. Le
                   celle evidenziate sono raggiungibili.
                 </p>
               </div>
               <button
-                className="cursor-pointer rounded-[1px] border-2 border-transparent px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-600 hover:border-[#111111] hover:bg-[#fff2a7] hover:text-[#111111]"
+                className="cursor-pointer rounded-[1px] border-2 border-transparent px-2 py-1 text-xs font-bold uppercase tracking-wide text-muted hover:border-ink hover:bg-warning/40 hover:text-ink"
                 type="button"
                 onClick={() => setReachability(null)}
               >
@@ -1049,13 +1041,13 @@ export function PlayerSessionPanel({
 
         {pieces.length === 0 ? (
           <div className="bh-empty-state mt-6 px-4 py-8 text-center">
-            <span className="bh-empty-icon bg-[#ffd400]">
+            <span className="bh-empty-icon bg-warning">
               <MapPin size={22} />
             </span>
-            <p className="mt-3 font-medium text-slate-700">
+            <p className="mt-3 font-medium text-muted">
               Nessuna pedina sulla griglia
             </p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted">
               Prima crea un personaggio, poi scegli una cella libera.
             </p>
           </div>
@@ -1063,22 +1055,22 @@ export function PlayerSessionPanel({
           <ul className="mt-6 grid gap-3 md:grid-cols-2">
             {pieces.map((piece) => (
               <li
-                className="bh-surface bh-surface--cyan p-4"
+                className="bh-surface bg-info/20 p-4"
                 key={piece.sessionPieceId}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-slate-950">
+                    <p className="font-semibold text-ink">
                       {characterName(piece.characterId)}
                     </p>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-muted">
                       Pedina {piece.representationMode.toLowerCase()}
                     </p>
                   </div>
                   <StatusChip tone="info">Cella {piece.currentCell}</StatusChip>
                 </div>
-                <div className="mt-4 flex items-center justify-between border-t-2 border-[#111111] pt-4">
-                  <span className="text-xs text-slate-500">
+                <div className="mt-4 flex items-center justify-between border-t-2 border-ink pt-4">
+                  <span className="text-xs text-muted">
                     Versione {piece.version}
                   </span>
                   <Button
@@ -1099,26 +1091,26 @@ export function PlayerSessionPanel({
                 </div>
 
                 {reachability?.sessionPieceId === piece.sessionPieceId ? (
-                  <div className="hidden mt-4 border-t border-slate-100 pt-4">
+                  <div className="hidden mt-4 border-t border-muted/20 pt-4">
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="font-medium text-slate-700">
+                      <span className="font-medium text-muted">
                         Celle raggiungibili
                       </span>
                       <button
-                        className="cursor-pointer rounded-[1px] border-2 border-transparent px-2 py-1 text-xs font-bold uppercase tracking-wide text-slate-600 hover:border-[#111111] hover:bg-[#fff2a7] hover:text-[#111111]"
+                        className="cursor-pointer rounded-[1px] border-2 border-transparent px-2 py-1 text-xs font-bold uppercase tracking-wide text-muted hover:border-ink hover:bg-warning/40 hover:text-ink"
                         type="button"
                         onClick={() => setReachability(null)}
                       >
                         Chiudi
                       </button>
                     </div>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-muted">
                       {reachability.movementPoints} punti movimento disponibili
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {reachability.reachableCells.map((cell) => (
                         <button
-                          className="cursor-pointer rounded-xs border-2 border-[#111111] bg-[#d8f7fb] px-3 py-2 text-left text-sm font-bold text-[#111111] shadow-[2px_2px_0_#111111] transition hover:bg-[#8fe8f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="cursor-pointer rounded-xs border-2 border-ink bg-info/20 px-3 py-2 text-left text-sm font-bold text-ink shadow-[2px_2px_0_var(--color-ink)] transition hover:bg-info/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
                           key={cell.cell}
                           type="button"
                           title={`Percorso: ${cell.path.join(" → ")}`}
@@ -1159,7 +1151,7 @@ function CharacterTextField({
   onChange,
 }: CharacterTextFieldProps) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-bold text-[#111111]">
+    <label className="flex flex-col gap-1.5 text-sm font-bold text-ink">
       {label}
       <input
         className="bh-input h-10 px-3 font-normal"
@@ -1170,7 +1162,7 @@ function CharacterTextField({
         maxLength={80}
       />
       {description ? (
-        <span className="text-xs font-normal leading-4 text-slate-500">
+        <span className="text-xs font-normal leading-4 text-muted">
           {description}
         </span>
       ) : null}
@@ -1204,11 +1196,11 @@ function NumberStepper({
   }
 
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-bold text-[#111111]">
+    <label className="flex flex-col gap-1.5 text-sm font-bold text-ink">
       {label}
       <span className="bh-input flex h-10 items-center justify-between px-1.5">
         <button
-          className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-[1px] border-2 border-[#111111] bg-white text-[#111111] hover:bg-[#ff8bc7] disabled:cursor-not-allowed disabled:opacity-40"
+          className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-[1px] border-2 border-ink bg-surface text-ink hover:bg-primary/40 disabled:cursor-not-allowed disabled:opacity-40"
           type="button"
           aria-label={`Diminuisci ${label.toLocaleLowerCase("it-IT")}`}
           disabled={numericValue <= min}
@@ -1217,7 +1209,7 @@ function NumberStepper({
           <Minus size={15} aria-hidden="true" />
         </button>
         <input
-          className="h-full w-full min-w-0 bg-transparent px-1 text-center font-semibold text-slate-950 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          className="h-full w-full min-w-0 bg-transparent px-1 text-center font-semibold text-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           type="number"
           value={value}
           min={min}
@@ -1227,7 +1219,7 @@ function NumberStepper({
           onChange={(event) => onChange(event.target.value)}
         />
         <button
-          className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-[1px] border-2 border-[#111111] bg-[#ffd400] text-[#111111] hover:bg-[#b8ee72] disabled:cursor-not-allowed disabled:opacity-40"
+          className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-[1px] border-2 border-ink bg-warning text-ink hover:bg-success/40 disabled:cursor-not-allowed disabled:opacity-40"
           type="button"
           aria-label={`Aumenta ${label.toLocaleLowerCase("it-IT")}`}
           disabled={numericValue >= max}
@@ -1237,7 +1229,7 @@ function NumberStepper({
         </button>
       </span>
       {description ? (
-        <span className="text-xs font-normal leading-4 text-slate-500">
+        <span className="text-xs font-normal leading-4 text-muted">
           {description}
         </span>
       ) : null}
@@ -1277,12 +1269,12 @@ function CustomSelect<Value extends string>({
 
   return (
     <div
-      className="relative flex flex-col gap-1.5 text-sm font-bold text-[#111111]"
+      className="relative flex flex-col gap-1.5 text-sm font-bold text-ink"
       ref={containerRef}
     >
       <span>{label}</span>
       <button
-        className={`bh-input flex h-10 w-full cursor-pointer items-center justify-between px-3 text-left font-normal ${isOpen ? "bg-[#fff8cc]" : ""}`}
+        className={`bh-input flex h-10 w-full cursor-pointer items-center justify-between px-3 text-left font-normal ${isOpen ? "bg-warning/20" : ""}`}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -1296,19 +1288,19 @@ function CustomSelect<Value extends string>({
         />
       </button>
       {description ? (
-        <span className="text-xs font-normal leading-4 text-slate-500">
+        <span className="text-xs font-normal leading-4 text-muted">
           {description}
         </span>
       ) : null}
       {isOpen ? (
         <ul
-          className="absolute inset-x-0 top-16.5 z-20 rounded-xs border-2 border-[#111111] bg-white p-1.5 shadow-[4px_4px_0_#111111]"
+          className="absolute inset-x-0 top-16.5 z-20 rounded-xs border-2 border-ink bg-surface p-1.5 shadow-[4px_4px_0_var(--color-ink)]"
           role="listbox"
         >
           {options.map((option) => (
             <li key={option.value}>
               <button
-                className="flex w-full cursor-pointer items-center justify-between rounded-[1px] border-2 border-transparent px-3 py-2 text-left text-sm font-bold text-slate-700 hover:border-[#111111] hover:bg-[#fff2a7]"
+                className="flex w-full cursor-pointer items-center justify-between rounded-[1px] border-2 border-transparent px-3 py-2 text-left text-sm font-bold text-muted hover:border-ink hover:bg-warning/40"
                 type="button"
                 role="option"
                 aria-selected={option.value === value}
@@ -1352,7 +1344,7 @@ function CharacterNumberField({
   onChange,
 }: CharacterNumberFieldProps) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-bold text-[#111111]">
+    <label className="flex flex-col gap-1.5 text-sm font-bold text-ink">
       {label}
       <input
         className="bh-input h-10 px-3 font-normal"
@@ -1365,7 +1357,7 @@ function CharacterNumberField({
         onChange={(event) => onChange(event.target.value)}
       />
       {description ? (
-        <span className="text-xs font-normal leading-4 text-slate-500">
+        <span className="text-xs font-normal leading-4 text-muted">
           {description}
         </span>
       ) : null}
@@ -1381,12 +1373,12 @@ type CharacterStatProps = {
 
 function CharacterStat({ icon, label, value }: CharacterStatProps) {
   return (
-    <div className="border-2 border-[#111111] bg-white p-2.5">
-      <span className="flex items-center gap-1 text-slate-500">
+    <div className="border-2 border-ink bg-surface p-2.5">
+      <span className="flex items-center gap-1 text-muted">
         {icon}
         {label}
       </span>
-      <p className="mt-1 font-semibold text-slate-950">{value}</p>
+      <p className="mt-1 font-semibold text-ink">{value}</p>
     </div>
   );
 }
@@ -1401,12 +1393,12 @@ function PreviewStat({
   value: string;
 }) {
   return (
-    <div className="border-2 border-[#111111] bg-white p-2.5 shadow-[2px_2px_0_#111111]">
-      <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase leading-tight tracking-[0.03em] text-slate-700">
+    <div className="border-2 border-ink bg-surface p-2.5 shadow-[2px_2px_0_var(--color-ink)]">
+      <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase leading-tight tracking-[0.03em] text-muted">
         {icon}
         {label}
       </span>
-      <strong className="mt-1 block text-base font-black text-[#111111]">
+      <strong className="mt-1 block text-base font-black text-ink">
         {value}
       </strong>
     </div>

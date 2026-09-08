@@ -198,6 +198,39 @@ export type CreatedSession = {
   dmAccessToken: string;
 };
 
+export type SessionTrapConfiguration = {
+  trapId: string;
+  cell: string;
+  visibility: "HIDDEN" | "REVEALED" | "KEEP_DETAILS_HIDDEN";
+  armed: boolean;
+  lifecyclePolicy: "ONE_SHOT" | "PERSISTENT";
+  saveAbility:
+    | "STRENGTH"
+    | "DEXTERITY"
+    | "CONSTITUTION"
+    | "INTELLIGENCE"
+    | "WISDOM"
+    | "CHARISMA";
+  saveDc: number;
+  rollMode: "NORMAL" | "ADVANTAGE" | "DISADVANTAGE";
+  damageExpression: string;
+  successDamage: "NONE" | "HALF" | "FULL";
+  successMovement: "CONTINUE" | "STOP";
+  failureDamage: "NONE" | "HALF" | "FULL";
+  failureMovement: "CONTINUE" | "STOP";
+};
+
+export type SessionGridConfiguration = {
+  width: number;
+  height: number;
+  difficultCells: string[];
+  blockedCells: string[];
+  obstacleCells: string[];
+  occupiedCells: string[];
+  walls: Array<{ cell: string; direction: "NORTH" | "EAST" | "SOUTH" | "WEST" }>;
+  traps: SessionTrapConfiguration[];
+};
+
 export type ClosedSession = {
   sessionId: string;
   status: "ENDED";

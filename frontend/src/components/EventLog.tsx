@@ -56,7 +56,7 @@ function describeEvent(event: GameEvent) {
 export function EventLog({ events, isLoading }: EventLogProps) {
   if (!isLoading && events.length === 0) {
     return (
-      <div className="flex min-h-56 items-center justify-center px-4 text-sm font-normal text-slate-500">
+      <div className="flex min-h-56 items-center justify-center px-4 text-sm font-normal text-muted">
         Nessun evento salvato per questa sessione.
       </div>
     );
@@ -67,34 +67,34 @@ export function EventLog({ events, isLoading }: EventLogProps) {
       <div className="grid gap-2 p-3 sm:hidden">
         {events.map((event) => (
           <article
-            className="rounded-xs border-2 border-[#111111] bg-white"
+            className="rounded-xs border-2 border-ink bg-surface"
             key={event.eventId}
           >
             <div className="flex items-start justify-between gap-3 p-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-500">
+                  <span className="text-xs font-bold text-muted">
                     #{event.sequenceNumber}
                   </span>
                   <EventTypeChip type={event.eventType} />
                 </div>
-                <p className="mt-2 truncate text-sm font-medium text-slate-900">
+                <p className="mt-2 truncate text-sm font-medium text-ink">
                   {describeEvent(event)}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted">
                   {formatDateTime(event.occurredAt)}
                 </p>
               </div>
-              <span className="shrink-0 text-xs text-slate-500">
+              <span className="shrink-0 text-xs text-muted">
                 {event.source}
               </span>
             </div>
 
-            <details className="border-t border-slate-100 px-3 py-2">
-              <summary className="cursor-pointer text-xs text-slate-500">
+            <details className="border-t border-muted/20 px-3 py-2">
+              <summary className="cursor-pointer text-xs text-muted">
                 Payload
               </summary>
-              <code className="bh-code-block mt-2 block max-h-24 overflow-auto p-2.5 text-xs leading-relaxed text-slate-700">
+              <code className="bh-code-block mt-2 block max-h-24 overflow-auto p-2.5 text-xs leading-relaxed text-muted">
                 {readPayloadText(event.payload)}
               </code>
             </details>
@@ -126,7 +126,7 @@ export function EventLog({ events, isLoading }: EventLogProps) {
                 {formatDateTime(event.occurredAt)}
               </TableCell>
               <TableCell>
-                <code className="bh-code-block block max-h-24 overflow-auto p-2.5 text-xs leading-relaxed text-slate-700">
+                <code className="bh-code-block block max-h-24 overflow-auto p-2.5 text-xs leading-relaxed text-muted">
                   {readPayloadText(event.payload)}
                 </code>
               </TableCell>
@@ -147,7 +147,7 @@ function TableHead({
 }) {
   return (
     <th
-      className={`sticky top-0 z-10 border-b-2 border-[#111111] bg-[#ffd400] px-3 py-2 text-left text-xs font-extrabold uppercase tracking-wide text-[#111111] ${className}`}
+      className={`sticky top-0 z-10 border-b-2 border-ink bg-warning px-3 py-2 text-left text-xs font-extrabold uppercase tracking-wide text-ink ${className}`}
     >
       {children}
     </th>
@@ -163,7 +163,7 @@ function TableCell({
 }) {
   return (
     <td
-      className={`border-b border-[#111111] px-3 py-2 align-top text-sm text-slate-700 ${className}`}
+      className={`border-b border-ink px-3 py-2 align-top text-sm text-muted ${className}`}
     >
       {children}
     </td>

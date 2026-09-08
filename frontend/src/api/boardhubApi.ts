@@ -14,6 +14,7 @@ import type {
   PlayerCharacter,
   PlayerJoinStatus,
   PublicTableStatus,
+  SessionGridConfiguration,
   SessionPiece,
   TrapResolution,
   TrapRollResult,
@@ -112,6 +113,7 @@ export async function fetchPlayerJoinStatus(
 export async function createTableSession(
   table: PublicTableStatus,
   title: string,
+  grid: SessionGridConfiguration,
 ): Promise<CreatedSession> {
   const tableSuffix = String(table.tableNumber).padStart(2, "0");
   const response = await fetch(`${API_BASE_URL}/api/v1/sessions`, {
@@ -129,16 +131,7 @@ export async function createTableSession(
       gameType: "DND",
       publicSummary: "Sessione D&D locale aperta ai giocatori del tavolo.",
       acceptingJoinRequests: true,
-      grid: {
-        width: 5,
-        height: 5,
-        difficultCells: [],
-        blockedCells: [],
-        obstacleCells: [],
-        occupiedCells: [],
-        walls: [],
-        traps: [],
-      },
+      grid,
     }),
   });
   return readJson<CreatedSession>(response);

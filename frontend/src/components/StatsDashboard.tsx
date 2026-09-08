@@ -52,7 +52,7 @@ function formatDuration(minutes: number) {
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bh-empty-state p-6 text-center text-sm font-semibold leading-6 text-slate-700">
+    <div className="bh-empty-state p-6 text-center text-sm font-semibold leading-6 text-muted">
       {children}
     </div>
   );
@@ -168,17 +168,17 @@ export function StatsDashboard() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-5 text-[#111111] sm:px-6 sm:py-7">
+    <main className="min-h-screen px-4 py-5 text-ink sm:px-6 sm:py-7">
       <header className="bh-surface mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between sm:p-5">
         <PageHeaderIdentity
-          accentClassName="bg-[#c8b1ff]"
+          accentClassName="bg-accent/40"
           eyebrow="BoardHub · Risultati"
           icon={<BarChart3 size={20} />}
           title="Statistiche di gioco"
         />
         <div className="flex flex-wrap gap-2">
           <a
-            className="inline-flex h-10 items-center justify-center rounded-xs border-2 border-[#111111] bg-white px-4 text-sm font-extrabold uppercase tracking-[0.045em] shadow-[3px_3px_0_#111111] transition-all hover:translate-x-px hover:translate-y-px hover:bg-[#ffd400] hover:shadow-[2px_2px_0_#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] focus-visible:ring-offset-2"
+            className="inline-flex h-10 items-center justify-center rounded-xs border-2 border-ink bg-surface px-4 text-sm font-extrabold uppercase tracking-[0.045em] shadow-[3px_3px_0_var(--color-ink)] transition-all hover:translate-x-px hover:translate-y-px hover:bg-warning hover:shadow-[2px_2px_0_var(--color-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             href="/"
           >
             Dashboard gioco
@@ -307,14 +307,14 @@ function SessionHistory({
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
       <Surface className="overflow-hidden">
-        <div className="border-b-2 border-[#111111] bg-[#fff7d1] px-4 py-3">
+        <div className="border-b-2 border-ink bg-warning/20 px-4 py-3">
           <h2 className="text-xl">Storico sessioni</h2>
         </div>
-        <ul className="divide-y-2 divide-[#111111]">
+        <ul className="divide-y-2 divide-ink">
           {sessions.map((session) => (
             <li key={session.sessionId}>
               <button
-                className="w-full px-4 py-3 text-left transition-colors hover:bg-[#d8f7fb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#9165ff]"
+                className="w-full px-4 py-3 text-left transition-colors hover:bg-info/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                 onClick={() => onSelect(session.sessionId)}
                 aria-pressed={selectedSession?.sessionId === session.sessionId}
               >
@@ -323,7 +323,7 @@ function SessionHistory({
                     <strong className="block truncate text-base">
                       {session.title}
                     </strong>
-                    <span className="mt-1 block text-sm text-slate-700">
+                    <span className="mt-1 block text-sm text-muted">
                       {formatDate(session.endedAt)} · {session.tableId}
                     </span>
                   </div>
@@ -348,9 +348,9 @@ function SessionHistory({
 function SessionDetails({ session }: { session: SessionResult }) {
   return (
     <Surface className="overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-[#111111] bg-[#d8f7fb] px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b-2 border-ink bg-info/20 px-4 py-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted">
             {session.gameType} · {session.tableId}
           </p>
           <h2 className="mt-1 text-2xl">{session.title}</h2>
@@ -361,15 +361,15 @@ function SessionDetails({ session }: { session: SessionResult }) {
       </div>
       <div className="grid gap-3 p-4 sm:grid-cols-3">
         <div>
-          <p className="text-xs font-bold uppercase text-slate-600">Inizio</p>
+          <p className="text-xs font-bold uppercase text-muted">Inizio</p>
           <p className="mt-1 font-semibold">{formatDate(session.startedAt)}</p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase text-slate-600">Fine</p>
+          <p className="text-xs font-bold uppercase text-muted">Fine</p>
           <p className="mt-1 font-semibold">{formatDate(session.endedAt)}</p>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase text-slate-600">
+          <p className="text-xs font-bold uppercase text-muted">
             Partecipanti
           </p>
           <p className="mt-1 text-xl font-black">
@@ -377,9 +377,9 @@ function SessionDetails({ session }: { session: SessionResult }) {
           </p>
         </div>
       </div>
-      <div className="overflow-x-auto border-t-2 border-[#111111]">
+      <div className="overflow-x-auto border-t-2 border-ink">
         <table className="w-full min-w-160 text-left text-sm">
-          <thead className="bg-[#f7f1e4] text-xs uppercase">
+          <thead className="bg-muted/10 text-xs uppercase">
             <tr>
               <th className="px-4 py-3">Giocatore</th>
               <th className="px-3 py-3">Esito</th>
@@ -391,12 +391,12 @@ function SessionDetails({ session }: { session: SessionResult }) {
           <tbody>
             {session.participants.map((player) => (
               <tr
-                className="border-t border-[#111111]"
+                className="border-t border-ink"
                 key={player.playerReference}
               >
                 <td className="px-4 py-3">
                   <strong>{player.displayName}</strong>
-                  <span className="block text-xs text-slate-600">
+                  <span className="block text-xs text-muted">
                     {player.characterName ?? player.playerReference}
                   </span>
                 </td>
@@ -440,7 +440,7 @@ function PlayerLookup({
     <div className="grid gap-4 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.2fr)]">
       <Surface className="h-fit p-4">
         <h2 className="text-xl">Cerca un giocatore</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-700">
+        <p className="mt-2 text-sm leading-6 text-muted">
           Inserisci il riferimento usato nella richiesta di ingresso al tavolo.
         </p>
         <form className="mt-4 flex gap-2" onSubmit={onSubmit}>
@@ -491,8 +491,8 @@ function PlayerStatsCard({ stats }: { stats: PlayerStatistics }) {
   ] as const;
   return (
     <Surface className="overflow-hidden">
-      <div className="border-b-2 border-[#111111] bg-[#d8f7fb] px-4 py-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
+      <div className="border-b-2 border-ink bg-info/20 px-4 py-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted">
           {stats.playerReference}
         </p>
         <h2 className="mt-1 text-2xl">{stats.displayName}</h2>
@@ -534,9 +534,9 @@ function TournamentLeaderboard({
     return <EmptyState>Nessun torneo disponibile.</EmptyState>;
   return (
     <Surface className="overflow-hidden">
-      <div className="flex flex-col gap-3 border-b-2 border-[#111111] bg-[#fff7d1] p-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 border-b-2 border-ink bg-warning/20 p-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted">
             Classifica torneo
           </p>
           <h2 className="mt-1 text-2xl">
@@ -573,7 +573,7 @@ function TournamentLeaderboard({
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-170 text-left text-sm">
-            <thead className="bg-[#f7f1e4] text-xs uppercase">
+            <thead className="bg-muted/10 text-xs uppercase">
               <tr>
                 <th className="px-4 py-3">Pos.</th>
                 <th className="px-3 py-3">Giocatore</th>
@@ -586,17 +586,17 @@ function TournamentLeaderboard({
             <tbody>
               {leaderboard.map((entry) => (
                 <tr
-                  className="border-t border-[#111111]"
+                  className="border-t border-ink"
                   key={entry.playerReference}
                 >
                   <td className="px-4 py-3">
-                    <span className="inline-grid h-7 w-7 place-items-center border-2 border-[#111111] bg-[#ffd400] font-black">
+                    <span className="inline-grid h-7 w-7 place-items-center border-2 border-ink bg-warning font-black">
                       {entry.position}
                     </span>
                   </td>
                   <td className="px-3 py-3">
                     <strong>{entry.displayName}</strong>
-                    <span className="block text-xs text-slate-600">
+                    <span className="block text-xs text-muted">
                       {entry.playerReference}
                     </span>
                   </td>

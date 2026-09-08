@@ -1,23 +1,68 @@
 @import "tailwindcss";
 
-:root {
-  --font-body: Bahnschrift, "Arial Narrow", sans-serif;
-  --font-display: Impact, "Arial Narrow", sans-serif;
-  color: #111111;
-  background: #fbfaf6;
-  font-family: var(--font-body);
-  font-stretch: semi-condensed;
-  letter-spacing: -0.006em;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+@theme {
+  --color-ink: #111111;
+  --color-muted: #64748b;
+  --color-canvas: #fbfaf6;
+  --color-surface: #ffffff;
+  --color-primary: #ff3b9d;
+  --color-info: #04c8e8;
+  --color-warning: #ffd400;
+  --color-success: #4f8a00;
+  --color-danger: #e11d48;
+  --color-accent: #9165ff;
 }
 
-* {
-  box-sizing: border-box;
-}
+@layer base {
+  :root {
+    --font-body: Bahnschrift, "Arial Narrow", sans-serif;
+    --font-display: Impact, "Arial Narrow", sans-serif;
+    color: var(--color-ink);
+    background: var(--color-canvas);
+    font-family: var(--font-body);
+    font-stretch: semi-condensed;
+    letter-spacing: -0.006em;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
 
-html {
-  font-size: 17px;
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 17px;
+  }
+
+  body {
+    min-width: 320px;
+    margin: 0;
+    background: var(--color-canvas);
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-weight: 900;
+    letter-spacing: -0.025em;
+    line-height: 0.96;
+    text-transform: uppercase;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: var(--color-primary);
+    color: var(--color-ink);
+  }
 }
 
 @media (max-width: 639px) {
@@ -26,192 +71,50 @@ html {
   }
 }
 
-body {
-  min-width: 320px;
-  margin: 0;
-  background-color: #fbfaf6;
-  background-image: radial-gradient(#d8d3c8 0.8px, transparent 0.8px);
-  background-size: 16px 16px;
-}
+@layer components {
+  .bh-surface {
+    @apply rounded-xs border-2 border-ink bg-surface shadow-[4px_4px_0_var(--color-ink)];
+  }
 
-h1,
-h2,
-h3 {
-  color: #111111;
-  font-family: var(--font-display);
-  font-weight: 900;
-  letter-spacing: -0.025em;
-  line-height: 0.96;
-  text-transform: uppercase;
-}
+  .bh-surface-flat {
+    @apply rounded-xs border-2 border-ink bg-surface;
+  }
 
-.bh-surface {
-  border: 2px solid #111111;
-  border-radius: 2px;
-  background: #ffffff;
-  box-shadow: 4px 4px 0 #111111;
-}
+  .bh-input {
+    @apply rounded-xs border-2 border-ink bg-surface text-ink shadow-[2px_2px_0_var(--color-ink)] outline-none transition-[background-color,box-shadow,transform] duration-150;
+  }
 
-.bh-surface-flat {
-  border: 2px solid #111111;
-  border-radius: 2px;
-  background: #ffffff;
-}
+  .bh-input:focus {
+    @apply bg-warning/20 shadow-[3px_3px_0_var(--color-ink)];
+  }
 
-.bh-input {
-  border: 2px solid #111111;
-  border-radius: 2px;
-  background: #ffffff;
-  color: #111111;
-  box-shadow: 2px 2px 0 #111111;
-  outline: none;
-  transition:
-    background-color 150ms ease,
-    box-shadow 150ms ease,
-    transform 150ms ease;
-}
+  .bh-kicker {
+    @apply inline-flex w-fit items-center rounded-xs border-2 border-ink bg-primary px-2 py-1 text-[0.7rem] font-black uppercase leading-none tracking-[0.06em] text-ink shadow-[2px_2px_0_var(--color-ink)];
+  }
 
-.bh-input:focus {
-  background: #fff8cc;
-  box-shadow: 3px 3px 0 #111111;
-}
+  .bh-form-group {
+    @apply min-w-0 rounded-xs border-2 border-ink bg-surface p-4 shadow-[3px_3px_0_var(--color-ink)];
+  }
 
-.bh-kicker {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  border: 2px solid #111111;
-  border-radius: 2px;
-  background: #ff3b9d;
-  padding: 0.25rem 0.5rem;
-  color: #111111;
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  line-height: 1;
-  text-transform: uppercase;
-  box-shadow: 2px 2px 0 #111111;
-}
+  .bh-form-legend {
+    @apply rounded-xs border-2 border-ink px-[0.55rem] py-[0.35rem] text-[0.72rem] font-black uppercase leading-none tracking-[0.055em] text-ink shadow-[2px_2px_0_var(--color-ink)];
+  }
 
-.bh-section-rule {
-  border-top: 2px solid #111111;
-}
+  .bh-empty-state {
+    @apply rounded-xs border-2 border-ink bg-muted/10;
+  }
 
-.bh-form-group {
-  min-width: 0;
-  border: 2px solid #111111;
-  border-radius: 2px;
-  background: #ffffff;
-  padding: 1rem;
-  box-shadow: 3px 3px 0 #111111;
-}
+  .bh-card-icon {
+    @apply grid h-[2.15rem] w-[2.15rem] shrink-0 place-items-center rounded-xs border-2 border-ink bg-transparent text-ink shadow-[2px_2px_0_var(--color-ink)];
+  }
 
-.bh-form-legend {
-  border: 2px solid #111111;
-  border-radius: 2px;
-  padding: 0.35rem 0.55rem;
-  color: #111111;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.055em;
-  line-height: 1;
-  text-transform: uppercase;
-  box-shadow: 2px 2px 0 #111111;
-}
+  .bh-empty-icon {
+    @apply mx-auto grid h-11 w-11 place-items-center rounded-xs border-2 border-ink text-ink shadow-[2px_2px_0_var(--color-ink)];
+  }
 
-.bh-form-preview {
-  border: 2px solid #111111;
-  border-radius: 2px;
-  background: #d8f7fb;
-  padding: 1rem;
-  box-shadow: 4px 4px 0 #111111;
-}
-
-.bh-empty-state {
-  border: 2px solid #111111;
-  border-radius: 2px;
-  background: #f7f1e4;
-}
-
-.bh-card-icon {
-  display: grid;
-  width: 2.15rem;
-  height: 2.15rem;
-  flex-shrink: 0;
-  place-items: center;
-  border: 2px solid #111111;
-  border-radius: 2px;
-  background: #ffffff;
-  color: #111111;
-  box-shadow: 2px 2px 0 #111111;
-}
-
-.bh-card-icon--pink {
-  background: #ff8bc7;
-}
-
-.bh-card-icon--yellow {
-  background: #ffd400;
-}
-
-.bh-card-icon--cyan {
-  background: #8fe8f4;
-}
-
-.bh-card-icon--purple {
-  background: #c8b1ff;
-}
-
-.bh-card-icon--lime {
-  background: #b8ee72;
-}
-
-.bh-surface--cream {
-  background: #fff7d1;
-}
-
-.bh-surface--cyan {
-  background: #d8f7fb;
-}
-
-.bh-empty-icon {
-  display: grid;
-  width: 2.75rem;
-  height: 2.75rem;
-  margin-inline: auto;
-  place-items: center;
-  border: 2px solid #111111;
-  border-radius: 2px;
-  color: #111111;
-  box-shadow: 2px 2px 0 #111111;
-}
-
-.bh-code-block {
-  border: 1px solid #111111;
-  border-radius: 2px;
-  background: #f7f1e4;
-  font-family: Consolas, monospace;
-  font-stretch: normal;
-  letter-spacing: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button,
-input,
-select,
-textarea {
-  -webkit-tap-highlight-color: transparent;
-}
-
-::selection {
-  background: #ff3b9d;
-  color: #111111;
+  .bh-code-block {
+    @apply rounded-xs border border-ink bg-muted/10 font-mono tracking-normal whitespace-pre-wrap;
+    font-stretch: normal;
+    overflow-wrap: anywhere;
+  }
 }

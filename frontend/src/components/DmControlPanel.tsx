@@ -241,11 +241,11 @@ export function DmControlPanel({
 
   return (
     <section className="bh-surface mx-auto mb-4 w-full max-w-7xl p-4 sm:p-5">
-      <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-[#111111] bg-[#c8b1ff] px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
-        <span className="bh-card-icon bg-[#c8b1ff]"><Shield size={18} /></span>
+      <div className="-mx-4 -mt-4 flex min-h-14 items-center gap-3 border-b-2 border-ink bg-accent/40 px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5">
+        <span className="bh-card-icon"><Shield size={18} /></span>
         <div>
           <h2 className="text-xl">Controllo temporaneo del DM</h2>
-          <p className="mt-1 text-sm text-slate-700">Assumi una pedina solo quando il giocatore non può operare; restituisci il controllo appena possibile.</p>
+          <p className="mt-0.5 text-sm leading-4 text-muted">Assumi una pedina solo quando il giocatore non può operare; restituisci il controllo appena possibile.</p>
         </div>
       </div>
 
@@ -253,9 +253,9 @@ export function DmControlPanel({
       {message ? <AlertBanner className="mt-4" tone="success" icon={<Shield size={18} />}>{message}</AlertBanner> : null}
 
       {characters.length === 0 ? (
-        <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-slate-700">Non ci sono personaggi disponibili da gestire.</p>
+        <p className="bh-empty-state mt-4 px-3 py-5 text-sm text-muted">Non ci sono personaggi disponibili da gestire.</p>
       ) : (
-        <ul className="mt-4 divide-y-2 divide-[#111111]">
+        <ul className="mt-4 divide-y-2 divide-ink">
           {characters.map((character) => {
             const piece = pieces.find((item) => item.characterId === character.characterId);
             const isControlled = piece?.controlMode === "DM_CONTROLLED";
@@ -263,7 +263,7 @@ export function DmControlPanel({
               <li className="flex flex-wrap items-center justify-between gap-3 py-3" key={character.characterId}>
                 <div>
                   <p className="font-semibold">{character.name}</p>
-                  <p className="mt-1 text-xs text-slate-600">{piece ? `Pedina in ${piece.currentCell}` : "Nessuna pedina associata"}</p>
+                  <p className="mt-1 text-xs text-muted">{piece ? `Pedina in ${piece.currentCell}` : "Nessuna pedina associata"}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusChip tone={isControlled ? "warning" : "neutral"}>{isControlled ? "DM controlla" : "Giocatore controlla"}</StatusChip>
@@ -278,7 +278,7 @@ export function DmControlPanel({
       )}
 
       {controlledPieces.length > 0 ? (
-        <div className="mt-5 border-t-2 border-[#111111] pt-4">
+        <div className="mt-5 border-t-2 border-ink pt-4">
           <h3 className="text-lg">Pedine sotto controllo DM</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {controlledPieces.map((piece) => (
@@ -291,9 +291,9 @@ export function DmControlPanel({
       ) : null}
 
       {reachability ? (
-        <div className="bh-surface-flat mt-5 bg-[#fbfaf6] p-4">
+        <div className="bh-surface-flat mt-5 bg-canvas p-4">
           <div className="flex items-start justify-between gap-3">
-            <div><h3 className="text-lg">Scegli la destinazione</h3><p className="mt-1 text-sm text-slate-600">{reachability.movementPoints} punti movimento disponibili.</p></div>
+            <div><h3 className="text-lg">Scegli la destinazione</h3><p className="mt-1 text-sm text-muted">{reachability.movementPoints} punti movimento disponibili.</p></div>
             <Button size="compact" variant="ghost" onClick={() => setReachability(null)}>Chiudi</Button>
           </div>
           <BoardGrid tokens={boardTokens} selectableCells={reachability.reachableCells.map((cell) => cell.cell)} onSelectCell={(cell) => void moveTo(cell)} selectionHint="Clicca una cella evidenziata per confermare il movimento del DM." />
@@ -301,7 +301,7 @@ export function DmControlPanel({
       ) : null}
 
       {pendingTrapResolutions.some((resolution) => pieces.find((piece) => piece.characterId === resolution.characterId)?.controlMode === "DM_CONTROLLED") ? (
-        <div className="mt-5 border-t-2 border-[#111111] pt-4">
+        <div className="mt-5 border-t-2 border-ink pt-4">
           <h3 className="text-lg">Trappole risolvibili dal DM</h3>
           <div className="mt-3 flex flex-wrap gap-2">
             {pendingTrapResolutions.filter((resolution) => pieces.find((piece) => piece.characterId === resolution.characterId)?.controlMode === "DM_CONTROLLED").map((resolution) => (

@@ -11,7 +11,7 @@ type MetricProps = {
 export function Metric({ icon, label, value, accent }: MetricProps) {
   return (
     <SummaryCard accent={accent} icon={icon} label={label}>
-      <strong className="block truncate text-base font-extrabold leading-tight text-[#111111]">
+      <strong className="block truncate text-base font-extrabold leading-tight text-ink">
         {value}
       </strong>
     </SummaryCard>

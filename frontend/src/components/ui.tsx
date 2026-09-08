@@ -14,12 +14,12 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-[#111111] text-white hover:bg-[#ff3b9d] hover:text-[#111111]",
-  secondary: "bg-white text-[#111111] hover:bg-[#ffd400]",
-  danger: "bg-[#ff3b9d] text-[#111111] hover:bg-[#ff74b9]",
-  success: "bg-[#9be33a] text-[#111111] hover:bg-[#b5ef69]",
+  primary: "bg-ink text-surface hover:bg-primary hover:text-ink",
+  secondary: "bg-surface text-ink hover:bg-warning",
+  danger: "bg-primary text-ink hover:bg-primary/40",
+  success: "bg-success/40 text-ink hover:bg-success/40",
   ghost:
-    "border-transparent bg-transparent text-[#111111] shadow-none hover:border-[#111111] hover:bg-white hover:shadow-[2px_2px_0_#111111]",
+    "border-transparent bg-transparent text-ink shadow-none hover:border-ink hover:bg-surface hover:shadow-[2px_2px_0_var(--color-ink)]",
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
@@ -39,7 +39,7 @@ export function Button({
   return (
     <button
       className={joinClassNames(
-        "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xs border-2 border-[#111111] font-extrabold uppercase tracking-[0.045em] shadow-[3px_3px_0_#111111] transition-all duration-150 hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0_#111111] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0",
+        "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xs border-2 border-ink font-extrabold uppercase tracking-[0.045em] shadow-[3px_3px_0_var(--color-ink)] transition-all duration-150 hover:translate-x-px hover:translate-y-px hover:shadow-[2px_2px_0_var(--color-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:translate-x-0 disabled:hover:translate-y-0",
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
         className,
@@ -62,24 +62,24 @@ type StatusChipProps = HTMLAttributes<HTMLSpanElement> & {
 
 const STATUS_TONES: Record<StatusTone, { container: string; dot: string }> = {
   neutral: {
-    container: "bg-white text-[#111111]",
-    dot: "bg-[#111111]",
+    container: "bg-surface text-ink",
+    dot: "bg-ink",
   },
   info: {
-    container: "bg-[#8fe8f4] text-[#111111]",
-    dot: "bg-[#04aeca]",
+    container: "bg-info/40 text-ink",
+    dot: "bg-info",
   },
   success: {
-    container: "bg-[#b8ee72] text-[#111111]",
-    dot: "bg-[#4f8a00]",
+    container: "bg-success/40 text-ink",
+    dot: "bg-success",
   },
   warning: {
-    container: "bg-[#ffd400] text-[#111111]",
-    dot: "bg-[#111111]",
+    container: "bg-warning text-ink",
+    dot: "bg-ink",
   },
   danger: {
-    container: "bg-[#ff8bc7] text-[#111111]",
-    dot: "bg-[#c80063]",
+    container: "bg-primary/40 text-ink",
+    dot: "bg-danger",
   },
 };
 
@@ -94,7 +94,7 @@ export function StatusChip({
   return (
     <span
       className={joinClassNames(
-        "inline-flex min-h-7 w-fit items-center gap-2 rounded-xs border-2 border-[#111111] px-2.5 py-1 text-[12px] font-extrabold uppercase leading-none tracking-[0.04em] shadow-[2px_2px_0_#111111]",
+        "inline-flex min-h-7 w-fit items-center gap-2 rounded-xs border-2 border-ink px-2.5 py-1 text-[12px] font-extrabold uppercase leading-none tracking-[0.04em] shadow-[2px_2px_0_var(--color-ink)]",
         config.container,
         className,
       )}
@@ -117,10 +117,10 @@ type AlertBannerProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 const ALERT_TONES = {
-  info: "bg-[#d8f7fb] text-[#111111]",
-  success: "bg-[#e2f9c5] text-[#111111]",
-  warning: "bg-[#fff2a7] text-[#111111]",
-  danger: "bg-[#ffd3e9] text-[#111111]",
+  info: "bg-info/20 text-ink",
+  success: "bg-success/20 text-ink",
+  warning: "bg-warning/40 text-ink",
+  danger: "bg-primary/20 text-ink",
 };
 
 export function AlertBanner({
@@ -133,7 +133,7 @@ export function AlertBanner({
   return (
     <div
       className={joinClassNames(
-        "flex items-start gap-2.5 rounded-xs border-2 border-[#111111] px-3.5 py-3 text-sm leading-5 shadow-[3px_3px_0_#111111]",
+        "flex items-start gap-2.5 rounded-xs border-2 border-ink px-3.5 py-3 text-sm leading-5 shadow-[3px_3px_0_var(--color-ink)]",
         ALERT_TONES[tone],
         className,
       )}
@@ -166,7 +166,7 @@ export function PageHeaderIdentity({
     <div className="flex min-w-0 items-center gap-3">
       <span
         className={joinClassNames(
-          "grid h-10 w-10 shrink-0 place-items-center rounded-xs border-2 border-[#111111] text-[#111111] shadow-[2px_2px_0_#111111]",
+          "grid h-10 w-10 shrink-0 place-items-center rounded-xs border-2 border-ink text-ink shadow-[2px_2px_0_var(--color-ink)]",
           accentClassName,
         )}
         aria-hidden="true"
@@ -174,10 +174,10 @@ export function PageHeaderIdentity({
         {icon}
       </span>
       <div className="flex min-h-10 min-w-0 flex-col justify-center">
-        <p className="truncate text-[12px] font-bold uppercase leading-none tracking-[0.04em] text-slate-600">
+        <p className="truncate text-[12px] font-bold uppercase leading-none tracking-[0.04em] text-muted">
           {eyebrow}
         </p>
-        <h1 className="mt-1.5 truncate text-2xl">{title}</h1>
+        <h1 className="mt-0.5 truncate text-2xl">{title}</h1>
       </div>
     </div>
   );
@@ -193,11 +193,11 @@ type SummaryCardProps = {
 };
 
 const SUMMARY_ACCENTS: Record<SummaryAccent, string> = {
-  pink: "bh-card-icon--pink",
-  yellow: "bh-card-icon--yellow",
-  cyan: "bh-card-icon--cyan",
-  purple: "bh-card-icon--purple",
-  lime: "bh-card-icon--lime",
+  pink: "bg-primary/40",
+  yellow: "bg-warning",
+  cyan: "bg-info/40",
+  purple: "bg-accent/40",
+  lime: "bg-success/40",
 };
 
 export function SummaryCard({
@@ -215,7 +215,7 @@ export function SummaryCard({
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="text-[12px] font-bold uppercase leading-tight tracking-[0.035em] text-slate-700">
+        <p className="text-[12px] font-bold uppercase leading-tight tracking-[0.035em] text-muted">
           {label}
         </p>
         <div className="mt-0.5 flex min-w-0 items-center">{children}</div>
@@ -236,7 +236,7 @@ export function Surface({
   return (
     <Element
       className={joinClassNames(
-        "rounded-xs border-2 border-[#111111] bg-white shadow-[4px_4px_0_#111111]",
+        "rounded-xs border-2 border-ink bg-surface shadow-[4px_4px_0_var(--color-ink)]",
         className,
       )}
       {...props}

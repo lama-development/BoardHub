@@ -17,14 +17,14 @@ export function SessionTabs({ events, isLoading, tokens }: SessionTabsProps) {
 
   return (
     <section className="bh-surface overflow-hidden">
-      <div className="flex min-h-14 flex-col gap-3 border-b-2 border-[#111111] bg-[#ff8bc7] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-h-14 flex-col gap-3 border-b-2 border-ink bg-primary/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="bh-card-icon">
             <LayoutGrid size={18} />
           </span>
           <h2 className="text-xl">Tavolo di gioco</h2>
         </div>
-        <div className="grid w-full grid-cols-2 rounded-xs border-2 border-[#111111] bg-white p-1 sm:inline-grid sm:w-auto">
+        <div className="grid w-full grid-cols-2 rounded-xs border-2 border-ink bg-surface p-1 sm:inline-grid sm:w-auto">
           <TabButton
             active={activeTab === "grid"}
             onClick={() => setActiveTab("grid")}
@@ -60,10 +60,10 @@ function TabButton({
 }) {
   return (
     <button
-      className={`h-8 cursor-pointer rounded-[1px] px-3 text-xs font-extrabold uppercase tracking-wider transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9165ff] ${
+      className={`h-8 cursor-pointer rounded-[1px] px-3 text-xs font-extrabold uppercase tracking-wider transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         active
-          ? "bg-[#ff3b9d] text-[#111111]"
-          : "text-slate-600 hover:bg-[#fff2a7] hover:text-[#111111]"
+          ? "bg-primary text-ink"
+          : "text-muted hover:bg-warning/40 hover:text-ink"
       }`}
       onClick={onClick}
       type="button"

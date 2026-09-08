@@ -8,11 +8,11 @@ type BackendStatusProps = {
 export function BackendStatus({ status }: BackendStatusProps) {
   const config = {
     UP: {
-      label: "Backend attivo",
+      label: "Backend online",
       tone: "success" as const,
     },
     DOWN: {
-      label: "Backend non attivo",
+      label: "Backend offline",
       tone: "danger" as const,
     },
     UNKNOWN: {
